@@ -354,6 +354,10 @@ typedef enum : NSUInteger {
                                                object:nil];
 }
 
+- (BOOL)hidesBottomBarWhenPushed {
+    return YES;
+}
+
 - (BOOL)isGroupConversation
 {
     OWSAssert(self.thread);

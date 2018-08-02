@@ -6,6 +6,7 @@
 #import <UIKit/UIKit.h>
 
 // Separate iOS Frameworks from other imports.
+#import "AppDelegate.h"
 #import "AppSettingsViewController.h"
 #import "ContactCellView.h"
 #import "ContactTableViewCell.h"
@@ -41,6 +42,7 @@
 #import "PushManager.h"
 #import "RemoteVideoView.h"
 #import "SignalApp.h"
+#import "SignalsNavigationController.h"
 #import "UIViewController+Permissions.h"
 #import "ViewControllerUtils.h"
 #import <AxolotlKit/NSData+keyVersionByte.h>

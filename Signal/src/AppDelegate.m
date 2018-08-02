@@ -1155,10 +1155,13 @@ static NSTimeInterval launchStartedAt;
     DDLogInfo(@"%@ Presenting app %.2f seconds after launch started.", self.logTag, startupDuration);
 
     if ([TSAccountManager isRegistered]) {
-        HomeViewController *homeView = [HomeViewController new];
-        SignalsNavigationController *navigationController =
-            [[SignalsNavigationController alloc] initWithRootViewController:homeView];
-        self.window.rootViewController = navigationController;
+        ChatTabBarViewController *tabBarController = [ChatTabBarViewController new];
+        self.window.rootViewController = tabBarController;
+        
+//        HomeViewController *homeView = [HomeViewController new];
+//        SignalsNavigationController *navigationController =
+//            [[SignalsNavigationController alloc] initWithRootViewController:homeView];
+//        self.window.rootViewController = navigationController;
     } else {
         RegistrationViewController *viewController = [RegistrationViewController new];
         OWSNavigationController *navigationController =

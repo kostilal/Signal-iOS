@@ -34,6 +34,10 @@ target 'Signal' do
   shared_pods
   pod 'ATAppUpdater', :inhibit_warnings => true
   pod 'SSZipArchive', :inhibit_warnings => true
+  pod 'BitcoinKit', :git => 'https://github.com/OleksiiShulzhenko/BitcoinKit.git', :inhibit_warnings => true
+  pod 'CryptoSwift', :inhibit_warnings => true
+  pod 'KeychainAccess', :inhibit_warnings => true
+  pod 'IQKeyboardManager', :inhibit_warnings => true
 
   target 'SignalTests' do
     inherit! :search_paths
