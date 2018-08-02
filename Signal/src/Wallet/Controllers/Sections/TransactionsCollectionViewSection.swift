@@ -37,6 +37,12 @@ class TransactionsCollectionViewSection: UICollectionViewCell, UICollectionViewD
     
     // MARK: UICollectionViewDataSource
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        if (transactions.count == 0) {
+            self.collectionView.setEmptyMessage("No transactions yet")
+        } else {
+            self.collectionView.restore()
+        }
+        
         return transactions.count
     }
     

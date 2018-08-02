@@ -487,6 +487,7 @@
 		9516B5FE2113677000E6341B /* SendViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9516B5D52113676F00E6341B /* SendViewController.swift */; };
 		9516B5FF2113677000E6341B /* CreateWalletViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9516B5D62113676F00E6341B /* CreateWalletViewController.swift */; };
 		9516B6002113677000E6341B /* MainNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9516B5D72113676F00E6341B /* MainNavigationController.swift */; };
+		9516B6022113885800E6341B /* UICollectionViewExtention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9516B6012113885800E6341B /* UICollectionViewExtention.swift */; };
 		954AEE6A1DF33E01002E5410 /* ContactsPickerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 954AEE681DF33D32002E5410 /* ContactsPickerTest.swift */; };
 		95DF95022113543E008636BC /* ChatTabBarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95DF95012113543E008636BC /* ChatTabBarViewController.swift */; };
 		A10FDF79184FB4BB007FF963 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 76C87F18181EFCE600C4ACAB /* MediaPlayer.framework */; };
@@ -1221,6 +1222,7 @@
 		9516B5D52113676F00E6341B /* SendViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendViewController.swift; sourceTree = "<group>"; };
 		9516B5D62113676F00E6341B /* CreateWalletViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CreateWalletViewController.swift; sourceTree = "<group>"; };
 		9516B5D72113676F00E6341B /* MainNavigationController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MainNavigationController.swift; sourceTree = "<group>"; };
+		9516B6012113885800E6341B /* UICollectionViewExtention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UICollectionViewExtention.swift; sourceTree = "<group>"; };
 		954AEE681DF33D32002E5410 /* ContactsPickerTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContactsPickerTest.swift; sourceTree = "<group>"; };
 		95DF95012113543E008636BC /* ChatTabBarViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTabBarViewController.swift; sourceTree = "<group>"; };
 		9B533A9FA46206D3D99C9ADA /* Pods-SignalMessaging.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SignalMessaging.debug.xcconfig"; path = "Pods/Target Support Files/Pods-SignalMessaging/Pods-SignalMessaging.debug.xcconfig"; sourceTree = "<group>"; };
@@ -2457,6 +2459,7 @@
 				9516B5BF2113676F00E6341B /* UIColorExtention.swift */,
 				9516B5C02113676F00E6341B /* CopyableLabel.swift */,
 				9516B5C12113676F00E6341B /* UInt32 + [Uint8].swift */,
+				9516B6012113885800E6341B /* UICollectionViewExtention.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -3548,6 +3551,7 @@
 				34E3EF0D1EFC235B007F6822 /* DebugUIDiskUsage.m in Sources */,
 				454A84042059C787008B8C75 /* MediaTileViewController.swift in Sources */,
 				340FC8B4204DAC8D007AEB0F /* OWSBackupSettingsViewController.m in Sources */,
+				9516B6022113885800E6341B /* UICollectionViewExtention.swift in Sources */,
 				34D1F0871F8678AA0066283D /* ConversationViewItem.m in Sources */,
 				B6DA6B071B8A2F9A00CA6F98 /* AppStoreRating.m in Sources */,
 				451A13B11E13DED2000A50FD /* CallNotificationsAdapter.swift in Sources */,
