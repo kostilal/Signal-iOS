@@ -130,7 +130,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     DDLogInfo(@"%@ didRegister", self.logTag);
     NSString *phoneNumber = self.phoneNumberAwaitingVerification;
 
-    if (!phoneNumber) {
+    if (!phoneNumber) { 
         OWSRaiseException(@"RegistrationFail", @"Internal Corrupted State");
     }
 
