@@ -271,7 +271,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (UIColor *)ows_darkSkyBlueColor
 {
-    return [UIColor colorWithRed:32.f / 255.f green:144.f / 255.f blue:234.f / 255.f alpha:1.f];
+    return [UIColor colorWithRed:255.f / 255.f green:218.f / 255.f blue:102.f / 255.f alpha:1.f];
+//    return [UIColor colorWithRed:32.f / 255.f green:144.f / 255.f blue:234.f / 255.f alpha:1.f];
 }
 
 + (NSDictionary<NSString *, UIColor *> *)ows_conversationColorMap
