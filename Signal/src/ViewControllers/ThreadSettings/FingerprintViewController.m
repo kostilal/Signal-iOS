@@ -221,12 +221,13 @@ typedef void (^CustomLayoutBlock)(void);
     [learnMoreButton autoPinEdge:ALEdgeBottom toEdge:ALEdgeTop ofView:verifyUnverifyButton withOffset:0];
 
     UILabel *learnMoreLabel = [UILabel new];
-    learnMoreLabel.attributedText = [[NSAttributedString alloc]
-        initWithString:NSLocalizedString(@"PRIVACY_SAFETY_NUMBERS_LEARN_MORE",
-                           @"Label for a link to more information about safety numbers and verification.")
-            attributes:@{
-                NSUnderlineStyleAttributeName : @(NSUnderlineStyleSingle | NSUnderlinePatternSolid),
-            }];
+    learnMoreLabel.text = @"";
+//    learnMoreLabel.attributedText = [[NSAttributedString alloc]
+//        initWithString:NSLocalizedString(@"PRIVACY_SAFETY_NUMBERS_LEARN_MORE",
+//                           @"Label for a link to more information about safety numbers and verification.")
+//            attributes:@{
+//                NSUnderlineStyleAttributeName : @(NSUnderlineStyleSingle | NSUnderlinePatternSolid),
+//            }];
     learnMoreLabel.font = [UIFont ows_regularFontWithSize:ScaleFromIPhone5To7Plus(13.f, 16.f)];
     learnMoreLabel.textColor = [UIColor ows_materialBlueColor];
     learnMoreLabel.textAlignment = NSTextAlignmentCenter;

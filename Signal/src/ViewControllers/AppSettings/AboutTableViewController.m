@@ -48,7 +48,7 @@
     [informationSection addItem:[OWSTableItem labelItemWithText:NSLocalizedString(@"SETTINGS_VERSION", @"")
                                                   accessoryText:[[[NSBundle mainBundle] infoDictionary]
                                                                     objectForKey:@"CFBundleVersion"]]];
-
+/*
 #ifdef SHOW_LEGAL_TERMS_LINK
     [informationSection addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_LEGAL_TERMS_CELL",
                                                                          @"table cell label")
@@ -57,9 +57,9 @@
                                                                  openURL:[NSURL URLWithString:kLegalTermsUrlString]];
                                                          }]];
 #endif
-
+*/
     [contents addSection:informationSection];
-
+/*
     OWSTableSection *helpSection = [OWSTableSection new];
     helpSection.headerTitle = NSLocalizedString(@"SETTINGS_HELP_HEADER", @"");
     [helpSection addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_SUPPORT", @"")
@@ -78,7 +78,7 @@
     copyrightLabel.textAlignment = NSTextAlignmentCenter;
     helpSection.customFooterView = copyrightLabel;
     helpSection.customFooterHeight = @(60.f);
-
+*/
 #ifdef DEBUG
     __block NSUInteger threadCount;
     __block NSUInteger messageCount;

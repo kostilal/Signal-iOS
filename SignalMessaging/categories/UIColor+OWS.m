@@ -269,6 +269,11 @@ NS_ASSUME_NONNULL_BEGIN
     return [UIColor colorWithRGBHex:0x757575];
 }
 
++ (UIColor *)ows_pampasColor
+{
+    return [UIColor colorWithRed:247.f / 255.f green:244.f / 255.f blue:237.f / 255.f alpha:1.f];
+}
+
 + (UIColor *)ows_darkSkyBlueColor
 {
     return [UIColor colorWithRed:255.f / 255.f green:218.f / 255.f blue:102.f / 255.f alpha:1.f];

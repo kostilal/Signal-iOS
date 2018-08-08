@@ -4224,8 +4224,9 @@ typedef enum : NSUInteger {
     OWSAssertIsOnMainThread();
 
     // make sure toolbar extends below iPhoneX home button.
+    
     self.view.backgroundColor = Theme.toolbarBackgroundColor;
-    self.collectionView.backgroundColor = Theme.backgroundColor;
+    self.collectionView.backgroundColor = Theme.conversationBackgroundColor;
 
     [self updateNavigationBarSubtitleLabel];
 }

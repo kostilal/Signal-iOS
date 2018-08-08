@@ -91,6 +91,11 @@ NSString *const ThemeKeyThemeEnabled = @"ThemeKeyThemeEnabled";
     return self.navbarBackgroundColor;
 }
 
++ (UIColor *)conversationBackgroundColor
+{
+    return UIColor.ows_pampasColor;
+}
+
 + (UIColor *)cellSelectedColor
 {
     return (Theme.isDarkThemeEnabled ? UIColor.ows_whiteColor : UIColor.ows_blackColor);

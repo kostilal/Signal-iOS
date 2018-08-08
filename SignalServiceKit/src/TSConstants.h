@@ -20,7 +20,7 @@ typedef NS_ENUM(NSInteger, TSWhisperMessageType) {
 //#define CONVERSATION_COLORS_ENABLED
 
 #define kLegalTermsUrlString @"https://signal.org/legal/"
-#define SHOW_LEGAL_TERMS_LINK
+#define SHOW_LEGAL_TERMS_LINK NO
 
 #ifdef DEBUG
 #define CONTACT_DISCOVERY_SERVICE
