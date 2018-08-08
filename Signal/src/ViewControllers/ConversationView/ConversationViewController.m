@@ -3782,6 +3782,17 @@ typedef enum : NSUInteger {
     OWSAssert(chooseMediaImage);
     [chooseMediaAction setValue:chooseMediaImage forKey:@"image"];
     [actionSheetController addAction:chooseMediaAction];
+    
+    UIAlertAction *sendMoneyAction = [UIAlertAction
+                                      actionWithTitle:@"Send Bitcoin"
+                                      style:UIAlertActionStyleDefault
+                                      handler:^(UIAlertAction *_Nonnull action) {
+                                          
+                                      }];
+    UIImage *chooseBitcoinImage = [UIImage imageNamed:@"actionsheet_bitcoin"];
+    OWSAssert(chooseBitcoinImage);
+    [sendMoneyAction setValue:chooseBitcoinImage forKey:@"image"];
+    [actionSheetController addAction:sendMoneyAction];
 
     UIAlertAction *gifAction = [UIAlertAction
         actionWithTitle:NSLocalizedString(@"SELECT_GIF_BUTTON", @"Label for 'select GIF to attach' action sheet button")

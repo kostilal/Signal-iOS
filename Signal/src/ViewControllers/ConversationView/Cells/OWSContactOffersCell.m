@@ -115,7 +115,7 @@ NS_ASSUME_NONNULL_BEGIN
     OWSAssert(self.viewItem);
     OWSAssert([self.viewItem.interaction isKindOfClass:[OWSContactOffersInteraction class]]);
 
-    self.backgroundColor = [Theme backgroundColor];
+    self.backgroundColor = [Theme conversationBackgroundColor];
 
     [self configureFonts];
 

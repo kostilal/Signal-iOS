@@ -1138,7 +1138,10 @@
 "MEDIA_FROM_DOCUMENT_PICKER_BUTTON" = "Document";
 
 /* media picker option to choose from library */
-"MEDIA_FROM_LIBRARY_BUTTON" = "Photo Library";
+"MEDIA_FROM_LIBRARY_BUTTON" = "Photo & Video Library";
+
+/* Label for button on lock screen that lets users unlock Signal. */
+"SCREEN_LOCK_UNLOCK_SIGNAL" = "Unlock Bitcostar";
 
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
 "MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Delete %d Messages";

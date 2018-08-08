@@ -750,6 +750,9 @@
 /* Second part of the label that shows up when there are neither active nor archived conversations */
 "EMPTY_ARCHIVE_FIRST_TEXT" = "Коснитесь кнопки справа вверху.";
 
+/* Label for button on lock screen that lets users unlock Signal. */
+"SCREEN_LOCK_UNLOCK_SIGNAL" = "Разблокируйте Bitcostar";
+
 /* First (bolded) part of the label that shows up when there are neither active nor archived conversations */
 "EMPTY_ARCHIVE_FIRST_TITLE" = "Начните ваш первый разговор в Bitcostar!";
 

@@ -167,7 +167,7 @@ typedef void (^SystemMessageActionBlock)(void);
     OWSAssert(self.viewItem);
     OWSAssert(transaction);
 
-    self.cellBackgroundView.backgroundColor = [Theme backgroundColor];
+    self.cellBackgroundView.backgroundColor = [Theme conversationBackgroundColor];
 
     [self.button setBackgroundColor:Theme.conversationButtonBackgroundColor];
 
