@@ -142,7 +142,8 @@ typedef enum : NSUInteger {
     UITextViewDelegate,
     ConversationCollectionViewDelegate,
     ConversationInputToolbarDelegate,
-    GifPickerViewControllerDelegate>
+    GifPickerViewControllerDelegate,
+    UIDocumentInteractionControllerDelegate>
 
 @property (nonatomic) TSThread *thread;
 @property (nonatomic, readonly) YapDatabaseConnection *editingDatabaseConnection;
@@ -2333,6 +2334,21 @@ typedef enum : NSUInteger {
     // Restart failed downloads
     TSMessage *message = (TSMessage *)viewItem.interaction;
     [self handleFailedDownloadTapForMessage:message attachmentPointer:attachmentPointer];
+}
+
+- (void)didTapPreviewAttachment:(ConversationViewItem *)viewItem
+               attachmentStream:(TSAttachmentStream *)attachmentStream {
+    
+    OWSAssert(viewItem);
+    OWSAssert(attachmentStream);
+    
+    UIDocumentInteractionController *documentInteractionController = [UIDocumentInteractionController interactionControllerWithURL:[NSURL fileURLWithPath:attachmentStream.filePath]];
+    documentInteractionController.delegate = self;
+    [documentInteractionController presentPreviewAnimated:YES];
+}
+
+- (UIViewController *)documentInteractionControllerViewControllerForPreview:(UIDocumentInteractionController *)controller {
+    return self;
 }
 
 - (void)didTapFailedOutgoingMessage:(TSOutgoingMessage *)message

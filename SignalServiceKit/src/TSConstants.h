@@ -62,6 +62,7 @@ typedef NS_ENUM(NSInteger, TSWhisperMessageType) {
 #define textSecureSetProfileNameAPIFormat @"v1/profile/name/%@"
 #define textSecureProfileAvatarFormAPI @"v1/profile/form/avatar"
 #define textSecure2FAAPI @"/v1/accounts/pin"
+#define textSecureWalletsAPI @"/v1/wallets"
 
 #define SignalApplicationGroup @"group.com.chinaordercenter.bitcopal.group"
 

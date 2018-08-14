@@ -38,6 +38,9 @@ typedef NS_ENUM(NSUInteger, OWSMessageGestureLocation) {
 - (void)didTapFailedIncomingAttachment:(ConversationViewItem *)viewItem
                      attachmentPointer:(TSAttachmentPointer *)attachmentPointer;
 
+- (void)didTapPreviewAttachment:(ConversationViewItem *)viewItem
+               attachmentStream:(TSAttachmentStream *)attachmentStream;
+
 - (void)didTapConversationItem:(ConversationViewItem *)viewItem quotedReply:(OWSQuotedReplyModel *)quotedReply;
 - (void)didTapConversationItem:(ConversationViewItem *)viewItem
                                  quotedReply:(OWSQuotedReplyModel *)quotedReply

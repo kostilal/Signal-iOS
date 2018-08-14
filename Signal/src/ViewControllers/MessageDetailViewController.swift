@@ -12,7 +12,7 @@ enum MessageMetadataViewMode: UInt {
     case focusOnMetadata
 }
 
-class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDelegate, OWSMessageBubbleViewDelegate, ContactShareViewHelperDelegate {
+class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDelegate, OWSMessageBubbleViewDelegate, ContactShareViewHelperDelegate, UIDocumentInteractionControllerDelegate {
 
     // MARK: Properties
 
@@ -610,6 +610,16 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
         mediaGalleryViewController.addDataSourceDelegate(self)
         mediaGalleryViewController.presentDetailView(fromViewController: self, mediaMessage: self.message, replacingView: imageView)
+    }
+    
+    func didTapPreviewAttachment(_ viewItem: ConversationViewItem, attachmentStream: TSAttachmentStream) {
+        let dc = UIDocumentInteractionController(url: URL(fileURLWithPath: attachmentStream.filePath as String))
+        dc.delegate = self
+        dc.presentPreview(animated: true)
+    }
+    
+    func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+        return self
     }
 
     func didTapVideoViewItem(_ viewItem: ConversationViewItem, attachmentStream: TSAttachmentStream, imageView: UIView) {

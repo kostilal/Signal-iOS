@@ -10,6 +10,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+
 @implementation AttachmentSharing
 
 + (void)showShareUIForAttachment:(TSAttachmentStream *)stream

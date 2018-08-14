@@ -1559,8 +1559,11 @@ NS_ASSUME_NONNULL_BEGIN
             return;
         case OWSMessageCellType_GenericAttachment:
             OWSAssert(attachmentStream);
+            
+            [self.delegate didTapPreviewAttachment:self.viewItem attachmentStream:attachmentStream];
 
-            [AttachmentSharing showShareUIForAttachment:attachmentStream];
+//            [AttachmentSharing showPreviewForAttachment:attachmentStream];
+//            [AttachmentSharing showShareUIForAttachment:attachmentStream];
             break;
         case OWSMessageCellType_DownloadingAttachment: {
             TSAttachmentPointer *_Nullable attachmentPointer = self.viewItem.attachmentPointer;
