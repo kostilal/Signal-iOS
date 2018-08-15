@@ -324,6 +324,7 @@ NS_ASSUME_NONNULL_BEGIN
     OWSTableSection *staticSection = [OWSTableSection new];
 
     // Find Non-Contacts by Phone Number
+    /*
     [staticSection
         addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"NEW_CONVERSATION_FIND_BY_PHONE_NUMBER",
                                                          @"A label the cell that lets you add a new member to a group.")
@@ -336,6 +337,28 @@ NS_ASSUME_NONNULL_BEGIN
                                                                                       animated:YES];
                                          }]];
 
+     */
+    
+    [staticSection
+     addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"NEW_CONVERSATION_ADD_NEW_CONTACT",
+                                                                    @"A label the cell that lets you add a new member to a group.")
+                                  customRowHeight:UITableViewAutomaticDimension
+                                      actionBlock:^{
+                                          NewNonContactConversationViewController *viewController =
+                                          [NewNonContactConversationViewController new];
+                                          viewController.nonContactConversationDelegate = weakSelf;
+                                          [weakSelf.navigationController pushViewController:viewController
+                                                                                   animated:YES];
+                                      }]];
+    
+    [staticSection
+     addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"NEW_GROUP_DEFAULT_TITLE",
+                                                                    @"A label the cell that lets you add a new member to a group.")
+                                  customRowHeight:UITableViewAutomaticDimension
+                                      actionBlock:^{
+                                          NewGroupViewController *newGroupViewController = [NewGroupViewController new];
+                                          [weakSelf.navigationController pushViewController:newGroupViewController animated:YES];
+                                      }]];
     if (self.contactsViewHelper.contactsManager.isSystemContactsAuthorized) {
         // Invite Contacts
         [staticSection

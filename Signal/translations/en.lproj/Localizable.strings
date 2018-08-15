@@ -1361,6 +1361,9 @@
 /* A label the cell that lets you add a new member to a group. */
 "NEW_CONVERSATION_FIND_BY_PHONE_NUMBER" = "Find by Phone Number";
 
+/* A label the cell that lets you add a new member to a group. */
+"NEW_CONVERSATION_ADD_NEW_CONTACT" = "New Contact";
+
 /* A label for the cell that lets you add a new non-contact member to a group. */
 "NEW_GROUP_ADD_NON_CONTACT" = "Add by phone number";
 

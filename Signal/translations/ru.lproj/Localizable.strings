@@ -1361,6 +1361,9 @@
 /* A label the cell that lets you add a new member to a group. */
 "NEW_CONVERSATION_FIND_BY_PHONE_NUMBER" = "Найти по номеру телефона";
 
+/* A label the cell that lets you add a new member to a group. */
+"NEW_CONVERSATION_ADD_NEW_CONTACT" = "Новый контакт";
+
 /* A label for the cell that lets you add a new non-contact member to a group. */
 "NEW_GROUP_ADD_NON_CONTACT" = "Добавить по номеру телефона";
 

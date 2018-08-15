@@ -613,7 +613,11 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
     }
     
     func didTapPreviewAttachment(_ viewItem: ConversationViewItem, attachmentStream: TSAttachmentStream) {
-        let dc = UIDocumentInteractionController(url: URL(fileURLWithPath: attachmentStream.filePath as String))
+        guard let path = attachmentStream.filePath as? String else {
+            return
+        }
+        
+        let dc = UIDocumentInteractionController(url: URL(fileURLWithPath: path))
         dc.delegate = self
         dc.presentPreview(animated: true)
     }
