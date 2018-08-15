@@ -41,7 +41,8 @@ class CallViewController: OWSViewController, CallObserver, CallServiceObserver, 
     var contactNameLabel: MarqueeLabel!
     var contactAvatarView: AvatarImageView!
     var contactAvatarContainerView: UIView!
-    var callStatusLabel: UILabel!
+//    var callStatusLabel: UILabel!
+    var callStatusLabel: UIButton!
     var callDurationTimer: Timer?
     var leaveCallViewButton: UIButton!
 
@@ -289,13 +290,21 @@ class CallViewController: OWSViewController, CallObserver, CallServiceObserver, 
 
         self.view.addSubview(contactNameLabel)
 
-        callStatusLabel = UILabel()
-        callStatusLabel.font = UIFont.ows_dynamicTypeBody
-        callStatusLabel.textAlignment = .center
-        callStatusLabel.textColor = UIColor.white
-        callStatusLabel.layer.shadowOffset = CGSize.zero
-        callStatusLabel.layer.shadowOpacity = 0.35
-        callStatusLabel.layer.shadowRadius = 4
+//        callStatusLabel = UILabel()
+//        callStatusLabel.font = UIFont.ows_dynamicTypeBody
+//        callStatusLabel.textAlignment = .center
+//        callStatusLabel.textColor = UIColor.white
+//        callStatusLabel.layer.shadowOffset = CGSize.zero
+//        callStatusLabel.layer.shadowOpacity = 0.35
+//        callStatusLabel.layer.shadowRadius = 4
+        
+        callStatusLabel = UIButton()
+        callStatusLabel.setTitleColor(UIColor.white, for: .normal)
+        callStatusLabel.titleLabel?.font = UIFont.ows_dynamicTypeBody
+        callStatusLabel.titleLabel?.layer.shadowOffset = CGSize.zero
+        callStatusLabel.titleLabel?.layer.shadowOpacity = 0.35
+        callStatusLabel.titleLabel?.layer.shadowRadius = 4
+        callStatusLabel.setImage(UIImage(named: "audio_play_black_48"), for: .normal)
 
         self.view.addSubview(callStatusLabel)
 
@@ -662,7 +671,8 @@ class CallViewController: OWSViewController, CallObserver, CallServiceObserver, 
 
         let text = String(format: CallStrings.callStatusFormat,
                           localizedTextForCallState(callState))
-        self.callStatusLabel.text = text
+//        self.callStatusLabel.text = text
+        self.callStatusLabel.setTitle(text, for: .normal)
 
         // Handle reconnecting blinking
         if case .reconnecting = callState {
