@@ -282,7 +282,7 @@ class CallViewController: OWSViewController, CallObserver, CallServiceObserver, 
 
         // label config
         contactNameLabel.font = UIFont.ows_dynamicTypeTitle1
-        contactNameLabel.textAlignment = .center
+        contactNameLabel.textAlignment = .left
         contactNameLabel.textColor = UIColor.white
         contactNameLabel.layer.shadowOffset = CGSize.zero
         contactNameLabel.layer.shadowOpacity = 0.35
@@ -304,7 +304,8 @@ class CallViewController: OWSViewController, CallObserver, CallServiceObserver, 
         callStatusLabel.titleLabel?.layer.shadowOffset = CGSize.zero
         callStatusLabel.titleLabel?.layer.shadowOpacity = 0.35
         callStatusLabel.titleLabel?.layer.shadowRadius = 4
-        callStatusLabel.setImage(UIImage(named: "audio_play_black_48"), for: .normal)
+        callStatusLabel.setImage(UIImage(named: "calling_bitcostar_icon"), for: .normal)
+//        callStatusLabel.titleEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 0)s
 
         self.view.addSubview(callStatusLabel)
 
