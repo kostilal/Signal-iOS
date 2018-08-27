@@ -29,12 +29,12 @@ typedef NS_ENUM(NSInteger, TSWhisperMessageType) {
 //#ifndef DEBUG
 
 // Production
-#define textSecureWebSocketAPI @"ws://ec2-13-125-101-33.ap-northeast-2.compute.amazonaws.com:8080/v1/websocket/"
-#define textSecureServerURL @"http://ec2-13-125-101-33.ap-northeast-2.compute.amazonaws.com:8080/"
+#define textSecureWebSocketAPI @"wss://messenger.bitcostar.com/v1/websocket/"
+#define textSecureServerURL @"https://messenger.bitcostar.com/"
 #define textSecureCDNServerURL @"http://d1kopcq685v1uo.cloudfront.net"
 // Use same reflector for service and CDN
-#define textSecureServiceReflectorHost @"ec2-13-125-101-33.ap-northeast-2.compute.amazonaws.com:8080"
-#define textSecureCDNReflectorHost @"ec2-13-125-101-33.ap-northeast-2.compute.amazonaws.com:8080"
+#define textSecureServiceReflectorHost @"messenger.bitcostar.com"
+#define textSecureCDNReflectorHost @"messenger.bitcostar.com"
 
 //#else
 //
