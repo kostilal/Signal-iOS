@@ -65,6 +65,26 @@ struct MessageActionBuilder {
                             conversationViewItem.saveMediaAction()
         })
     }
+    
+    static func forwardTextMessage(conversationViewItem: ConversationViewItem, delegate: MessageActionsDelegate) -> MenuAction {
+        return MenuAction(image: #imageLiteral(resourceName: "ic_reply"),
+                          title: "Forward",//NSLocalizedString("MESSAGE_ACTION_REPLY", comment: "Action sheet button title"),
+                          subtitle: nil,
+                          block: { (_) in
+                            conversationViewItem.shareTextAction()
+                            
+        })
+    }
+    
+    static func forwardMediaMessage(conversationViewItem: ConversationViewItem, delegate: MessageActionsDelegate) -> MenuAction {
+        return MenuAction(image: #imageLiteral(resourceName: "ic_reply"),
+                          title: "Forward", //NSLocalizedString("MESSAGE_ACTION_REPLY", comment: "Action sheet button title"),
+                          subtitle: nil,
+                          block: { (_) in
+                            conversationViewItem.shareMediaAction()
+                            
+        })
+    }
 }
 
 extension ConversationViewItem {
@@ -80,6 +100,9 @@ extension ConversationViewItem {
             let copyTextAction = MessageActionBuilder.copyText(conversationViewItem: self, delegate: delegate)
             actions.append(copyTextAction)
         }
+        
+        let forwardAction = MessageActionBuilder.forwardTextMessage(conversationViewItem: self, delegate: delegate)
+        actions.append(forwardAction)
 
         let deleteAction = MessageActionBuilder.deleteMessage(conversationViewItem: self, delegate: delegate)
         actions.append(deleteAction)

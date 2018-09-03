@@ -118,7 +118,7 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
         initializeBarButtons()
         reloadContacts()
         updateSearchResults(searchText: "")
-
+        
         NotificationCenter.default.addObserver(self, selector: #selector(self.didChangePreferredContentSize), name: NSNotification.Name.UIContentSizeCategoryDidChange, object: nil)
     }
 
