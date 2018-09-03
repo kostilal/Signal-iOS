@@ -1981,17 +1981,31 @@ typedef enum : NSUInteger {
 
 - (void)messageActionsShowDetailsForItem:(ConversationViewItem *)conversationViewItem
 {
-    
+    [self showDetailViewForViewItem:conversationViewItem];
+}
+
+- (void)messageActionsForwardTextToItem:(ConversationViewItem *)conversationViewItem {
     DataSource *_Nullable dataSource = [DataSourceValue dataSourceWithOversizeText:conversationViewItem.displayableBodyText.fullText];
     SignalAttachment *attachment = [SignalAttachment attachmentWithDataSource:dataSource dataUTI:kOversizeTextAttachmentUTI];
-    
+    attachment.isConvertibleToTextMessage = YES;
+
     SharingThreadPickerViewController *vc = [[SharingThreadPickerViewController alloc] initWithShareViewDelegate:self];
     vc.attachment = attachment;
-    
-    [self.navigationController presentViewController:vc animated:true completion:nil];
-    
-    
-//    [self showDetailViewForViewItem:conversationViewItem];
+
+    [self.navigationController pushViewController:vc animated:true];
+}
+
+- (void)messageActionsForwardMediaToItem:(ConversationViewItem *)conversationViewItem {
+    SignalAttachment *attachment = [SignalAttachment imageAttachmentWithImage:conversationViewItem.attachmentStream.image
+                                                                      dataUTI:(NSString *)kUTTypeJPEG
+                                                                     filename:@"test"
+                                                                 imageQuality:TSImageQualityCompact];
+
+
+    SharingThreadPickerViewController *vc = [[SharingThreadPickerViewController alloc] initWithShareViewDelegate:self];
+    vc.attachment = attachment;
+
+    [self.navigationController pushViewController:vc animated:true];
 }
     
 - (void)shareViewWasUnlocked {
@@ -1999,11 +2013,15 @@ typedef enum : NSUInteger {
 }
     
 - (void)shareViewWasCancelled {
+    [[self.navigationController visibleViewController] dismissViewControllerAnimated:true completion:nil];
     
+    [self.navigationController popViewControllerAnimated:true];
 }
     
 - (void)shareViewWasCompleted {
+    [[self.navigationController visibleViewController] dismissViewControllerAnimated:true completion:nil];
     
+    [self.navigationController popViewControllerAnimated:true];
 }
     
 - (void)shareViewFailedWithError:(NSError *)error {

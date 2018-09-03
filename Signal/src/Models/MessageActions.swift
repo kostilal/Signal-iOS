@@ -8,6 +8,8 @@ import Foundation
 protocol MessageActionsDelegate: class {
     func messageActionsShowDetailsForItem(_ conversationViewItem: ConversationViewItem)
     func messageActionsReplyToItem(_ conversationViewItem: ConversationViewItem)
+    func messageActionsForwardTextToItem(_ conversationViewItem: ConversationViewItem)
+    func messageActionsForwardMediaToItem(_ conversationViewItem: ConversationViewItem)
 }
 
 struct MessageActionBuilder {
@@ -70,8 +72,8 @@ struct MessageActionBuilder {
         return MenuAction(image: #imageLiteral(resourceName: "ic_reply"),
                           title: "Forward",//NSLocalizedString("MESSAGE_ACTION_REPLY", comment: "Action sheet button title"),
                           subtitle: nil,
-                          block: { (_) in
-                            conversationViewItem.shareTextAction()
+                          block: {[weak delegate] (_) in
+                            delegate?.messageActionsForwardTextToItem(conversationViewItem)
                             
         })
     }
@@ -80,8 +82,8 @@ struct MessageActionBuilder {
         return MenuAction(image: #imageLiteral(resourceName: "ic_reply"),
                           title: "Forward", //NSLocalizedString("MESSAGE_ACTION_REPLY", comment: "Action sheet button title"),
                           subtitle: nil,
-                          block: { (_) in
-                            conversationViewItem.shareMediaAction()
+                          block: {[weak delegate] (_) in
+                            delegate?.messageActionsForwardMediaToItem(conversationViewItem)
                             
         })
     }
@@ -126,6 +128,9 @@ extension ConversationViewItem {
             let saveMediaAction = MessageActionBuilder.saveMedia(conversationViewItem: self, delegate: delegate)
             actions.append(saveMediaAction)
         }
+        
+        let forwardAction = MessageActionBuilder.forwardMediaMessage(conversationViewItem: self, delegate: delegate)
+        actions.append(forwardAction)
 
         let deleteAction = MessageActionBuilder.deleteMessage(conversationViewItem: self, delegate: delegate)
         actions.append(deleteAction)
