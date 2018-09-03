@@ -10,7 +10,7 @@ import SignalServiceKit
 import PromiseKit
 
 @objc
-public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedViewDelegate {
+open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedViewDelegate {
 
     enum ShareViewControllerError: Error {
         case assertionError(description: String)

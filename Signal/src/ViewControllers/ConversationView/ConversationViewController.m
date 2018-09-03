@@ -84,6 +84,7 @@
 #import <YapDatabase/YapDatabaseAutoView.h>
 #import <YapDatabase/YapDatabaseViewChange.h>
 #import <YapDatabase/YapDatabaseViewConnection.h>
+#import "SharingThreadPickerViewController.h"
 
 @import Photos;
 
@@ -143,7 +144,7 @@ typedef enum : NSUInteger {
     ConversationCollectionViewDelegate,
     ConversationInputToolbarDelegate,
     GifPickerViewControllerDelegate,
-    UIDocumentInteractionControllerDelegate>
+    UIDocumentInteractionControllerDelegate, ShareViewDelegate>
 
 @property (nonatomic) TSThread *thread;
 @property (nonatomic, readonly) YapDatabaseConnection *editingDatabaseConnection;
@@ -1980,7 +1981,33 @@ typedef enum : NSUInteger {
 
 - (void)messageActionsShowDetailsForItem:(ConversationViewItem *)conversationViewItem
 {
-    [self showDetailViewForViewItem:conversationViewItem];
+    
+    DataSource *_Nullable dataSource = [DataSourceValue dataSourceWithOversizeText:conversationViewItem.displayableBodyText.fullText];
+    SignalAttachment *attachment = [SignalAttachment attachmentWithDataSource:dataSource dataUTI:kOversizeTextAttachmentUTI];
+    
+    SharingThreadPickerViewController *vc = [[SharingThreadPickerViewController alloc] initWithShareViewDelegate:self];
+    vc.attachment = attachment;
+    
+    [self.navigationController presentViewController:vc animated:true completion:nil];
+    
+    
+//    [self showDetailViewForViewItem:conversationViewItem];
+}
+    
+- (void)shareViewWasUnlocked {
+    
+}
+    
+- (void)shareViewWasCancelled {
+    
+}
+    
+- (void)shareViewWasCompleted {
+    
+}
+    
+- (void)shareViewFailedWithError:(NSError *)error {
+    
 }
 
 - (void)messageActionsReplyToItem:(ConversationViewItem *)conversationViewItem

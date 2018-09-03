@@ -109,11 +109,11 @@ NSString *const kKeychainKey_LastRegisteredPhoneNumber = @"kKeychainKey_LastRegi
 #endif
 */
     UIStackView *headerContent = [[UIStackView alloc] initWithArrangedSubviews:@[ headerLabel ]];
-    /*
+/*
 #ifdef SHOW_LEGAL_TERMS_LINK
     [headerContent addArrangedSubview:legalTopMatterLabel];
 #endif
-     */
+*/
     headerContent.axis = UILayoutConstraintAxisVertical;
     headerContent.alignment = UIStackViewAlignmentCenter;
     headerContent.spacing = ScaleFromIPhone5To7Plus(8, 16);
@@ -279,7 +279,7 @@ NSString *const kKeychainKey_LastRegisteredPhoneNumber = @"kKeychainKey_LastRegi
     [bottomLegalLinkButton setCompressionResistanceHigh];
     [bottomLegalLinkButton setContentHuggingHigh];
 #endif
-    */
+*/
 }
 
 - (void)viewDidAppear:(BOOL)animated
