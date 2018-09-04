@@ -69,7 +69,7 @@ struct MessageActionBuilder {
     }
     
     static func forwardTextMessage(conversationViewItem: ConversationViewItem, delegate: MessageActionsDelegate) -> MenuAction {
-        return MenuAction(image: #imageLiteral(resourceName: "ic_reply"),
+        return MenuAction(image:#imageLiteral(resourceName: "ic_forward"),
                           title: "Forward",//NSLocalizedString("MESSAGE_ACTION_REPLY", comment: "Action sheet button title"),
                           subtitle: nil,
                           block: {[weak delegate] (_) in
@@ -79,7 +79,7 @@ struct MessageActionBuilder {
     }
     
     static func forwardMediaMessage(conversationViewItem: ConversationViewItem, delegate: MessageActionsDelegate) -> MenuAction {
-        return MenuAction(image: #imageLiteral(resourceName: "ic_reply"),
+        return MenuAction(image: #imageLiteral(resourceName: "ic_forward"),
                           title: "Forward", //NSLocalizedString("MESSAGE_ACTION_REPLY", comment: "Action sheet button title"),
                           subtitle: nil,
                           block: {[weak delegate] (_) in
