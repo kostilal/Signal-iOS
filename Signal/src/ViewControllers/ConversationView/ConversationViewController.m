@@ -1996,11 +1996,51 @@ typedef enum : NSUInteger {
 }
 
 - (void)messageActionsForwardMediaToItem:(ConversationViewItem *)conversationViewItem {
-    SignalAttachment *attachment = [SignalAttachment imageAttachmentWithImage:conversationViewItem.attachmentStream.image
-                                                                      dataUTI:(NSString *)kUTTypeJPEG
-                                                                     filename:@"test"
-                                                                 imageQuality:TSImageQualityCompact];
+    /*
+     OWSMessageCellType_StillImage,
+     OWSMessageCellType_AnimatedImage,
+     OWSMessageCellType_Audio,
+     OWSMessageCellType_Video,
+     OWSMessageCellType_GenericAttachment,
+     OWSMessageCellType_DownloadingAttachment,
+     OWSMessageCellType_ContactShare
+     */
+    
+    SignalAttachment *attachment;
+    
+    DataSource *dataSource = [DataSourcePath dataSourceWithFilePath:conversationViewItem.attachmentStream.filePath shouldDeleteOnDeallocation:NO];
+    [dataSource setSourceFilename:conversationViewItem.attachmentStream.sourceFilename];
+    
+    switch (conversationViewItem.messageCellType) {
+        case OWSMessageCellType_StillImage:
+            attachment = [SignalAttachment imageAttachmentWithImage:conversationViewItem.attachmentStream.image
+                                                            dataUTI:(NSString *)kUTTypeJPEG
+                                                           filename:conversationViewItem.attachmentStream.sourceFilename
+                                                       imageQuality:TSImageQualityCompact];
+            break;
+        case OWSMessageCellType_Audio:
+            attachment = [SignalAttachment voiceMessageAttachmentWithDataSource:dataSource dataUTI:(NSString *)kUTTypeMPEG4Audio];
+            break;
+            
+        case OWSMessageCellType_AnimatedImage:
+        case OWSMessageCellType_Video:
+        case OWSMessageCellType_GenericAttachment: {
+            NSString *type;
+            NSError *typeError;
+            [[NSURL fileURLWithPath:conversationViewItem.attachmentStream.filePath] getResourceValue:&type forKey:NSURLTypeIdentifierKey error:&typeError];
 
+            if (!type) {
+                type = (__bridge NSString *)kUTTypeData;
+            }
+            
+            attachment = [SignalAttachment attachmentWithDataSource:dataSource dataUTI:type imageQuality:TSImageQualityOriginal];
+        }
+            
+            break;
+            
+        default:
+            return;
+    }
 
     SharingThreadPickerViewController *vc = [[SharingThreadPickerViewController alloc] initWithShareViewDelegate:self];
     vc.attachment = attachment;
@@ -2013,19 +2053,42 @@ typedef enum : NSUInteger {
 }
     
 - (void)shareViewWasCancelled {
-    [[self.navigationController visibleViewController] dismissViewControllerAnimated:true completion:nil];
-    
-    [self.navigationController popViewControllerAnimated:true];
+    if ([[self.navigationController visibleViewController] isKindOfClass:[AttachmentApprovalViewController class]]) {
+        [[self.navigationController visibleViewController] dismissViewControllerAnimated:NO completion:^{
+            [self.navigationController popViewControllerAnimated:NO];
+        }];
+    } else {
+        [self.navigationController popViewControllerAnimated:NO];
+        [self.navigationController popViewControllerAnimated:NO];
+    }
 }
     
 - (void)shareViewWasCompleted {
-    [[self.navigationController visibleViewController] dismissViewControllerAnimated:true completion:nil];
-    
-    [self.navigationController popViewControllerAnimated:true];
+    [[self.navigationController visibleViewController] dismissViewControllerAnimated:NO completion:^{
+        if ([[self.navigationController visibleViewController] isKindOfClass:[MessageApprovalViewController class]]) {
+            [self.navigationController popViewControllerAnimated:NO];
+            [self.navigationController popViewControllerAnimated:NO];
+        } else {
+            [[self.navigationController visibleViewController] dismissViewControllerAnimated:NO completion:^{
+                [self.navigationController popViewControllerAnimated:NO];
+            }];
+        }
+    }];
 }
     
 - (void)shareViewFailedWithError:(NSError *)error {
     
+}
+
+- (UIViewController*) topMostController
+{
+    UIViewController *topController = [UIApplication sharedApplication].keyWindow.rootViewController;
+    
+    while (topController.presentedViewController) {
+        topController = topController.presentedViewController;
+    }
+    
+    return topController;
 }
 
 - (void)messageActionsReplyToItem:(ConversationViewItem *)conversationViewItem
