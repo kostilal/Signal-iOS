@@ -43,8 +43,8 @@ extern const UIDataDetectorTypes kOWSAllowedDataDetectorTypes;
                      attachmentPointer:(TSAttachmentPointer *)attachmentPointer;
 
 - (void)didTapConversationItem:(id<ConversationViewItem>)viewItem quotedReply:(OWSQuotedReplyModel *)quotedReply;
-- (void)didTapConversationItem:(id<ConversationViewItem>)viewItem
-- (void)didTapPreviewAttachment:(ConversationViewItem *)viewItem
+//- (void)didTapConversationItem:(id<ConversationViewItem>)viewItem
+- (void)didTapPreviewAttachment:(id<ConversationViewItem>)viewItem
                                  quotedReply:(OWSQuotedReplyModel *)quotedReply
     failedThumbnailDownloadAttachmentPointer:(TSAttachmentPointer *)attachmentPointer;
 
