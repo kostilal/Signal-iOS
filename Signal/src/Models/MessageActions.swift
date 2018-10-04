@@ -104,7 +104,7 @@ class ConversationViewItemActions: NSObject {
             actions.append(copyTextAction)
         }
         
-        let forwardAction = MessageActionBuilder.forwardTextMessage(conversationViewItem: self, delegate: delegate)
+        let forwardAction = MessageActionBuilder.forwardTextMessage(conversationViewItem: conversationViewItem, delegate: delegate)
         actions.append(forwardAction)
 
         let deleteAction = MessageActionBuilder.deleteMessage(conversationViewItem: conversationViewItem, delegate: delegate)
@@ -132,7 +132,7 @@ class ConversationViewItemActions: NSObject {
             }
         }
         
-        let forwardAction = MessageActionBuilder.forwardMediaMessage(conversationViewItem: self, delegate: delegate)
+        let forwardAction = MessageActionBuilder.forwardMediaMessage(conversationViewItem: conversationViewItem, delegate: delegate)
         actions.append(forwardAction)
 
         let deleteAction = MessageActionBuilder.deleteMessage(conversationViewItem: conversationViewItem, delegate: delegate)

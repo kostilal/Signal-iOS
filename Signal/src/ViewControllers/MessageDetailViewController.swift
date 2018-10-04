@@ -619,7 +619,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
     }
     
     func didTapPreviewAttachment(_ viewItem: ConversationViewItem, attachmentStream: TSAttachmentStream) {
-        guard let path = attachmentStream.filePath as? String else {
+        guard let path = attachmentStream.originalFilePath else {
             return
         }
         

@@ -198,6 +198,11 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 // TODO: Remove
++ (UIColor *)ows_pampasColor
+{
+    return [UIColor colorWithRed:255.f green:255.f blue:255.f alpha:1.f];
+}
+
 + (UIColor *)ows_darkSkyBlueColor
 {
     return [UIColor colorWithRed:255.f / 255.f green:218.f / 255.f blue:102.f / 255.f alpha:1.f];

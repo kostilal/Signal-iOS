@@ -449,7 +449,7 @@
 		768A1A2B17FC9CD300E00ED8 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 768A1A2A17FC9CD300E00ED8 /* libz.dylib */; };
 		76C87F19181EFCE600C4ACAB /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 76C87F18181EFCE600C4ACAB /* MediaPlayer.framework */; };
 		76EB054018170B33006006FC /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 76EB03C318170B33006006FC /* AppDelegate.m */; };
-		76EB063A18170B33006006FC /* FunctionalUtil.m in Sources */ = {isa = PBXBuildFile; fileRef = 76EB04EB18170B33006006FC /* FunctionalUtil.m */; };
+		76EB063A18170B33006006FC /* (null) in Sources */ = {isa = PBXBuildFile; };
 		950723A02119C495007A287D /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9507239F2119C495007A287D /* CloudKit.framework */; };
 		9516B5D82113677000E6341B /* Receive.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9516B5A32113676F00E6341B /* Receive.storyboard */; };
 		9516B5D92113677000E6341B /* Wallet.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9516B5A42113676F00E6341B /* Wallet.storyboard */; };
@@ -2619,6 +2619,14 @@
 			name = Translations;
 			sourceTree = "<group>";
 		};
+		C47A808B2166B1980065C840 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				9507239F2119C495007A287D /* CloudKit.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		D221A07E169C9E5E00537ABF = {
 			isa = PBXGroup;
 			children = (
@@ -2628,6 +2636,7 @@
 				D221A08C169C9E5E00537ABF /* Frameworks */,
 				D221A08A169C9E5E00537ABF /* Products */,
 				9404664EC513585B05DF1350 /* Pods */,
+				C47A808B2166B1980065C840 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -3550,7 +3559,6 @@
 				34386A51207D0C01009F5D9C /* HomeViewController.m in Sources */,
 				34D1F0A91F867BFC0066283D /* ConversationViewCell.m in Sources */,
 				4505C2BF1E648EA300CEBF41 /* ExperienceUpgrade.swift in Sources */,
-				34CCAF381F0C0599004084F4 /* AppUpdateNag.m in Sources */,
 				9516B5E72113677000E6341B /* BlockExplorerTransactionHistory.swift in Sources */,
 				EF764C351DB67CC5000D9A87 /* UIViewController+Permissions.m in Sources */,
 				45CD81EF1DC030E7004C9430 /* SyncPushTokensJob.swift in Sources */,
@@ -3579,7 +3587,7 @@
 				9516B5EF2113677000E6341B /* Address.swift in Sources */,
 				9516B5E92113677000E6341B /* Constants.swift in Sources */,
 				34B3F8931E8DF1710035BE1A /* SignalsNavigationController.m in Sources */,
-				76EB063A18170B33006006FC /* FunctionalUtil.m in Sources */,
+				76EB063A18170B33006006FC /* (null) in Sources */,
 				9516B5E12113677000E6341B /* ApiManager.swift in Sources */,
 				34F308A21ECB469700BB7697 /* OWSBezierPathView.m in Sources */,
 				45B27B862037FFB400A539DF /* DebugUIFileBrowser.swift in Sources */,
@@ -3602,7 +3610,6 @@
 				34E5DC8220D8050D00C08145 /* RegistrationUtils.m in Sources */,
 				452EA09E1EA7ABE00078744B /* AttachmentPointerView.swift in Sources */,
 				45638BDC1F3DD0D400128435 /* DebugUICalling.swift in Sources */,
-				45464DBC1DFA041F001D3FD6 /* DataChannelMessage.swift in Sources */,
 				9516B5E82113677000E6341B /* BitCoinAPI.swift in Sources */,
 				34E3E5681EC4B19400495BAC /* AudioProgressView.swift in Sources */,
 				9516B5E62113677000E6341B /* LatestBlockBlockchainInfoResponse.swift in Sources */,

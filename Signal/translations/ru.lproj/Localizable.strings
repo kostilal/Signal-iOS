@@ -339,10 +339,10 @@
 "CALL_VIEW_MUTE_LABEL" = "Откл. микр.";
 
 /* Reminder to the user of the benefits of enabling CallKit and disabling CallKit privacy. */
-"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_ALL" = "You can enable iOS Call Integration in your Signal privacy settings to answer incoming calls from your lock screen.";
+"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_ALL" = "You can enable iOS Call Integration in your Bitcostar privacy settings to answer incoming calls from your lock screen.";
 
 /* Reminder to the user of the benefits of disabling CallKit privacy. */
-"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_PRIVACY" = "You can enable iOS Call Integration in your Signal privacy settings to see the name and phone number for incoming calls.";
+"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_PRIVACY" = "You can enable iOS Call Integration in your Bitcostar privacy settings to see the name and phone number for incoming calls.";
 
 /* Label for button that dismiss the call view's settings nag. */
 "CALL_VIEW_SETTINGS_NAG_NOT_NOW_BUTTON" = "Не сейчас";
@@ -774,8 +774,8 @@
 /* Body text an existing user sees when viewing an empty archive */
 "EMPTY_ARCHIVE_TEXT" = "You can archive inactive conversations from your Inbox.";
 
-/* Label for button on lock screen that lets users unlock Signal. */
-"SCREEN_LOCK_UNLOCK_SIGNAL" = "Разблокируйте Bitcostar";
+/* Label for button on lock screen that lets users unlock Bitcostar. */
+"SCREEN_LOCK_UNLOCK_Bitcostar" = "Разблокируйте Bitcostar";
 
 /* First (bolded) part of the label that shows up when there are neither active nor archived conversations */
 "EMPTY_ARCHIVE_FIRST_TITLE" = "Начните ваш первый разговор в Bitcostar!";
@@ -790,7 +790,7 @@
 "EMPTY_INBOX_NEW_USER_TEXT" = "Нажмите на кнопку создания";
 
 /* Header text a new user sees when viewing an empty inbox */
-"EMPTY_INBOX_NEW_USER_TITLE" = "Начните свой первый разговор в Signal!";
+"EMPTY_INBOX_NEW_USER_TITLE" = "Начните свой первый разговор в Bitcostar!";
 
 /* Body text an existing user sees when viewing an empty inbox */
 "EMPTY_INBOX_TEXT" = "None. Zip. Zilch. Nada.";
@@ -1060,7 +1060,7 @@
 "INBOX_VIEW_ARCHIVE_MODE_REMINDER" = "These conversations are archived and will only appear in the Inbox if new messages are received.";
 
 /* Multi-line label explaining how to show names instead of phone numbers in your inbox */
-"INBOX_VIEW_MISSING_CONTACTS_PERMISSION" = "You can enable contacts access in the iOS Settings app to see contact names in your Signal conversation list.";
+"INBOX_VIEW_MISSING_CONTACTS_PERMISSION" = "You can enable contacts access in the iOS Settings app to see contact names in your Bitcostar conversation list.";
 
 /* notification body */
 "INCOMING_CALL" = "Входящий звонок";
@@ -1989,7 +1989,7 @@
 "SETTINGS_CLEAR_HISTORY" = "Очистить историю";
 
 /* No comment provided by engineer. */
-"SETTINGS_COPYRIGHT" = "Copyright Signal Messenger \n Licensed under the GPLv3";
+"SETTINGS_COPYRIGHT" = "Copyright Bitcostar Messenger \n Licensed under the GPLv3";
 
 /* No comment provided by engineer. */
 "SETTINGS_DELETE_ACCOUNT_BUTTON" = "Удалить учетную запись";

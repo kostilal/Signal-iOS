@@ -1944,7 +1944,7 @@ typedef enum : NSUInteger {
     [self showDetailViewForViewItem:conversationViewItem];
 }
 
-- (void)messageActionsForwardTextToItem:(ConversationViewItem *)conversationViewItem {
+- (void)messageActionsForwardTextToItem:(id<ConversationViewItem>)conversationViewItem {
     DataSource *_Nullable dataSource = [DataSourceValue dataSourceWithOversizeText:conversationViewItem.displayableBodyText.fullText];
     SignalAttachment *attachment = [SignalAttachment attachmentWithDataSource:dataSource dataUTI:kOversizeTextAttachmentUTI];
     attachment.isConvertibleToTextMessage = YES;
@@ -1955,7 +1955,7 @@ typedef enum : NSUInteger {
     [self.navigationController pushViewController:vc animated:true];
 }
 
-- (void)messageActionsForwardMediaToItem:(ConversationViewItem *)conversationViewItem {
+- (void)messageActionsForwardMediaToItem:(id<ConversationViewItem>)conversationViewItem {
     /*
      OWSMessageCellType_StillImage,
      OWSMessageCellType_AnimatedImage,
@@ -1968,12 +1968,12 @@ typedef enum : NSUInteger {
     
     SignalAttachment *attachment;
     
-    DataSource *dataSource = [DataSourcePath dataSourceWithFilePath:conversationViewItem.attachmentStream.filePath shouldDeleteOnDeallocation:NO];
+    DataSource *dataSource = [DataSourcePath dataSourceWithFilePath:conversationViewItem.attachmentStream.originalFilePath shouldDeleteOnDeallocation:NO];
     [dataSource setSourceFilename:conversationViewItem.attachmentStream.sourceFilename];
     
     switch (conversationViewItem.messageCellType) {
         case OWSMessageCellType_StillImage:
-            attachment = [SignalAttachment imageAttachmentWithImage:conversationViewItem.attachmentStream.image
+            attachment = [SignalAttachment imageAttachmentWithImage:conversationViewItem.attachmentStream.originalImage
                                                             dataUTI:(NSString *)kUTTypeJPEG
                                                            filename:conversationViewItem.attachmentStream.sourceFilename
                                                        imageQuality:TSImageQualityCompact];
@@ -1987,7 +1987,7 @@ typedef enum : NSUInteger {
         case OWSMessageCellType_GenericAttachment: {
             NSString *type;
             NSError *typeError;
-            [[NSURL fileURLWithPath:conversationViewItem.attachmentStream.filePath] getResourceValue:&type forKey:NSURLTypeIdentifierKey error:&typeError];
+            [[NSURL fileURLWithPath:conversationViewItem.attachmentStream.originalFilePath] getResourceValue:&type forKey:NSURLTypeIdentifierKey error:&typeError];
 
             if (!type) {
                 type = (__bridge NSString *)kUTTypeData;
@@ -2051,7 +2051,7 @@ typedef enum : NSUInteger {
     return topController;
 }
 
-- (void)messageActionsReplyToItem:(ConversationViewItem *)conversationViewItem
+- (void)messageActionsReplyToItem:(id<ConversationViewItem>)conversationViewItem
 {
     [self populateReplyForViewItem:conversationViewItem];
 }
@@ -2406,13 +2406,13 @@ typedef enum : NSUInteger {
     [self handleFailedDownloadTapForMessage:message attachmentPointer:attachmentPointer];
 }
 
-- (void)didTapPreviewAttachment:(ConversationViewItem *)viewItem
+- (void)didTapPreviewAttachment:(id<ConversationViewItem>)viewItem
                attachmentStream:(TSAttachmentStream *)attachmentStream {
     
     OWSAssert(viewItem);
     OWSAssert(attachmentStream);
     
-    UIDocumentInteractionController *documentInteractionController = [UIDocumentInteractionController interactionControllerWithURL:[NSURL fileURLWithPath:attachmentStream.filePath]];
+    UIDocumentInteractionController *documentInteractionController = [UIDocumentInteractionController interactionControllerWithURL:[NSURL fileURLWithPath:attachmentStream.originalFilePath]];
     documentInteractionController.delegate = self;
     [documentInteractionController presentPreviewAnimated:YES];
 }
