@@ -1,27 +1,21 @@
 //
-//  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
-#import <XCTest/XCTest.h>
 #import "Cryptography.h"
-#import "NSData+Base64.h"
+#import "NSData+OWS.h"
+#import "SSKBaseTest.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface Cryptography (TestingPrivateMethods)
-
-+ (nullable NSData *)decryptAESGCMWithInitializationVector:(NSData *)initializationVector
-                                                ciphertext:(NSData *)ciphertext
-                                                   authTag:(NSData *)authTagFromEncrypt
-                                                       key:(OWSAES256Key *)key;
+@interface CryptographyTests : SSKBaseTest
 
 @end
 
-@interface CryptographyTests : XCTestCase
-
-@end
+#pragma mark -
 
 @interface Cryptography (Test)
+
 + (NSData *)truncatedSHA256HMAC:(NSData *)dataToHMAC withHMACKey:(NSData *)HMACKey truncation:(int)bytes;
 + (NSData *)encryptCBCMode:(NSData *)dataToEncrypt
                    withKey:(NSData *)key
@@ -38,11 +32,37 @@ NS_ASSUME_NONNULL_BEGIN
                    HMACKey:(NSData *)hmacKey
                   HMACType:(TSMACType)hmacType
               matchingHMAC:(NSData *)hmac;
+
 @end
 
 @implementation CryptographyTests
 
 - (void)testEncryptAttachmentData
+{
+    NSString *plainText = @"SGF3YWlpIGlzIEF3ZXNvbWUh";
+    NSData *plainTextData = [NSData dataFromBase64String:plainText];
+
+    // Sanity
+    XCTAssertNotNil(plainTextData);
+
+    NSData *generatedKey;
+    NSData *generatedDigest;
+
+    NSData *cipherText =
+        [Cryptography encryptAttachmentData:plainTextData outKey:&generatedKey outDigest:&generatedDigest];
+
+    NSError *error;
+    NSData *decryptedData = [Cryptography decryptAttachment:cipherText
+                                                    withKey:generatedKey
+                                                     digest:generatedDigest
+                                               unpaddedSize:(UInt32)plainTextData.length
+                                                      error:&error];
+    XCTAssertNil(error);
+
+    XCTAssertEqualObjects(plainTextData, decryptedData);
+}
+
+- (void)testEncryptAttachmentDataWithBadUnpaddedSize
 {
 
     NSString *plainText = @"SGF3YWlpIGlzIEF3ZXNvbWUh";
@@ -57,9 +77,15 @@ NS_ASSUME_NONNULL_BEGIN
     NSData *cipherText =
         [Cryptography encryptAttachmentData:plainTextData outKey:&generatedKey outDigest:&generatedDigest];
 
-    NSData *decryptedData = [Cryptography decryptAttachment:cipherText withKey:generatedKey digest:generatedDigest];
 
-    XCTAssertEqualObjects(plainTextData, decryptedData);
+    NSError *error;
+    NSData *decryptedData = [Cryptography decryptAttachment:cipherText
+                                                    withKey:generatedKey
+                                                     digest:generatedDigest
+                                               unpaddedSize:(UInt32)cipherText.length + 1
+                                                      error:&error];
+    XCTAssertNotNil(error);
+    XCTAssertNil(decryptedData);
 }
 
 - (void)testDecryptAttachmentWithBadKey
@@ -78,9 +104,12 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSData *badKey = [Cryptography generateRandomBytes:64];
 
-    NSData *decryptedData = [Cryptography decryptAttachment:cipherText withKey:badKey digest:generatedDigest];
-
-    XCTAssertNil(decryptedData);
+    NSError *error;
+    XCTAssertThrows([Cryptography decryptAttachment:cipherText
+                                            withKey:badKey
+                                             digest:generatedDigest
+                                       unpaddedSize:(UInt32)plainTextData.length
+                                              error:&error]);
 }
 
 - (void)testDecryptAttachmentWithBadDigest
@@ -99,9 +128,12 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSData *badDigest = [Cryptography generateRandomBytes:32];
 
-    NSData *decryptedData = [Cryptography decryptAttachment:cipherText withKey:generatedKey digest:badDigest];
-
-    XCTAssertNil(decryptedData);
+    NSError *error;
+    XCTAssertThrows([Cryptography decryptAttachment:cipherText
+                                            withKey:generatedKey
+                                             digest:badDigest
+                                       unpaddedSize:(UInt32)plainTextData.length
+                                              error:&error]);
 }
 
 - (void)testComputeSHA256Digest
@@ -136,14 +168,14 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertEqual(39, plainTextData.length);
 
     OWSAES256Key *key = [OWSAES256Key new];
-    NSData *_Nullable encryptedData = [Cryptography encryptAESGCMWithData:plainTextData key:key];
+    NSData *_Nullable encryptedData = [Cryptography encryptAESGCMWithProfileData:plainTextData key:key];
 
     const NSUInteger ivLength = 12;
     const NSUInteger tagLength = 16;
     
     XCTAssertEqual(ivLength + plainTextData.length + tagLength, encryptedData.length);
 
-    NSData *_Nullable decryptedData = [Cryptography decryptAESGCMWithData:encryptedData key:key];
+    NSData *_Nullable decryptedData = [Cryptography decryptAESGCMWithProfileData:encryptedData key:key];
     XCTAssert(decryptedData != nil);
     XCTAssertEqual(39, decryptedData.length);
     XCTAssertEqualObjects(plainTextData, decryptedData);
@@ -157,7 +189,7 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertEqual(39, plainTextData.length);
 
     OWSAES256Key *key = [OWSAES256Key new];
-    NSData *_Nullable encryptedData = [Cryptography encryptAESGCMWithData:plainTextData key:key];
+    NSData *_Nullable encryptedData = [Cryptography encryptAESGCMWithProfileData:plainTextData key:key];
 
     const NSUInteger ivLength = 12;
     const NSUInteger tagLength = 16;
@@ -175,6 +207,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSData *_Nullable decryptedData = [Cryptography decryptAESGCMWithInitializationVector:initializationVector
                                                                                ciphertext:cipherText
+                                                              additionalAuthenticatedData:nil
                                                                                   authTag:authTag
                                                                                       key:key];
 
@@ -195,6 +228,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     decryptedData = [Cryptography decryptAESGCMWithInitializationVector:initializationVector
                                                              ciphertext:cipherText
+                                            additionalAuthenticatedData:nil
                                                                 authTag:bogusAuthTag
                                                                     key:key];
 

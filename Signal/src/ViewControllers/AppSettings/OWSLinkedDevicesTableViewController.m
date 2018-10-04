@@ -40,11 +40,15 @@ int const OWSLinkedDevicesTableViewControllerSectionAddDevice = 1;
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+
+    self.view.backgroundColor = Theme.backgroundColor;
+
     self.title = NSLocalizedString(@"LINKED_DEVICES_TITLE", @"Menu item and navbar title for the device manager");
 
     self.isExpectingMoreDevices = NO;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 60;
+    self.tableView.separatorColor = Theme.cellSeparatorColor;
 
     [self.tableView applyScrollViewInsetsFix];
 
@@ -139,32 +143,33 @@ int const OWSLinkedDevicesTableViewControllerSectionAddDevice = 1;
 {
     __weak typeof(self) wself = self;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        [[OWSDevicesService new] getDevicesWithSuccess:^(NSArray<OWSDevice *> *devices) {
-            // If we have more than one device; we may have a linked device.
-            if (devices.count > 1) {
-                // Setting this flag here shouldn't be necessary, but we do so
-                // because the "cost" is low and it will improve robustness.
-                [OWSDeviceManager.sharedManager setMayHaveLinkedDevices];
-            }
+        [[OWSDevicesService new]
+            getDevicesWithSuccess:^(NSArray<OWSDevice *> *devices) {
+                // If we have more than one device; we may have a linked device.
+                if (devices.count > 1) {
+                    // Setting this flag here shouldn't be necessary, but we do so
+                    // because the "cost" is low and it will improve robustness.
+                    [OWSDeviceManager.sharedManager setMayHaveLinkedDevices];
+                }
 
-            if (devices.count > [OWSDevice numberOfKeysInCollection]) {
-                // Got our new device, we can stop refreshing.
-                wself.isExpectingMoreDevices = NO;
-                [wself.pollingRefreshTimer invalidate];
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    wself.refreshControl.attributedTitle = nil;
-                });
-            }
-            [OWSDevice replaceAll:devices];
+                if (devices.count > [OWSDevice numberOfKeysInCollection]) {
+                    // Got our new device, we can stop refreshing.
+                    wself.isExpectingMoreDevices = NO;
+                    [wself.pollingRefreshTimer invalidate];
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        wself.refreshControl.attributedTitle = nil;
+                    });
+                }
+                [OWSDevice replaceAll:devices];
 
-            if (!self.isExpectingMoreDevices) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [wself.refreshControl endRefreshing];
-                });
+                if (!self.isExpectingMoreDevices) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [wself.refreshControl endRefreshing];
+                    });
+                }
             }
-        }
             failure:^(NSError *error) {
-                DDLogError(@"Failed to fetch devices in linkedDevices controller with error: %@", error);
+                OWSLogError(@"Failed to fetch devices in linkedDevices controller with error: %@", error);
 
                 NSString *alertTitle = NSLocalizedString(
                     @"DEVICE_LIST_UPDATE_FAILED_TITLE", @"Alert title that can occur when viewing device manager.");
@@ -215,7 +220,7 @@ int const OWSLinkedDevicesTableViewControllerSectionAddDevice = 1;
 {
     OWSAssertIsOnMainThread();
 
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogVerbose(@"");
 
     NSArray *notifications = [self.dbConnection beginLongLivedReadTransaction];
     [self setupEditButton];
@@ -279,7 +284,7 @@ int const OWSLinkedDevicesTableViewControllerSectionAddDevice = 1;
         case OWSLinkedDevicesTableViewControllerSectionAddDevice:
             return 1;
         default:
-            DDLogError(@"Unknown section: %ld", (long)section);
+            OWSLogError(@"Unknown section: %ld", (long)section);
             return 0;
     }
 }
@@ -301,13 +306,13 @@ int const OWSLinkedDevicesTableViewControllerSectionAddDevice = 1;
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     if (indexPath.section == OWSLinkedDevicesTableViewControllerSectionAddDevice) {
-        UITableViewCell *addNewDeviceCell =
-            [tableView dequeueReusableCellWithIdentifier:@"AddNewDevice" forIndexPath:indexPath];
-        addNewDeviceCell.textLabel.text
+        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"AddNewDevice" forIndexPath:indexPath];
+        [OWSTableItem configureCell:cell];
+        cell.textLabel.text
             = NSLocalizedString(@"LINK_NEW_DEVICE_TITLE", @"Navigation title when scanning QR code to add new device.");
-        addNewDeviceCell.detailTextLabel.text
+        cell.detailTextLabel.text
             = NSLocalizedString(@"LINK_NEW_DEVICE_SUBTITLE", @"Subheading for 'Link New Device' navigation");
-        return addNewDeviceCell;
+        return cell;
     } else if (indexPath.section == OWSLinkedDevicesTableViewControllerSectionExistingDevices) {
         OWSDeviceTableViewCell *cell =
             [tableView dequeueReusableCellWithIdentifier:@"ExistingDevice" forIndexPath:indexPath];
@@ -315,7 +320,7 @@ int const OWSLinkedDevicesTableViewControllerSectionAddDevice = 1;
         [cell configureWithDevice:device];
         return cell;
     } else {
-        DDLogError(@"Unknown section: %@", indexPath);
+        OWSLogError(@"Unknown section: %@", indexPath);
         return [UITableViewCell new];
     }
 }
@@ -356,7 +361,7 @@ int const OWSLinkedDevicesTableViewControllerSectionAddDevice = 1;
         [self
             touchedUnlinkControlForDevice:device
                                   success:^{
-                                      DDLogInfo(@"Removing unlinked device with deviceId: %ld", (long)device.deviceId);
+                                      OWSLogInfo(@"Removing unlinked device with deviceId: %ld", (long)device.deviceId);
                                       [device remove];
                                   }];
     }

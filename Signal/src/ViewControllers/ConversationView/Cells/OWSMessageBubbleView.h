@@ -6,7 +6,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class ContactShareViewModel;
 @class ConversationStyle;
-@class ConversationViewItem;
+
+@protocol ConversationViewItem;
+
 @class OWSContact;
 @class OWSQuotedReplyModel;
 @class TSAttachmentPointer;
@@ -21,32 +23,32 @@ typedef NS_ENUM(NSUInteger, OWSMessageGestureLocation) {
     OWSMessageGestureLocation_QuotedReply,
 };
 
+extern const UIDataDetectorTypes kOWSAllowedDataDetectorTypes;
+
 @protocol OWSMessageBubbleViewDelegate
 
-- (void)didTapImageViewItem:(ConversationViewItem *)viewItem
+- (void)didTapImageViewItem:(id<ConversationViewItem>)viewItem
            attachmentStream:(TSAttachmentStream *)attachmentStream
                   imageView:(UIView *)imageView;
 
-- (void)didTapVideoViewItem:(ConversationViewItem *)viewItem
+- (void)didTapVideoViewItem:(id<ConversationViewItem>)viewItem
            attachmentStream:(TSAttachmentStream *)attachmentStream
                   imageView:(UIView *)imageView;
 
-- (void)didTapAudioViewItem:(ConversationViewItem *)viewItem attachmentStream:(TSAttachmentStream *)attachmentStream;
+- (void)didTapAudioViewItem:(id<ConversationViewItem>)viewItem attachmentStream:(TSAttachmentStream *)attachmentStream;
 
-- (void)didTapTruncatedTextMessage:(ConversationViewItem *)conversationItem;
+- (void)didTapTruncatedTextMessage:(id<ConversationViewItem>)conversationItem;
 
-- (void)didTapFailedIncomingAttachment:(ConversationViewItem *)viewItem
+- (void)didTapFailedIncomingAttachment:(id<ConversationViewItem>)viewItem
                      attachmentPointer:(TSAttachmentPointer *)attachmentPointer;
 
+- (void)didTapConversationItem:(id<ConversationViewItem>)viewItem quotedReply:(OWSQuotedReplyModel *)quotedReply;
+- (void)didTapConversationItem:(id<ConversationViewItem>)viewItem
 - (void)didTapPreviewAttachment:(ConversationViewItem *)viewItem
-               attachmentStream:(TSAttachmentStream *)attachmentStream;
-
-- (void)didTapConversationItem:(ConversationViewItem *)viewItem quotedReply:(OWSQuotedReplyModel *)quotedReply;
-- (void)didTapConversationItem:(ConversationViewItem *)viewItem
                                  quotedReply:(OWSQuotedReplyModel *)quotedReply
     failedThumbnailDownloadAttachmentPointer:(TSAttachmentPointer *)attachmentPointer;
 
-- (void)didTapContactShareViewItem:(ConversationViewItem *)viewItem;
+- (void)didTapContactShareViewItem:(id<ConversationViewItem>)viewItem;
 
 - (void)didTapSendMessageToContactShare:(ContactShareViewModel *)contactShare
     NS_SWIFT_NAME(didTapSendMessage(toContactShare:));
@@ -61,7 +63,7 @@ typedef NS_ENUM(NSUInteger, OWSMessageGestureLocation) {
 
 @interface OWSMessageBubbleView : UIView
 
-@property (nonatomic, nullable) ConversationViewItem *viewItem;
+@property (nonatomic, nullable) id<ConversationViewItem> viewItem;
 
 @property (nonatomic) ConversationStyle *conversationStyle;
 

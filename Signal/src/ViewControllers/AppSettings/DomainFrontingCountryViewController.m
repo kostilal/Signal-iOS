@@ -5,8 +5,10 @@
 #import "DomainFrontingCountryViewController.h"
 #import "OWSCountryMetadata.h"
 #import "OWSTableViewController.h"
+#import "UIColor+OWS.h"
 #import "UIFont+OWS.h"
 #import "UIView+OWS.h"
+#import <SignalMessaging/Theme.h>
 #import <SignalServiceKit/OWSSignalService.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -30,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
     self.title = NSLocalizedString(
         @"CENSORSHIP_CIRCUMVENTION_COUNTRY_VIEW_TITLE", @"Title for the 'censorship circumvention country' view.");
 
-    self.view.backgroundColor = [UIColor whiteColor];
+    self.view.backgroundColor = Theme.backgroundColor;
 
     [self createViews];
 }
@@ -63,9 +65,8 @@ NS_ASSUME_NONNULL_BEGIN
         [section addItem:[OWSTableItem
                              itemWithCustomCellBlock:^{
                                  UITableViewCell *cell = [OWSTableItem newCell];
+                                 [OWSTableItem configureCell:cell];
                                  cell.textLabel.text = countryMetadata.localizedCountryName;
-                                 cell.textLabel.font = [UIFont ows_regularFontWithSize:18.f];
-                                 cell.textLabel.textColor = [UIColor blackColor];
 
                                  if ([countryMetadata.countryCode isEqualToString:currentCountryCode]) {
                                      cell.accessoryType = UITableViewCellAccessoryCheckmark;
@@ -84,7 +85,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)selectCountry:(OWSCountryMetadata *)countryMetadata
 {
-    OWSAssert(countryMetadata);
+    OWSAssertDebug(countryMetadata);
 
     OWSSignalService.sharedInstance.manualCensorshipCircumventionCountryCode = countryMetadata.countryCode;
 

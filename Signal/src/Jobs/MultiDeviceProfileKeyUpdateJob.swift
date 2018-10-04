@@ -14,8 +14,6 @@ import SignalMessaging
  */
 @objc public class MultiDeviceProfileKeyUpdateJob: NSObject {
 
-    let TAG = "[MultiDeviceProfileKeyUpdateJob]"
-
     private let profileKey: OWSAES256Key
     private let identityManager: OWSIdentityManager
     private let messageSender: MessageSender
@@ -38,7 +36,7 @@ import SignalMessaging
 
     func run(retryDelay: TimeInterval = 1) {
         guard let localNumber = TSAccountManager.localNumber() else {
-            owsFail("\(self.TAG) localNumber was unexpectedly nil")
+            owsFailDebug("localNumber was unexpectedly nil")
             return
         }
 
@@ -48,13 +46,17 @@ import SignalMessaging
                                                         identityManager: self.identityManager,
                                                         profileManager: self.profileManager)
 
-        var dataSource: DataSource? = nil
+        var dataSource: DataSource?
         self.editingDatabaseConnection.readWrite { transaction in
-             dataSource = DataSourceValue.dataSource(withSyncMessageData: syncContactsMessage.buildPlainTextAttachmentData(with: transaction))
+            guard let messageData: Data = syncContactsMessage.buildPlainTextAttachmentData(with: transaction) else {
+                owsFailDebug("could not serialize sync contacts data")
+                return
+            }
+            dataSource = DataSourceValue.dataSource(withSyncMessageData: messageData)
         }
 
         guard let attachmentDataSource = dataSource else {
-            owsFail("\(self.logTag) in \(#function) dataSource was unexpectedly nil")
+            owsFailDebug("dataSource was unexpectedly nil")
             return
         }
 
@@ -62,10 +64,10 @@ import SignalMessaging
             contentType: OWSMimeTypeApplicationOctetStream,
             in: syncContactsMessage,
             success: {
-                Logger.info("\(self.TAG) Successfully synced profile key")
+                Logger.info("Successfully synced profile key")
             },
             failure: { error in
-                Logger.error("\(self.TAG) in \(#function) failed with error: \(error) retrying in \(retryDelay)s.")
+                Logger.error("failed with error: \(error) retrying in \(retryDelay)s.")
                 after(interval: retryDelay).then {
                     self.run(retryDelay: retryDelay * 2)
                 }.retainUntilComplete()

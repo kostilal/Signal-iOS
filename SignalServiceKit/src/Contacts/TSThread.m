@@ -23,8 +23,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic) NSDate *creationDate;
 @property (nonatomic, copy, nullable) NSDate *archivalDate;
-@property (nonatomic, nullable) NSString *conversationColorName;
+@property (nonatomic) NSString *conversationColorName;
 @property (nonatomic, nullable) NSDate *lastMessageDate;
+
 @property (nonatomic, copy, nullable) NSString *messageDraft;
 @property (atomic, nullable) NSDate *mutedUntilDate;
 
@@ -51,9 +52,9 @@ NS_ASSUME_NONNULL_BEGIN
         NSString *_Nullable contactId = self.contactIdentifier;
         if (contactId.length > 0) {
             // To be consistent with colors synced to desktop
-            _conversationColorName = [self.class stableConversationColorNameForString:contactId];
+            _conversationColorName = [self.class stableColorNameForNewConversationWithString:contactId];
         } else {
-            _conversationColorName = [self.class stableConversationColorNameForString:self.uniqueId];
+            _conversationColorName = [self.class stableColorNameForNewConversationWithString:self.uniqueId];
         }
     }
 
@@ -71,9 +72,9 @@ NS_ASSUME_NONNULL_BEGIN
         NSString *_Nullable contactId = self.contactIdentifier;
         if (contactId.length > 0) {
             // To be consistent with colors synced to desktop
-            _conversationColorName = [self.class stableConversationColorNameForString:contactId];
+            _conversationColorName = [self.class stableColorNameForLegacyConversationWithString:contactId];
         } else {
-            _conversationColorName = [self.class stableConversationColorNameForString:self.uniqueId];
+            _conversationColorName = [self.class stableColorNameForLegacyConversationWithString:self.uniqueId];
         }
     }
     
@@ -96,15 +97,13 @@ NS_ASSUME_NONNULL_BEGIN
     // or when deleting them.
     NSMutableArray<NSString *> *interactionIds = [NSMutableArray new];
     YapDatabaseViewTransaction *interactionsByThread = [transaction ext:TSMessageDatabaseViewExtensionName];
-    OWSAssert(interactionsByThread);
+    OWSAssertDebug(interactionsByThread);
     __block BOOL didDetectCorruption = NO;
     [interactionsByThread enumerateKeysInGroup:self.uniqueId
                                     usingBlock:^(NSString *collection, NSString *key, NSUInteger index, BOOL *stop) {
                                         if (![key isKindOfClass:[NSString class]] || key.length < 1) {
-                                            OWSProdLogAndFail(@"%@ invalid key in thread interactions: %@, %@.",
-                                                self.logTag,
-                                                key,
-                                                [key class]);
+                                            OWSFailDebug(
+                                                @"invalid key in thread interactions: %@, %@.", key, [key class]);
                                             didDetectCorruption = YES;
                                             return;
                                         }
@@ -112,7 +111,7 @@ NS_ASSUME_NONNULL_BEGIN
                                     }];
 
     if (didDetectCorruption) {
-        DDLogWarn(@"%@ incrementing version of: %@", self.logTag, TSMessageDatabaseViewExtensionName);
+        OWSLogWarn(@"incrementing version of: %@", TSMessageDatabaseViewExtensionName);
         [OWSPrimaryStorage incrementVersionOfDatabaseExtension:TSMessageDatabaseViewExtensionName];
     }
 
@@ -121,7 +120,7 @@ NS_ASSUME_NONNULL_BEGIN
         TSInteraction *_Nullable interaction =
             [TSInteraction fetchObjectWithUniqueID:interactionId transaction:transaction];
         if (!interaction) {
-            OWSProdLogAndFail(@"%@ couldn't load thread's interaction for deletion.", self.logTag);
+            OWSFailDebug(@"couldn't load thread's interaction for deletion.");
             continue;
         }
         [interaction removeWithTransaction:transaction];
@@ -131,7 +130,7 @@ NS_ASSUME_NONNULL_BEGIN
 #pragma mark To be subclassed.
 
 - (BOOL)isGroupThread {
-    OWS_ABSTRACT_METHOD();
+    OWSAbstractMethod();
 
     return NO;
 }
@@ -143,14 +142,14 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (NSString *)name {
-    OWS_ABSTRACT_METHOD();
+    OWSAbstractMethod();
 
     return nil;
 }
 
 - (NSArray<NSString *> *)recipientIdentifiers
 {
-    OWS_ABSTRACT_METHOD();
+    OWSAbstractMethod();
 
     return @[];
 }
@@ -242,7 +241,7 @@ NS_ASSUME_NONNULL_BEGIN
                       NSString *collection, NSString *key, id object, id metadata, NSUInteger index, BOOL *stop) {
 
                       if (![object conformsToProtocol:@protocol(OWSReadTracking)]) {
-                          OWSFail(@"%@ Unexpected object in unseen messages: %@", self.logTag, object);
+                          OWSFailDebug(@"Unexpected object in unseen messages: %@", [object class]);
                           return;
                       }
                       [messages addObject:(id<OWSReadTracking>)object];
@@ -263,12 +262,12 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     // Just to be defensive, we'll also check for unread messages.
-    OWSAssert([self unseenMessagesWithTransaction:transaction].count < 1);
+    OWSAssertDebug([self unseenMessagesWithTransaction:transaction].count < 1);
 }
 
 - (nullable TSInteraction *)lastInteractionForInboxWithTransaction:(YapDatabaseReadTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     __block NSUInteger missedCount = 0;
     __block TSInteraction *last = nil;
@@ -278,7 +277,7 @@ NS_ASSUME_NONNULL_BEGIN
      usingBlock:^(
                   NSString *collection, NSString *key, id object, id metadata, NSUInteger index, BOOL *stop) {
          
-         OWSAssert([object isKindOfClass:[TSInteraction class]]);
+         OWSAssertDebug([object isKindOfClass:[TSInteraction class]]);
 
          missedCount++;
          TSInteraction *interaction = (TSInteraction *)object;
@@ -291,9 +290,7 @@ NS_ASSUME_NONNULL_BEGIN
              // who's test devices are constantly reinstalled. We could add a purpose-built DB view,
              // but I think in the real world this is rare to be a hotspot.
              if (missedCount > 50) {
-                 DDLogWarn(@"%@ found last interaction for inbox after skipping %lu items",
-                     self.logTag,
-                     (unsigned long)missedCount);
+                 OWSLogWarn(@"found last interaction for inbox after skipping %lu items", (unsigned long)missedCount);
              }
              *stop = YES;
          }
@@ -323,7 +320,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Returns YES IFF the interaction should show up in the inbox as the last message.
 + (BOOL)shouldInteractionAppearInInbox:(TSInteraction *)interaction
 {
-    OWSAssert(interaction);
+    OWSAssertDebug(interaction);
 
     if (interaction.isDynamicInteraction) {
         return NO;
@@ -347,8 +344,8 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (void)updateWithLastMessage:(TSInteraction *)lastMessage transaction:(YapDatabaseReadWriteTransaction *)transaction {
-    OWSAssert(lastMessage);
-    OWSAssert(transaction);
+    OWSAssertDebug(lastMessage);
+    OWSAssertDebug(transaction);
 
     if (![self.class shouldInteractionAppearInInbox:lastMessage]) {
         return;
@@ -444,14 +441,25 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Conversation Color
 
-+ (NSString *)randomConversationColorName
++ (NSArray<NSString *> *)colorNamesForNewConversation
 {
-    NSUInteger count = self.conversationColorNames.count;
-    NSUInteger index = arc4random_uniform((uint32_t)count);
-    return [self.conversationColorNames objectAtIndex:index];
+    // all conversation colors except "steel"
+    return @[
+        @"crimson",
+        @"vermilion",
+        @"burlap",
+        @"forest",
+        @"wintergreen",
+        @"teal",
+        @"blue",
+        @"indigo",
+        @"violet",
+        @"plum",
+        @"taupe"
+    ];
 }
 
-+ (NSString *)stableConversationColorNameForString:(NSString *)colorSeed
++ (NSString *)stableConversationColorNameForString:(NSString *)colorSeed colorNames:(NSArray<NSString *> *)colorNames
 {
     NSData *contactData = [colorSeed dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -461,14 +469,26 @@ NS_ASSUME_NONNULL_BEGIN
     if (hashData) {
         [hashData getBytes:&hash length:hashingLength];
     } else {
-        OWSProdLogAndFail(@"%@ could not compute hash for color seed.", self.logTag);
+        OWSFailDebug(@"could not compute hash for color seed.");
     }
 
-    NSUInteger index = (hash % [self.conversationColorNames count]);
-    return [self.conversationColorNames objectAtIndex:index];
+    NSUInteger index = (hash % colorNames.count);
+    return [colorNames objectAtIndex:index];
 }
 
-+ (NSArray<NSString *> *)conversationColorNames
++ (NSString *)stableColorNameForNewConversationWithString:(NSString *)colorSeed
+{
+    return [self stableConversationColorNameForString:colorSeed colorNames:self.colorNamesForNewConversation];
+}
+
+// After introducing new conversation colors, we want to try to maintain as close
+// as possible to the old color for an existing thread.
++ (NSString *)stableColorNameForLegacyConversationWithString:(NSString *)colorSeed
+{
+    return [self stableConversationColorNameForString:colorSeed colorNames:self.legacyConversationColorNames];
+}
+
++ (NSArray<NSString *> *)legacyConversationColorNames
 {
     return @[
              @"red",

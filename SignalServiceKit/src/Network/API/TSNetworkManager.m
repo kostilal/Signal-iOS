@@ -4,9 +4,11 @@
 
 #import "TSNetworkManager.h"
 #import "AppContext.h"
+#import "NSData+OWS.h"
 #import "NSError+messageSending.h"
 #import "NSURLSessionDataTask+StatusCode.h"
 #import "OWSSignalService.h"
+#import "SSKEnvironment.h"
 #import "TSAccountManager.h"
 #import "TSVerifyCodeRequest.h"
 #import <AFNetworking/AFNetworking.h>
@@ -31,14 +33,10 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
 
 + (instancetype)sharedManager
 {
-    static TSNetworkManager *sharedMyManager = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        sharedMyManager = [[self alloc] initDefault];
-    });
-    return sharedMyManager;
-}
+    OWSAssertDebug(SSKEnvironment.shared.networkManager);
 
+    return SSKEnvironment.shared.networkManager;
+}
 
 - (instancetype)initDefault
 {
@@ -66,9 +64,9 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
             success:(TSNetworkManagerSuccess)successBlock
             failure:(TSNetworkManagerFailure)failureBlock
 {
-    OWSAssert(request);
-    OWSAssert(successBlock);
-    OWSAssert(failureBlock);
+    OWSAssertDebug(request);
+    OWSAssertDebug(successBlock);
+    OWSAssertDebug(failureBlock);
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         [self makeRequestSync:request completionQueue:completionQueue success:successBlock failure:failureBlock];
@@ -80,15 +78,15 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
                 success:(TSNetworkManagerSuccess)successBlock
                 failure:(TSNetworkManagerFailure)failureBlock
 {
-    OWSAssert(request);
-    OWSAssert(successBlock);
-    OWSAssert(failureBlock);
+    OWSAssertDebug(request);
+    OWSAssertDebug(successBlock);
+    OWSAssertDebug(failureBlock);
 
-    DDLogInfo(@"%@ Making request: %@", self.logTag, request);
+    OWSLogInfo(@"Making request: %@", request);
 
     // TODO: Remove this logging when the call connection issues have been resolved.
     TSNetworkManagerSuccess success = ^(NSURLSessionDataTask *task, _Nullable id responseObject) {
-        DDLogInfo(@"%@ request succeeded : %@", self.logTag, request);
+        OWSLogInfo(@"request succeeded : %@", request);
 
         if (request.shouldHaveAuthorizationHeaders) {
             [TSAccountManager.sharedInstance setIsDeregistered:NO];
@@ -119,6 +117,17 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
                                                                              password:request.authPassword];
         }
 
+        // Honor the request's preferences about default cookie handling.
+        //
+        // Default is YES.
+        sessionManager.requestSerializer.HTTPShouldHandleCookies = request.HTTPShouldHandleCookies;
+
+        // Honor the request's headers.
+        for (NSString *headerField in request.allHTTPHeaderFields) {
+            NSString *headerValue = request.allHTTPHeaderFields[headerField];
+            [sessionManager.requestSerializer setValue:headerValue forHTTPHeaderField:headerField];
+        }
+
         if ([request.HTTPMethod isEqualToString:@"GET"]) {
             [sessionManager GET:request.URL.absoluteString
                      parameters:request.parameters
@@ -142,18 +151,62 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
                            success:success
                            failure:failure];
         } else {
-            DDLogError(@"Trying to perform HTTP operation with unknown verb: %@", request.HTTPMethod);
+            OWSLogError(@"Trying to perform HTTP operation with unknown verb: %@", request.HTTPMethod);
         }
     }
 }
 
+#ifdef DEBUG
++ (void)logCurlForTask:(NSURLSessionDataTask *)task
+{
+    NSMutableArray<NSString *> *curlComponents = [NSMutableArray new];
+    [curlComponents addObject:@"curl"];
+    // Verbose
+    [curlComponents addObject:@"-v"];
+    // Insecure
+    [curlComponents addObject:@"-k"];
+    // Method, e.g. GET
+    [curlComponents addObject:@"-X"];
+    [curlComponents addObject:task.originalRequest.HTTPMethod];
+    // Headers
+    for (NSString *header in task.originalRequest.allHTTPHeaderFields) {
+        NSString *headerValue = task.originalRequest.allHTTPHeaderFields[header];
+        // We don't yet support escaping header values.
+        // If these asserts trip, we'll need to add that.
+        OWSAssertDebug([header rangeOfString:@"'"].location == NSNotFound);
+        OWSAssertDebug([headerValue rangeOfString:@"'"].location == NSNotFound);
+
+        [curlComponents addObject:@"-H"];
+        [curlComponents addObject:[NSString stringWithFormat:@"'%@: %@'", header, headerValue]];
+    }
+    // Body/parameters (e.g. JSON payload)
+    if (task.originalRequest.HTTPBody) {
+        NSString *jsonBody =
+            [[NSString alloc] initWithData:task.originalRequest.HTTPBody encoding:NSUTF8StringEncoding];
+        // We don't yet support escaping JSON.
+        // If these asserts trip, we'll need to add that.
+        OWSAssertDebug([jsonBody rangeOfString:@"'"].location == NSNotFound);
+        [curlComponents addObject:@"--data-ascii"];
+        [curlComponents addObject:[NSString stringWithFormat:@"'%@'", jsonBody]];
+    }
+    // TODO: Add support for cookies.
+    [curlComponents addObject:task.originalRequest.URL.absoluteString];
+    NSString *curlCommand = [curlComponents componentsJoinedByString:@" "];
+    OWSLogVerbose(@"curl for failed request: %@", curlCommand);
+}
+#endif
+
 + (failureBlock)errorPrettifyingForFailureBlock:(failureBlock)failureBlock request:(TSRequest *)request
 {
-    OWSAssert(failureBlock);
-    OWSAssert(request);
+    OWSAssertDebug(failureBlock);
+    OWSAssertDebug(request);
 
     return ^(NSURLSessionDataTask *_Nullable task, NSError *_Nonnull networkError) {
       NSInteger statusCode = [task statusCode];
+
+#ifdef DEBUG
+        [TSNetworkManager logCurlForTask:task];
+#endif
 
       [OutageDetection.sharedManager reportConnectionFailure];
 
@@ -167,7 +220,7 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
           case 0: {
               error.isRetryable = YES;
 
-              DDLogWarn(@"The network request failed because of a connectivity error: %@", request);
+              OWSLogWarn(@"The network request failed because of a connectivity error: %@", request);
               failureBlock(task,
                   [self errorWithHTTPCode:statusCode
                               description:NSLocalizedString(@"ERROR_DESCRIPTION_NO_INTERNET",
@@ -178,40 +231,40 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
               break;
           }
           case 400: {
-              DDLogError(@"The request contains an invalid parameter : %@, %@", networkError.debugDescription, request);
+              OWSLogError(
+                  @"The request contains an invalid parameter : %@, %@", networkError.debugDescription, request);
 
               error.isRetryable = NO;
-
-              // TODO distinguish CDS requests. we don't want a bad CDS request to trigger "Signal deauth" logic.
-              // also, shouldn't this be under 403, not 400?
-              [TSAccountManager.sharedInstance setIsDeregistered:YES];
 
               failureBlock(task, error);
               break;
           }
           case 401: {
-              DDLogError(@"The server returned an error about the authorization header: %@, %@",
+              OWSLogError(@"The server returned an error about the authorization header: %@, %@",
                   networkError.debugDescription,
                   request);
               error.isRetryable = NO;
+              [self deregisterAfterAuthErrorIfNecessary:task statusCode:statusCode];
               failureBlock(task, error);
               break;
           }
           case 403: {
-              DDLogError(
+              OWSLogError(
                   @"The server returned an authentication failure: %@, %@", networkError.debugDescription, request);
               error.isRetryable = NO;
+              [self deregisterAfterAuthErrorIfNecessary:task statusCode:statusCode];
               failureBlock(task, error);
               break;
           }
           case 404: {
-              DDLogError(@"The requested resource could not be found: %@, %@", networkError.debugDescription, request);
+              OWSLogError(@"The requested resource could not be found: %@, %@", networkError.debugDescription, request);
               error.isRetryable = NO;
               failureBlock(task, error);
               break;
           }
           case 411: {
-              DDLogInfo(@"Multi-device pairing: %ld, %@, %@", (long)statusCode, networkError.debugDescription, request);
+              OWSLogInfo(
+                  @"Multi-device pairing: %ld, %@, %@", (long)statusCode, networkError.debugDescription, request);
               failureBlock(task,
                            [self errorWithHTTPCode:statusCode
                                        description:NSLocalizedString(@"MULTIDEVICE_PAIRING_MAX_DESC", @"alert title: cannot link - reached max linked devices")
@@ -221,7 +274,7 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
               break;
           }
           case 413: {
-              DDLogWarn(@"Rate limit exceeded: %@", request);
+              OWSLogWarn(@"Rate limit exceeded: %@", request);
               failureBlock(task,
                            [self errorWithHTTPCode:statusCode
                                        description:NSLocalizedString(@"REGISTRATION_ERROR", nil)
@@ -232,7 +285,7 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
           }
           case 417: {
               // TODO: Is this response code obsolete?
-              DDLogWarn(@"The number is already registered on a relay. Please unregister there first: %@", request);
+              OWSLogWarn(@"The number is already registered on a relay. Please unregister there first: %@", request);
               failureBlock(task,
                            [self errorWithHTTPCode:statusCode
                                        description:NSLocalizedString(@"REGISTRATION_ERROR", nil)
@@ -242,19 +295,32 @@ typedef void (^failureBlock)(NSURLSessionDataTask *task, NSError *error);
               break;
           }
           case 422: {
-              DDLogError(@"The registration was requested over an unknown transport: %@, %@",
+              OWSLogError(@"The registration was requested over an unknown transport: %@, %@",
                   networkError.debugDescription,
                   request);
               failureBlock(task, error);
               break;
           }
           default: {
-              DDLogWarn(@"Unknown error: %ld, %@, %@", (long)statusCode, networkError.debugDescription, request);
+              OWSLogWarn(@"Unknown error: %ld, %@, %@", (long)statusCode, networkError.debugDescription, request);
               failureBlock(task, error);
               break;
           }
       }
     };
+}
+
++ (void)deregisterAfterAuthErrorIfNecessary:(NSURLSessionDataTask *)task statusCode:(NSInteger)statusCode
+{
+    OWSLogVerbose(@"Invalid auth: %@", task.originalRequest.allHTTPHeaderFields);
+
+    // Distinguish CDS requests.
+    // We don't want a bad CDS request to trigger "Signal deauth" logic.
+    if ([task.originalRequest.URL.absoluteString hasPrefix:textSecureServerURL]) {
+        [TSAccountManager.sharedInstance setIsDeregistered:YES];
+    } else {
+        OWSLogWarn(@"Ignoring %d for URL: %@", (int)statusCode, task.originalRequest.URL.absoluteString);
+    }
 }
 
 + (NSError *)errorWithHTTPCode:(NSInteger)code

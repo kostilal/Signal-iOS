@@ -36,7 +36,7 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
     private let actionSheetView: MenuActionSheetView
 
     deinit {
-        Logger.verbose("\(logTag) in \(#function)")
+        Logger.verbose("")
         assert(didInformDelegateOfDismissalAnimation)
         assert(didInformDelegateThatDisappearenceCompleted)
     }
@@ -52,7 +52,7 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     // MARK: View LifeCycle
@@ -80,7 +80,7 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
     }
 
     override func viewDidDisappear(_ animated: Bool) {
-        Logger.debug("\(logTag) in \(#function)")
+        Logger.debug("")
         super.viewDidDisappear(animated)
 
         // When the user has manually dismissed the menu, we do a nice animation
@@ -97,13 +97,13 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
 
     private func addSnapshotFocusedView() -> UIView? {
         guard let snapshotView = self.focusedView.snapshotView(afterScreenUpdates: false) else {
-            owsFail("\(self.logTag) in \(#function) snapshotView was unexpectedly nil")
+            owsFailDebug("snapshotView was unexpectedly nil")
             return nil
         }
         view.addSubview(snapshotView)
 
         guard let focusedViewSuperview = focusedView.superview else {
-            owsFail("\(self.logTag) in \(#function) focusedViewSuperview was unexpectedly nil")
+            owsFailDebug("focusedViewSuperview was unexpectedly nil")
             return nil
         }
 
@@ -115,18 +115,18 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
 
     private func animatePresentation() {
         guard let actionSheetViewVerticalConstraint = self.actionSheetViewVerticalConstraint else {
-            owsFail("\(self.logTag) in \(#function) actionSheetViewVerticalConstraint was unexpectedly nil")
+            owsFailDebug("actionSheetViewVerticalConstraint was unexpectedly nil")
             return
         }
 
         guard let focusedViewSuperview = focusedView.superview else {
-            owsFail("\(self.logTag) in \(#function) focusedViewSuperview was unexpectedly nil")
+            owsFailDebug("focusedViewSuperview was unexpectedly nil")
             return
         }
 
         // darken background
         guard let snapshotView = addSnapshotFocusedView() else {
-            owsFail("\(self.logTag) in \(#function) snapshotView was unexpectedly nil")
+            owsFailDebug("snapshotView was unexpectedly nil")
             return
         }
 
@@ -135,7 +135,8 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
 
         let backgroundDuration: TimeInterval = 0.1
         UIView.animate(withDuration: backgroundDuration) {
-            self.view.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+            let alpha: CGFloat = Theme.isDarkThemeEnabled ? 0.7 : 0.4
+            self.view.backgroundColor = UIColor.black.withAlphaComponent(alpha)
         }
 
         self.actionSheetView.superview?.layoutIfNeeded()
@@ -168,19 +169,19 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
 
     private func animateDismiss(action: MenuAction?) {
         guard let actionSheetViewVerticalConstraint = self.actionSheetViewVerticalConstraint else {
-            owsFail("\(self.logTag) in \(#function) actionSheetVerticalConstraint was unexpectedly nil")
+            owsFailDebug("actionSheetVerticalConstraint was unexpectedly nil")
             self.delegate?.menuActionsDidHide(self)
             return
         }
 
         guard let snapshotView = self.snapshotView else {
-            owsFail("\(self.logTag) in \(#function) snapshotView was unexpectedly nil")
+            owsFailDebug("snapshotView was unexpectedly nil")
             self.delegate?.menuActionsDidHide(self)
             return
         }
 
         guard let presentationFocusOffset = self.presentationFocusOffset else {
-            owsFail("\(self.logTag) in \(#function) presentationFocusOffset was unexpectedly nil")
+            owsFailDebug("presentationFocusOffset was unexpectedly nil")
             self.delegate?.menuActionsDidHide(self)
             return
         }
@@ -213,7 +214,7 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
     var didInformDelegateThatDisappearenceCompleted = false
     func ensureDelegateIsInformedThatDisappearenceCompleted() {
         guard !didInformDelegateThatDisappearenceCompleted else {
-            Logger.debug("\(logTag) in \(#function) ignoring redundant 'disappeared' notification")
+            Logger.debug("ignoring redundant 'disappeared' notification")
             return
         }
         didInformDelegateThatDisappearenceCompleted = true
@@ -224,13 +225,13 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
     var didInformDelegateOfDismissalAnimation = false
     func ensureDelegateIsInformedOfDismissalAnimation() {
         guard !didInformDelegateOfDismissalAnimation else {
-            Logger.debug("\(logTag) in \(#function) ignoring redundant 'dismissal' notification")
+            Logger.debug("ignoring redundant 'dismissal' notification")
             return
         }
         didInformDelegateOfDismissalAnimation = true
 
         guard let presentationFocusOffset = self.presentationFocusOffset else {
-            owsFail("\(self.logTag) in \(#function) presentationFocusOffset was unexpectedly nil")
+            owsFailDebug("presentationFocusOffset was unexpectedly nil")
             self.delegate?.menuActionsDidHide(self)
             return
         }
@@ -288,7 +289,9 @@ class MenuActionSheetView: UIView, MenuActionViewDelegate {
 
         super.init(frame: frame)
 
-        backgroundColor = UIColor.ows_light10
+        backgroundColor = (Theme.isDarkThemeEnabled
+            ? UIColor.ows_gray90
+            : UIColor.ows_gray05)
         addSubview(actionStackView)
         actionStackView.autoPinEdgesToSuperviewEdges()
 
@@ -301,7 +304,7 @@ class MenuActionSheetView: UIView, MenuActionViewDelegate {
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("not implemented")
+        notImplemented()
     }
 
     @objc
@@ -316,14 +319,14 @@ class MenuActionSheetView: UIView, MenuActionViewDelegate {
             let location = gesture.location(in: self)
             highlightActionView(location: location, fromView: self)
         case .ended:
-            Logger.debug("\(logTag) in \(#function) ended")
+            Logger.debug("ended")
             let location = gesture.location(in: self)
             selectActionView(location: location, fromView: self)
         case .cancelled:
-            Logger.debug("\(logTag) in \(#function) canceled")
+            Logger.debug("canceled")
             unhighlightAllActionViews()
         case .failed:
-            Logger.debug("\(logTag) in \(#function) failed")
+            Logger.debug("failed")
             unhighlightAllActionViews()
         }
     }
@@ -410,22 +413,31 @@ class MenuActionView: UIButton {
         super.init(frame: CGRect.zero)
 
         isUserInteractionEnabled = true
-        backgroundColor = .white
+        backgroundColor = defaultBackgroundColor
 
-        let imageView = UIImageView(image: action.image)
+        var image = action.image
+        if Theme.isDarkThemeEnabled {
+            image = image.withRenderingMode(.alwaysTemplate)
+        }
+        let imageView = UIImageView(image: image)
+        if Theme.isDarkThemeEnabled {
+            imageView.tintColor = UIColor.ows_gray25
+        }
         let imageWidth: CGFloat = 24
         imageView.autoSetDimensions(to: CGSize(width: imageWidth, height: imageWidth))
         imageView.isUserInteractionEnabled = false
 
         let titleLabel = UILabel()
         titleLabel.font = UIFont.ows_dynamicTypeBody
-        titleLabel.textColor = UIColor.ows_light90
+        titleLabel.textColor = Theme.primaryColor
         titleLabel.text = action.title
         titleLabel.isUserInteractionEnabled = false
 
         let subtitleLabel = UILabel()
         subtitleLabel.font = UIFont.ows_dynamicTypeSubheadline
-        subtitleLabel.textColor = UIColor.ows_light60
+        subtitleLabel.textColor = (Theme.isDarkThemeEnabled
+            ? UIColor.ows_gray25
+            : Theme.secondaryColor)
         subtitleLabel.text = action.subtitle
         subtitleLabel.isUserInteractionEnabled = false
 
@@ -449,19 +461,31 @@ class MenuActionView: UIButton {
         self.isUserInteractionEnabled = false
     }
 
+    private var defaultBackgroundColor: UIColor {
+        return (Theme.isDarkThemeEnabled
+            ? UIColor.ows_gray75
+            : UIColor.white)
+    }
+
+    private var highlightedBackgroundColor: UIColor {
+        return (Theme.isDarkThemeEnabled
+            ? UIColor.ows_gray75
+            : UIColor.ows_gray05)
+    }
+
     override var isHighlighted: Bool {
         didSet {
-            self.backgroundColor = isHighlighted ? UIColor.ows_light10 : UIColor.white
+            self.backgroundColor = isHighlighted ? highlightedBackgroundColor : defaultBackgroundColor
         }
     }
 
     @objc
     func didPress(sender: Any) {
-        Logger.debug("\(logTag) in \(#function)")
+        Logger.debug("")
         self.delegate?.actionView(self, didSelectAction: action)
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("not implemented")
+        notImplemented()
     }
 }

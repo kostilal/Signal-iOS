@@ -61,10 +61,10 @@ NS_ASSUME_NONNULL_BEGIN
         quotedReplyModel:quotedReplyModel
         messageSender:messageSender
         success:^{
-            DDLogInfo(@"%@ Successfully sent message.", self.logTag);
+            OWSLogInfo(@"Successfully sent message.");
         }
         failure:^(NSError *error) {
-            DDLogWarn(@"%@ Failed to deliver message with error: %@", self.logTag, error);
+            OWSLogWarn(@"Failed to deliver message with error: %@", error);
         }];
 }
 
@@ -77,18 +77,19 @@ NS_ASSUME_NONNULL_BEGIN
                                    failure:(void (^)(NSError *error))failureHandler
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(text.length > 0);
-    OWSAssert(thread);
-    OWSAssert(messageSender);
+    OWSAssertDebug(text.length > 0);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(messageSender);
 
     OWSDisappearingMessagesConfiguration *configuration =
         [OWSDisappearingMessagesConfiguration fetchObjectWithUniqueID:thread.uniqueId];
     uint32_t expiresInSeconds = (configuration.isEnabled ? configuration.durationSeconds : 0);
-    TSOutgoingMessage *message = [TSOutgoingMessage outgoingMessageInThread:thread
-                                                                messageBody:text
-                                                               attachmentId:nil
-                                                           expiresInSeconds:expiresInSeconds
-                                                              quotedMessage:[quotedReplyModel buildQuotedMessage]];
+    TSOutgoingMessage *message =
+        [TSOutgoingMessage outgoingMessageInThread:thread
+                                       messageBody:text
+                                      attachmentId:nil
+                                  expiresInSeconds:expiresInSeconds
+                                     quotedMessage:[quotedReplyModel buildQuotedMessageForSending]];
 
     [messageSender enqueueMessage:message success:successHandler failure:failureHandler];
 
@@ -117,11 +118,11 @@ NS_ASSUME_NONNULL_BEGIN
                                       completion:(void (^_Nullable)(NSError *_Nullable error))completion
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(attachment);
-    OWSAssert(ignoreErrors || ![attachment hasError]);
-    OWSAssert([attachment mimeType].length > 0);
-    OWSAssert(thread);
-    OWSAssert(messageSender);
+    OWSAssertDebug(attachment);
+    OWSAssertDebug(ignoreErrors || ![attachment hasError]);
+    OWSAssertDebug([attachment mimeType].length > 0);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(messageSender);
 
     OWSDisappearingMessagesConfiguration *configuration =
         [OWSDisappearingMessagesConfiguration fetchObjectWithUniqueID:thread.uniqueId];
@@ -135,8 +136,8 @@ NS_ASSUME_NONNULL_BEGIN
                                                    expiresInSeconds:expiresInSeconds
                                                     expireStartedAt:0
                                                      isVoiceMessage:[attachment isVoiceMessage]
-                                                   groupMetaMessage:TSGroupMessageUnspecified
-                                                      quotedMessage:[quotedReplyModel buildQuotedMessage]
+                                                   groupMetaMessage:TSGroupMetaMessageUnspecified
+                                                      quotedMessage:[quotedReplyModel buildQuotedMessageForSending]
                                                        contactShare:nil];
 
     [messageSender enqueueAttachment:attachment.dataSource
@@ -144,7 +145,7 @@ NS_ASSUME_NONNULL_BEGIN
         sourceFilename:attachment.filenameOrDefault
         inMessage:message
         success:^{
-            DDLogDebug(@"%@ Successfully sent message attachment.", self.logTag);
+            OWSLogDebug(@"Successfully sent message attachment.");
             if (completion) {
                 dispatch_async(dispatch_get_main_queue(), ^(void) {
                     completion(nil);
@@ -152,7 +153,7 @@ NS_ASSUME_NONNULL_BEGIN
             }
         }
         failure:^(NSError *error) {
-            DDLogError(@"%@ Failed to send message attachment with error: %@", self.logTag, error);
+            OWSLogError(@"Failed to send message attachment with error: %@", error);
             if (completion) {
                 dispatch_async(dispatch_get_main_queue(), ^(void) {
                     completion(error);
@@ -169,10 +170,10 @@ NS_ASSUME_NONNULL_BEGIN
                                         completion:(void (^_Nullable)(NSError *_Nullable error))completion
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(contactShare);
-    OWSAssert(contactShare.ows_isValid);
-    OWSAssert(thread);
-    OWSAssert(messageSender);
+    OWSAssertDebug(contactShare);
+    OWSAssertDebug(contactShare.ows_isValid);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(messageSender);
 
     OWSDisappearingMessagesConfiguration *configuration =
         [OWSDisappearingMessagesConfiguration fetchObjectWithUniqueID:thread.uniqueId];
@@ -186,13 +187,13 @@ NS_ASSUME_NONNULL_BEGIN
                                                    expiresInSeconds:expiresInSeconds
                                                     expireStartedAt:0
                                                      isVoiceMessage:NO
-                                                   groupMetaMessage:TSGroupMessageUnspecified
+                                                   groupMetaMessage:TSGroupMetaMessageUnspecified
                                                       quotedMessage:nil
                                                        contactShare:contactShare];
 
     [messageSender enqueueMessage:message
         success:^{
-            DDLogDebug(@"%@ Successfully sent contact share.", self.logTag);
+            OWSLogDebug(@"Successfully sent contact share.");
             if (completion) {
                 dispatch_async(dispatch_get_main_queue(), ^(void) {
                     completion(nil);
@@ -200,7 +201,7 @@ NS_ASSUME_NONNULL_BEGIN
             }
         }
         failure:^(NSError *error) {
-            DDLogError(@"%@ Failed to send contact share with error: %@", self.logTag, error);
+            OWSLogError(@"Failed to send contact share with error: %@", error);
             if (completion) {
                 dispatch_async(dispatch_get_main_queue(), ^(void) {
                     completion(error);
@@ -211,6 +212,49 @@ NS_ASSUME_NONNULL_BEGIN
     return message;
 }
 
++ (void)sendLeaveGroupMessageInThread:(TSGroupThread *)thread
+             presentingViewController:(UIViewController *)presentingViewController
+                        messageSender:(OWSMessageSender *)messageSender
+                           completion:(void (^_Nullable)(NSError *_Nullable error))completion
+{
+    OWSAssertDebug([thread isKindOfClass:[TSGroupThread class]]);
+    OWSAssertDebug(presentingViewController);
+    OWSAssertDebug(messageSender);
+
+    NSString *groupName = thread.name.length > 0 ? thread.name : TSGroupThread.defaultGroupName;
+    NSString *title = [NSString
+        stringWithFormat:NSLocalizedString(@"GROUP_REMOVING", @"Modal text when removing a group"), groupName];
+    UIAlertController *removingFromGroup =
+        [UIAlertController alertControllerWithTitle:title message:nil preferredStyle:UIAlertControllerStyleAlert];
+    [presentingViewController presentViewController:removingFromGroup animated:YES completion:nil];
+
+    TSOutgoingMessage *message =
+        [TSOutgoingMessage outgoingMessageInThread:thread groupMetaMessage:TSGroupMetaMessageQuit expiresInSeconds:0];
+    [messageSender enqueueMessage:message
+        success:^{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [presentingViewController dismissViewControllerAnimated:YES
+                                                             completion:^{
+                                                                 if (completion) {
+                                                                     completion(nil);
+                                                                 }
+                                                             }];
+            });
+        }
+        failure:^(NSError *error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [presentingViewController dismissViewControllerAnimated:YES
+                                                             completion:^{
+                                                                 if (completion) {
+                                                                     completion(error);
+                                                                 }
+                                                             }];
+            });
+        }];
+}
+
+#pragma mark - Dynamic Interactions
+
 + (ThreadDynamicInteractions *)ensureDynamicInteractionsForThread:(TSThread *)thread
                                                   contactsManager:(OWSContactsManager *)contactsManager
                                                   blockingManager:(OWSBlockingManager *)blockingManager
@@ -220,14 +264,14 @@ NS_ASSUME_NONNULL_BEGIN
                                                    focusMessageId:(nullable NSString *)focusMessageId
                                                      maxRangeSize:(int)maxRangeSize
 {
-    OWSAssert(thread);
-    OWSAssert(dbConnection);
-    OWSAssert(contactsManager);
-    OWSAssert(blockingManager);
-    OWSAssert(maxRangeSize > 0);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(dbConnection);
+    OWSAssertDebug(contactsManager);
+    OWSAssertDebug(blockingManager);
+    OWSAssertDebug(maxRangeSize > 0);
 
     NSString *localNumber = [TSAccountManager localNumber];
-    OWSAssert(localNumber.length > 0);
+    OWSAssertDebug(localNumber.length > 0);
 
     // Many OWSProfileManager methods aren't safe to call from inside a database
     // transaction, so do this work now.
@@ -276,7 +320,7 @@ NS_ASSUME_NONNULL_BEGIN
                               // Remove obsolete unread indicator interactions;
                               [interactionsToDelete addObject:object];
                           } else if ([object isKindOfClass:[OWSContactOffersInteraction class]]) {
-                              OWSAssert(!existingContactOffers);
+                              OWSAssertDebug(!existingContactOffers);
                               if (existingContactOffers) {
                                   // There should never be more than one "contact offers" in
                                   // a given thread, but if there is, discard all but one.
@@ -287,15 +331,15 @@ NS_ASSUME_NONNULL_BEGIN
                               [blockingSafetyNumberChanges addObject:object];
                           } else if ([object isKindOfClass:[TSErrorMessage class]]) {
                               TSErrorMessage *errorMessage = (TSErrorMessage *)object;
-                              OWSAssert(errorMessage.errorType == TSErrorMessageNonBlockingIdentityChange);
+                              OWSAssertDebug(errorMessage.errorType == TSErrorMessageNonBlockingIdentityChange);
                               [nonBlockingSafetyNumberChanges addObject:errorMessage];
                           } else {
-                              OWSFail(@"Unexpected dynamic interaction type: %@", [object class]);
+                              OWSFailDebug(@"Unexpected dynamic interaction type: %@", [object class]);
                           }
                       }];
 
         for (TSInteraction *interaction in interactionsToDelete) {
-            DDLogDebug(@"Cleaning up interaction: %@", [interaction class]);
+            OWSLogDebug(@"Cleaning up interaction: %@", [interaction class]);
             [interaction removeWithTransaction:transaction];
         }
 
@@ -323,7 +367,7 @@ NS_ASSUME_NONNULL_BEGIN
                       usingBlock:^(
                           NSString *collection, NSString *key, id object, id metadata, NSUInteger index, BOOL *stop) {
 
-                          OWSAssert([object isKindOfClass:[TSInteraction class]]);
+                          OWSAssertDebug([object isKindOfClass:[TSInteraction class]]);
 
                           if ([object isKindOfClass:[TSIncomingMessage class]] ||
                               [object isKindOfClass:[TSOutgoingMessage class]] ||
@@ -346,6 +390,9 @@ NS_ASSUME_NONNULL_BEGIN
             shouldHaveAddToContactsOffer = NO;
             // Only create block offers in 1:1 conversations.
             shouldHaveBlockOffer = NO;
+
+            // MJK TODO - any conditions under which we'd make a block offer for groups?
+
             // Only create profile whitelist offers in 1:1 conversations.
             shouldHaveAddToProfileWhitelistOffer = NO;
         } else {
@@ -433,8 +480,7 @@ NS_ASSUME_NONNULL_BEGIN
             if (existingContactOffers.hasBlockOffer != shouldHaveBlockOffer
                 || existingContactOffers.hasAddToContactsOffer != shouldHaveAddToContactsOffer
                 || existingContactOffers.hasAddToProfileWhitelistOffer != shouldHaveAddToProfileWhitelistOffer) {
-                DDLogInfo(@"%@ Removing stale contact offers: %@ (%llu)",
-                    self.logTag,
+                OWSLogInfo(@"Removing stale contact offers: %@ (%llu)",
                     existingContactOffers.uniqueId,
                     existingContactOffers.timestampForSorting);
                 // Preserve the timestamp of the existing "contact offers" so that
@@ -446,8 +492,7 @@ NS_ASSUME_NONNULL_BEGIN
         }
 
         if (existingContactOffers && !shouldHaveContactOffers) {
-            DDLogInfo(@"%@ Removing contact offers: %@ (%llu)",
-                self.logTag,
+            OWSLogInfo(@"Removing contact offers: %@ (%llu)",
                 existingContactOffers.uniqueId,
                 existingContactOffers.timestampForSorting);
             [existingContactOffers removeWithTransaction:transaction];
@@ -463,10 +508,8 @@ NS_ASSUME_NONNULL_BEGIN
                                                                         recipientId:recipientId];
             [offersMessage saveWithTransaction:transaction];
 
-            DDLogInfo(@"%@ Creating contact offers: %@ (%llu)",
-                self.logTag,
-                offersMessage.uniqueId,
-                offersMessage.timestampForSorting);
+            OWSLogInfo(
+                @"Creating contact offers: %@ (%llu)", offersMessage.uniqueId, offersMessage.timestampForSorting);
         }
 
         [self ensureUnreadIndicator:result
@@ -500,11 +543,11 @@ NS_ASSUME_NONNULL_BEGIN
         hideUnreadMessagesIndicator:(BOOL)hideUnreadMessagesIndicator
     firstUnseenInteractionTimestamp:(nullable NSNumber *)firstUnseenInteractionTimestamp
 {
-    OWSAssert(dynamicInteractions);
-    OWSAssert(thread);
-    OWSAssert(transaction);
-    OWSAssert(blockingSafetyNumberChanges);
-    OWSAssert(nonBlockingSafetyNumberChanges);
+    OWSAssertDebug(dynamicInteractions);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(transaction);
+    OWSAssertDebug(blockingSafetyNumberChanges);
+    OWSAssertDebug(nonBlockingSafetyNumberChanges);
 
     if (hideUnreadMessagesIndicator) {
         return;
@@ -515,7 +558,7 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     YapDatabaseViewTransaction *threadMessagesTransaction = [transaction ext:TSMessageDatabaseViewExtensionName];
-    OWSAssert([threadMessagesTransaction isKindOfClass:[YapDatabaseViewTransaction class]]);
+    OWSAssertDebug([threadMessagesTransaction isKindOfClass:[YapDatabaseViewTransaction class]]);
 
     // Determine unread indicator position, if necessary.
     //
@@ -534,7 +577,7 @@ NS_ASSUME_NONNULL_BEGIN
                   usingBlock:^(
                       NSString *collection, NSString *key, id object, id metadata, NSUInteger index, BOOL *stop) {
                       if (![object isKindOfClass:[TSInteraction class]]) {
-                          OWSFail(@"Expected a TSInteraction: %@", [object class]);
+                          OWSFailDebug(@"Expected a TSInteraction: %@", [object class]);
                           return;
                       }
 
@@ -571,7 +614,7 @@ NS_ASSUME_NONNULL_BEGIN
         // expired.
         return;
     }
-    OWSAssert(visibleUnseenMessageCount > 0);
+    OWSAssertDebug(visibleUnseenMessageCount > 0);
 
     NSUInteger missingUnseenSafetyNumberChangeCount = 0;
     if (hasMoreUnseenMessages) {
@@ -590,7 +633,7 @@ NS_ASSUME_NONNULL_BEGIN
 
             NSData *_Nullable newIdentityKey = safetyNumberChange.newIdentityKey;
             if (newIdentityKey == nil) {
-                OWSFail(@"Safety number change was missing it's new identity key.");
+                OWSFailDebug(@"Safety number change was missing it's new identity key.");
                 continue;
             }
 
@@ -614,16 +657,16 @@ NS_ASSUME_NONNULL_BEGIN
         missingUnseenSafetyNumberChangeCount:missingUnseenSafetyNumberChangeCount
                      unreadIndicatorPosition:unreadIndicatorPosition
              firstUnseenInteractionTimestamp:firstUnseenInteractionTimestamp.unsignedLongLongValue];
-    DDLogInfo(@"%@ Creating Unread Indicator: %llu", self.logTag, dynamicInteractions.unreadIndicator.timestamp);
+    OWSLogInfo(@"Creating Unread Indicator: %llu", dynamicInteractions.unreadIndicator.timestamp);
 }
 
 + (nullable NSNumber *)focusMessagePositionForThread:(TSThread *)thread
                                          transaction:(YapDatabaseReadWriteTransaction *)transaction
                                       focusMessageId:(NSString *)focusMessageId
 {
-    OWSAssert(thread);
-    OWSAssert(transaction);
-    OWSAssert(focusMessageId);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(transaction);
+    OWSAssertDebug(focusMessageId);
 
     YapDatabaseViewTransaction *databaseView = [transaction ext:TSMessageDatabaseViewExtensionName];
 
@@ -634,16 +677,16 @@ NS_ASSUME_NONNULL_BEGIN
     if (!success) {
         // This might happen if the focus message has disappeared
         // before this view could appear.
-        OWSFail(@"%@ failed to find focus message index.", self.logTag);
+        OWSFailDebug(@"failed to find focus message index.");
         return nil;
     }
     if (![group isEqualToString:thread.uniqueId]) {
-        OWSFail(@"%@ focus message has invalid group.", self.logTag);
+        OWSFailDebug(@"focus message has invalid group.");
         return nil;
     }
     NSUInteger count = [databaseView numberOfItemsInGroup:thread.uniqueId];
     if (index >= count) {
-        OWSFail(@"%@ focus message has invalid index.", self.logTag);
+        OWSFailDebug(@"focus message has invalid index.");
         return nil;
     }
     NSUInteger position = (count - index) - 1;
@@ -652,8 +695,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)shouldShowGroupProfileBannerInThread:(TSThread *)thread blockingManager:(OWSBlockingManager *)blockingManager
 {
-    OWSAssert(thread);
-    OWSAssert(blockingManager);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(blockingManager);
 
     if (!thread.isGroupThread) {
         return NO;
@@ -664,6 +707,10 @@ NS_ASSUME_NONNULL_BEGIN
     if (![OWSProfileManager.sharedManager hasLocalProfile]) {
         return NO;
     }
+    if ([blockingManager isThreadBlocked:thread]) {
+        return NO;
+    }
+
     BOOL hasUnwhitelistedMember = NO;
     NSArray<NSString *> *blockedPhoneNumbers = [blockingManager blockedPhoneNumbers];
     for (NSString *recipientId in thread.recipientIdentifiers) {
@@ -681,7 +728,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)addThreadToProfileWhitelistIfEmptyContactThread:(TSThread *)thread
 {
-    OWSAssert(thread);
+    OWSAssertDebug(thread);
 
     if (thread.isGroupThread) {
         return NO;
@@ -701,7 +748,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)deleteAllContent
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     [OWSPrimaryStorage.sharedManager.newDatabaseConnection
         readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
@@ -722,29 +769,29 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)removeAllObjectsInCollection:(NSString *)collection
                                class:(Class) class
                          transaction:(YapDatabaseReadWriteTransaction *)transaction {
-    OWSAssert(collection.length > 0);
-    OWSAssert(class);
-    OWSAssert(transaction);
+    OWSAssertDebug(collection.length > 0);
+    OWSAssertDebug(class);
+    OWSAssertDebug(transaction);
 
     NSArray<NSString *> *_Nullable uniqueIds = [transaction allKeysInCollection:collection];
     if (!uniqueIds) {
-        OWSProdLogAndFail(@"%@ couldn't load uniqueIds for collection: %@.", self.logTag, collection);
+        OWSFailDebug(@"couldn't load uniqueIds for collection: %@.", collection);
         return;
     }
-    DDLogInfo(@"%@ Deleting %lu objects from: %@", self.logTag, (unsigned long)uniqueIds.count, collection);
+    OWSLogInfo(@"Deleting %lu objects from: %@", (unsigned long)uniqueIds.count, collection);
     NSUInteger count = 0;
     for (NSString *uniqueId in uniqueIds) {
         // We need to fetch each object, since [TSYapDatabaseObject removeWithTransaction:] sometimes does important
         // work.
         TSYapDatabaseObject *_Nullable object = [class fetchObjectWithUniqueID:uniqueId transaction:transaction];
         if (!object) {
-            OWSProdLogAndFail(@"%@ couldn't load object for deletion: %@.", self.logTag, collection);
+            OWSFailDebug(@"couldn't load object for deletion: %@.", collection);
             continue;
         }
         [object removeWithTransaction:transaction];
         count++;
     };
-    DDLogInfo(@"%@ Deleted %lu/%lu objects from: %@", self.logTag, (unsigned long)count, (unsigned long)uniqueIds.count, collection);
+    OWSLogInfo(@"Deleted %lu/%lu objects from: %@", (unsigned long)count, (unsigned long)uniqueIds.count, collection);
 }
 
 #pragma mark - Find Content
@@ -754,12 +801,12 @@ NS_ASSUME_NONNULL_BEGIN
                                                 threadUniqueId:(NSString *)threadUniqueId
                                                    transaction:(YapDatabaseReadTransaction *)transaction
 {
-    OWSAssert(timestamp > 0);
-    OWSAssert(authorId.length > 0);
+    OWSAssertDebug(timestamp > 0);
+    OWSAssertDebug(authorId.length > 0);
 
     NSString *localNumber = [TSAccountManager localNumber];
     if (localNumber.length < 1) {
-        OWSFail(@"%@ missing long number.", self.logTag);
+        OWSFailDebug(@"missing long number.");
         return nil;
     }
 
@@ -791,7 +838,7 @@ NS_ASSUME_NONNULL_BEGIN
     }
     if (interactions.count > 1) {
         // In case of collision, take the first.
-        DDLogError(@"%@ more than one matching interaction in thread.", self.logTag);
+        OWSLogError(@"more than one matching interaction in thread.");
     }
     return interactions.firstObject;
 }

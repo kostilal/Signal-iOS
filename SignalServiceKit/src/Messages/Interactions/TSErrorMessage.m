@@ -6,9 +6,9 @@
 #import "ContactsManagerProtocol.h"
 #import "NSDate+OWS.h"
 #import "OWSMessageManager.h"
+#import "SSKEnvironment.h"
 #import "TSContactThread.h"
 #import "TSErrorMessage_privateConstructor.h"
-#import "TextSecureKitEnv.h"
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
 #import <YapDatabase/YapDatabaseConnection.h>
 
@@ -84,7 +84,7 @@ NSUInteger TSErrorMessageSchemaVersion = 1;
     return [self initWithTimestamp:timestamp inThread:thread failedMessageType:errorMessageType recipientId:nil];
 }
 
-- (instancetype)initWithEnvelope:(SSKEnvelope *)envelope
+- (instancetype)initWithEnvelope:(SSKProtoEnvelope *)envelope
                  withTransaction:(YapDatabaseReadWriteTransaction *)transaction
                failedMessageType:(TSErrorMessageType)errorMessageType
 {
@@ -125,7 +125,7 @@ NSUInteger TSErrorMessageSchemaVersion = 1;
                     @"Shown when signal users safety numbers changed, embeds the user's {{name or phone number}}");
 
                 NSString *recipientDisplayName =
-                    [[TextSecureKitEnv sharedEnv].contactsManager displayNameForPhoneIdentifier:self.recipientId];
+                    [SSKEnvironment.shared.contactsManager displayNameForPhoneIdentifier:self.recipientId];
                 return [NSString stringWithFormat:messageFormat, recipientDisplayName];
             } else {
                 // recipientId will be nil for legacy errors
@@ -146,7 +146,7 @@ NSUInteger TSErrorMessageSchemaVersion = 1;
     }
 }
 
-+ (instancetype)corruptedMessageWithEnvelope:(SSKEnvelope *)envelope
++ (instancetype)corruptedMessageWithEnvelope:(SSKProtoEnvelope *)envelope
                              withTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
     return [[self alloc] initWithEnvelope:envelope
@@ -159,7 +159,7 @@ NSUInteger TSErrorMessageSchemaVersion = 1;
     return [[self alloc] initWithFailedMessageType:TSErrorMessageInvalidMessage];
 }
 
-+ (instancetype)invalidVersionWithEnvelope:(SSKEnvelope *)envelope
++ (instancetype)invalidVersionWithEnvelope:(SSKProtoEnvelope *)envelope
                            withTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
     return [[self alloc] initWithEnvelope:envelope
@@ -167,7 +167,7 @@ NSUInteger TSErrorMessageSchemaVersion = 1;
                         failedMessageType:TSErrorMessageInvalidVersion];
 }
 
-+ (instancetype)invalidKeyExceptionWithEnvelope:(SSKEnvelope *)envelope
++ (instancetype)invalidKeyExceptionWithEnvelope:(SSKProtoEnvelope *)envelope
                                 withTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
     return [[self alloc] initWithEnvelope:envelope
@@ -175,7 +175,7 @@ NSUInteger TSErrorMessageSchemaVersion = 1;
                         failedMessageType:TSErrorMessageInvalidKeyException];
 }
 
-+ (instancetype)missingSessionWithEnvelope:(SSKEnvelope *)envelope
++ (instancetype)missingSessionWithEnvelope:(SSKProtoEnvelope *)envelope
                            withTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
     return
@@ -206,14 +206,13 @@ NSUInteger TSErrorMessageSchemaVersion = 1;
               sendReadReceipt:(BOOL)sendReadReceipt
                   transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     if (_read) {
         return;
     }
 
-    DDLogDebug(
-        @"%@ marking as read uniqueId: %@ which has timestamp: %llu", self.logTag, self.uniqueId, self.timestamp);
+    OWSLogDebug(@"marking as read uniqueId: %@ which has timestamp: %llu", self.uniqueId, self.timestamp);
     _read = YES;
     [self saveWithTransaction:transaction];
     [self touchThreadWithTransaction:transaction];

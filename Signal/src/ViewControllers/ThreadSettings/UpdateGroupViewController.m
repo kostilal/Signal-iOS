@@ -21,7 +21,6 @@
 #import <SignalMessaging/UIViewController+OWS.h>
 #import <SignalServiceKit/NSDate+OWS.h>
 #import <SignalServiceKit/OWSMessageSender.h>
-#import <SignalServiceKit/SecurityUtils.h>
 #import <SignalServiceKit/SignalAccount.h>
 #import <SignalServiceKit/TSGroupModel.h>
 #import <SignalServiceKit/TSGroupThread.h>
@@ -84,7 +83,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)commonInit
 {
-    _messageSender = [Environment current].messageSender;
+    _messageSender = SSKEnvironment.shared.messageSender;
     _contactsViewHelper = [[ContactsViewHelper alloc] initWithDelegate:self];
     _avatarViewHelper = [AvatarViewHelper new];
     _avatarViewHelper.delegate = self;
@@ -98,9 +97,9 @@ NS_ASSUME_NONNULL_BEGIN
 {
     [super loadView];
 
-    OWSAssert(self.thread);
-    OWSAssert(self.thread.groupModel);
-    OWSAssert(self.thread.groupModel.groupMemberIds);
+    OWSAssertDebug(self.thread);
+    OWSAssertDebug(self.thread.groupModel);
+    OWSAssertDebug(self.thread.groupModel.groupMemberIds);
 
     self.view.backgroundColor = Theme.backgroundColor;
 
@@ -122,7 +121,7 @@ NS_ASSUME_NONNULL_BEGIN
     [self.view addSubview:self.tableViewController.view];
     [_tableViewController.view autoPinWidthToSuperview];
     [_tableViewController.view autoPinEdge:ALEdgeTop toEdge:ALEdgeBottom ofView:firstSection];
-    [self autoPinViewToBottomOfViewControllerOrKeyboard:self.tableViewController.view];
+    [self autoPinViewToBottomOfViewControllerOrKeyboard:self.tableViewController.view avoidNotch:NO];
     self.tableViewController.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableViewController.tableView.estimatedRowHeight = 60;
 
@@ -167,8 +166,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (UIView *)firstSectionHeader
 {
-    OWSAssert(self.thread);
-    OWSAssert(self.thread.groupModel);
+    OWSAssertDebug(self.thread);
+    OWSAssertDebug(self.thread.groupModel);
 
     UIView *firstSectionHeader = [UIView new];
     firstSectionHeader.userInteractionEnabled = YES;
@@ -180,19 +179,18 @@ NS_ASSUME_NONNULL_BEGIN
     [threadInfoView autoPinWidthToSuperviewWithMargin:16.f];
     [threadInfoView autoPinHeightToSuperviewWithMargin:16.f];
 
-    const CGFloat kAvatarSize = 68.f;
     AvatarImageView *avatarView = [AvatarImageView new];
     _avatarView = avatarView;
 
     [threadInfoView addSubview:avatarView];
     [avatarView autoVCenterInSuperview];
     [avatarView autoPinLeadingToSuperviewMargin];
-    [avatarView autoSetDimension:ALDimensionWidth toSize:kAvatarSize];
-    [avatarView autoSetDimension:ALDimensionHeight toSize:kAvatarSize];
+    [avatarView autoSetDimension:ALDimensionWidth toSize:kLargeAvatarSize];
+    [avatarView autoSetDimension:ALDimensionHeight toSize:kLargeAvatarSize];
     _groupAvatar = self.thread.groupModel.groupImage;
     [self updateAvatarView];
 
-    UITextField *groupNameTextField = [UITextField new];
+    UITextField *groupNameTextField = [OWSTextField new];
     _groupNameTextField = groupNameTextField;
     self.groupNameTextField.text = [self.thread.groupModel.groupName ows_stripped];
     groupNameTextField.textColor = [Theme primaryColor];
@@ -233,7 +231,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)updateTableContents
 {
-    OWSAssert(self.thread);
+    OWSAssertDebug(self.thread);
 
     OWSTableContents *contents = [OWSTableContents new];
 
@@ -263,7 +261,7 @@ NS_ASSUME_NONNULL_BEGIN
             addItem:[OWSTableItem
                         itemWithCustomCellBlock:^{
                             UpdateGroupViewController *strongSelf = weakSelf;
-                            OWSCAssert(strongSelf);
+                            OWSCAssertDebug(strongSelf);
 
                             ContactTableViewCell *cell = [ContactTableViewCell new];
                             BOOL isPreviousMember = [strongSelf.previousMemberRecipientIds containsObject:recipientId];
@@ -324,7 +322,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)showUnblockAlertForSignalAccount:(SignalAccount *)signalAccount
 {
-    OWSAssert(signalAccount);
+    OWSAssertDebug(signalAccount);
 
     __weak UpdateGroupViewController *weakSelf = self;
     [BlockListUIUtils showUnblockSignalAccountActionSheet:signalAccount
@@ -340,7 +338,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)showUnblockAlertForRecipientId:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     __weak UpdateGroupViewController *weakSelf = self;
     [BlockListUIUtils showUnblockPhoneNumberActionSheet:recipientId
@@ -356,7 +354,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)removeRecipientId:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     [self.memberRecipientIds removeObject:recipientId];
     [self updateTableContents];
@@ -366,7 +364,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)updateGroup
 {
-    OWSAssert(self.conversationSettingsViewDelegate);
+    OWSAssertDebug(self.conversationSettingsViewDelegate);
 
     NSString *groupName = [self.groupNameTextField.text ows_stripped];
     TSGroupModel *groupModel = [[TSGroupModel alloc] initWithTitle:groupName
@@ -398,7 +396,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)updateAvatarView
 {
-    self.avatarView.image = (self.groupAvatar ?: [UIImage imageNamed:@"empty-group-avatar"]);
+    UIImage *_Nullable groupAvatar = self.groupAvatar;
+    if (!groupAvatar) {
+        groupAvatar = [[[OWSGroupAvatarBuilder alloc] initWithThread:self.thread diameter:kLargeAvatarSize] build];
+    }
+    self.avatarView.image = groupAvatar;
 }
 
 #pragma mark - Event Handling
@@ -425,7 +427,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                      @"The label for the 'save' button in action sheets.")
                                            style:UIAlertActionStyleDefault
                                          handler:^(UIAlertAction *action) {
-                                             OWSAssert(self.conversationSettingsViewDelegate);
+                                             OWSAssertDebug(self.conversationSettingsViewDelegate);
 
                                              [self updateGroup];
 
@@ -442,7 +444,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)updateGroupPressed
 {
-    OWSAssert(self.conversationSettingsViewDelegate);
+    OWSAssertDebug(self.conversationSettingsViewDelegate);
 
     [self updateGroup];
 
@@ -492,7 +494,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)avatarDidChange:(UIImage *)image
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(image);
+    OWSAssertDebug(image);
 
     self.groupAvatar = image;
 }
@@ -518,7 +520,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)isRecipientGroupMember:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     return [self.memberRecipientIds containsObject:recipientId];
 }

@@ -6,7 +6,6 @@
 #import "OWSBackupIO.h"
 #import "Signal-Swift.h"
 #import <Curve25519Kit/Randomness.h>
-#import <SAMKeychain/SAMKeychain.h>
 #import <YapDatabase/YapDatabaseCryptoUtils.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -52,8 +51,8 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
         return self;
     }
 
-    OWSAssert(primaryStorage);
-    OWSAssert([OWSStorage isStorageReady]);
+    OWSAssertDebug(primaryStorage);
+    OWSAssertDebug([OWSStorage isStorageReady]);
 
     self.delegate = delegate;
     self.primaryStorage = primaryStorage;
@@ -64,7 +63,7 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
 - (void)dealloc
 {
     // Surface memory leaks by logging the deallocation.
-    DDLogVerbose(@"Dealloc: %@", self.class);
+    OWSLogVerbose(@"Dealloc: %@", self.class);
 
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 
@@ -75,16 +74,16 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
 
 - (BOOL)ensureJobTempDir
 {
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogVerbose(@"");
 
     // TODO: Exports should use a new directory each time, but imports
     // might want to use a predictable directory so that repeated
     // import attempts can reuse downloads from previous attempts.
-    NSString *temporaryDirectory = NSTemporaryDirectory();
+    NSString *temporaryDirectory = OWSTemporaryDirectory();
     self.jobTempDirPath = [temporaryDirectory stringByAppendingPathComponent:[NSUUID UUID].UUIDString];
 
     if (![OWSFileSystem ensureDirectoryExists:self.jobTempDirPath]) {
-        OWSProdLogAndFail(@"%@ Could not create jobTempDirPath.", self.logTag);
+        OWSFailDebug(@"Could not create jobTempDirPath.");
         return NO;
     }
     return YES;
@@ -101,18 +100,18 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
 
 - (void)succeed
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.isComplete) {
-            OWSAssert(!self.hasSucceeded);
+            OWSAssertDebug(!self.hasSucceeded);
             return;
         }
         self.isComplete = YES;
 
         // There's a lot of asynchrony in these backup jobs;
         // ensure we only end up finishing these jobs once.
-        OWSAssert(!self.hasSucceeded);
+        OWSAssertDebug(!self.hasSucceeded);
         self.hasSucceeded = YES;
 
         [self.delegate backupJobDidSucceed:self];
@@ -126,10 +125,10 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
 
 - (void)failWithError:(NSError *)error
 {
-    OWSProdLogAndFail(@"%@ %s %@", self.logTag, __PRETTY_FUNCTION__, error);
+    OWSFailDebug(@"%@", error);
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        OWSAssert(!self.hasSucceeded);
+        OWSAssertDebug(!self.hasSucceeded);
         if (self.isComplete) {
             return;
         }
@@ -140,7 +139,7 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
 
 - (void)updateProgressWithDescription:(nullable NSString *)description progress:(nullable NSNumber *)progress
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.isComplete) {
@@ -156,11 +155,11 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
                                       failure:(OWSBackupJobManifestFailure)failure
                                      backupIO:(OWSBackupIO *)backupIO
 {
-    OWSAssert(success);
-    OWSAssert(failure);
-    OWSAssert(backupIO);
+    OWSAssertDebug(success);
+    OWSAssertDebug(failure);
+    OWSAssertDebug(backupIO);
 
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogVerbose(@"");
 
     __weak OWSBackupJob *weakSelf = self;
     [OWSBackupAPI downloadManifestFromCloudWithSuccess:^(NSData *data) {
@@ -178,7 +177,7 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
         failure:^(NSError *error) {
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 // The manifest file is critical so any error downloading it is unrecoverable.
-                OWSProdLogAndFail(@"%@ Could not download manifest.", weakSelf.logTag);
+                OWSCFailDebug(@"Could not download manifest.");
                 failure(error);
             });
         }];
@@ -189,21 +188,21 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
                 failure:(dispatch_block_t)failure
                backupIO:(OWSBackupIO *)backupIO
 {
-    OWSAssert(manifestDataEncrypted.length > 0);
-    OWSAssert(success);
-    OWSAssert(failure);
-    OWSAssert(backupIO);
+    OWSAssertDebug(manifestDataEncrypted.length > 0);
+    OWSAssertDebug(success);
+    OWSAssertDebug(failure);
+    OWSAssertDebug(backupIO);
 
     if (self.isComplete) {
         return;
     }
 
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogVerbose(@"");
 
     NSData *_Nullable manifestDataDecrypted =
         [backupIO decryptDataAsData:manifestDataEncrypted encryptionKey:self.delegate.backupEncryptionKey];
     if (!manifestDataDecrypted) {
-        OWSProdLogAndFail(@"%@ Could not decrypt manifest.", self.logTag);
+        OWSFailDebug(@"Could not decrypt manifest.");
         return failure();
     }
 
@@ -211,11 +210,11 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
     NSDictionary<NSString *, id> *_Nullable json =
         [NSJSONSerialization JSONObjectWithData:manifestDataDecrypted options:0 error:&error];
     if (![json isKindOfClass:[NSDictionary class]]) {
-        OWSProdLogAndFail(@"%@ Could not download manifest.", self.logTag);
+        OWSFailDebug(@"Could not download manifest.");
         return failure();
     }
 
-    DDLogVerbose(@"%@ json: %@", self.logTag, json);
+    OWSLogVerbose(@"json: %@", json);
 
     NSArray<OWSBackupFragment *> *_Nullable databaseItems =
         [self parseItems:json key:kOWSBackup_ManifestKey_DatabaseFiles];
@@ -237,22 +236,22 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
 
 - (nullable NSArray<OWSBackupFragment *> *)parseItems:(id)json key:(NSString *)key
 {
-    OWSAssert(json);
-    OWSAssert(key.length);
+    OWSAssertDebug(json);
+    OWSAssertDebug(key.length);
 
     if (![json isKindOfClass:[NSDictionary class]]) {
-        OWSProdLogAndFail(@"%@ manifest has invalid data: %@.", self.logTag, key);
+        OWSFailDebug(@"manifest has invalid data.");
         return nil;
     }
     NSArray *itemMaps = json[key];
     if (![itemMaps isKindOfClass:[NSArray class]]) {
-        OWSProdLogAndFail(@"%@ manifest has invalid data: %@.", self.logTag, key);
+        OWSFailDebug(@"manifest has invalid data.");
         return nil;
     }
     NSMutableArray<OWSBackupFragment *> *items = [NSMutableArray new];
     for (NSDictionary *itemMap in itemMaps) {
         if (![itemMap isKindOfClass:[NSDictionary class]]) {
-            OWSProdLogAndFail(@"%@ manifest has invalid item: %@.", self.logTag, key);
+            OWSFailDebug(@"manifest has invalid item.");
             return nil;
         }
         NSString *_Nullable recordName = itemMap[kOWSBackup_ManifestKey_RecordName];
@@ -261,31 +260,33 @@ NSString *const kOWSBackup_KeychainService = @"kOWSBackup_KeychainService";
         NSString *_Nullable attachmentId = itemMap[kOWSBackup_ManifestKey_AttachmentId];
         NSNumber *_Nullable uncompressedDataLength = itemMap[kOWSBackup_ManifestKey_DataSize];
         if (![recordName isKindOfClass:[NSString class]]) {
-            OWSProdLogAndFail(@"%@ manifest has invalid recordName: %@.", self.logTag, key);
+            OWSFailDebug(@"manifest has invalid recordName: %@.", recordName);
             return nil;
         }
         if (![encryptionKeyString isKindOfClass:[NSString class]]) {
-            OWSProdLogAndFail(@"%@ manifest has invalid encryptionKey: %@.", self.logTag, key);
+            OWSFailDebug(@"manifest has invalid encryptionKey.");
             return nil;
         }
         // relativeFilePath is an optional field.
         if (relativeFilePath && ![relativeFilePath isKindOfClass:[NSString class]]) {
-            OWSProdLogAndFail(@"%@ manifest has invalid relativeFilePath: %@.", self.logTag, key);
+            OWSLogDebug(@"manifest has invalid relativeFilePath: %@.", relativeFilePath);
+            OWSFailDebug(@"manifest has invalid relativeFilePath");
             return nil;
         }
         // attachmentId is an optional field.
         if (attachmentId && ![attachmentId isKindOfClass:[NSString class]]) {
-            OWSProdLogAndFail(@"%@ manifest has invalid attachmentId: %@.", self.logTag, key);
+            OWSLogDebug(@"manifest has invalid attachmentId: %@.", attachmentId);
+            OWSFailDebug(@"manifest has invalid attachmentId");
             return nil;
         }
         NSData *_Nullable encryptionKey = [NSData dataFromBase64String:encryptionKeyString];
         if (!encryptionKey) {
-            OWSProdLogAndFail(@"%@ manifest has corrupt encryptionKey: %@.", self.logTag, key);
+            OWSFailDebug(@"manifest has corrupt encryptionKey");
             return nil;
         }
         // uncompressedDataLength is an optional field.
         if (uncompressedDataLength && ![uncompressedDataLength isKindOfClass:[NSNumber class]]) {
-            OWSProdLogAndFail(@"%@ manifest has invalid uncompressedDataLength: %@.", self.logTag, key);
+            OWSFailDebug(@"manifest has invalid uncompressedDataLength: %@.", uncompressedDataLength);
             return nil;
         }
 

@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic) TSAttachmentStream *attachmentStream;
 @property (nonatomic) BOOL isIncoming;
-@property (nonatomic, weak) ConversationViewItem *viewItem;
+@property (nonatomic, weak) id<ConversationViewItem> viewItem;
 @property (nonatomic, readonly) ConversationStyle *conversationStyle;
 
 @property (nonatomic, nullable) UIButton *audioPlayPauseButton;
@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithAttachment:(TSAttachmentStream *)attachmentStream
                         isIncoming:(BOOL)isIncoming
-                          viewItem:(ConversationViewItem *)viewItem
+                          viewItem:(id<ConversationViewItem>)viewItem
                  conversationStyle:(ConversationStyle *)conversationStyle
 {
     self = [super init];
@@ -66,7 +66,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (CGFloat)audioDurationSeconds
 {
-    OWSAssert(self.viewItem.audioDurationSeconds > 0.f);
+    OWSAssertDebug(self.viewItem.audioDurationSeconds > 0.f);
 
     return self.viewItem.audioDurationSeconds;
 }
@@ -96,7 +96,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)setAudioIcon:(UIImage *)icon
 {
-    OWSAssert(icon.size.height == self.iconSize);
+    OWSAssertDebug(icon.size.height == self.iconSize);
 
     icon = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     [_audioPlayPauseButton setImage:icon forState:UIControlStateNormal];
@@ -164,7 +164,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (CGFloat)iconSize
 {
-    return 48.f;
+    return kStandardAvatarSize;
 }
 
 - (CGFloat)iconSize
@@ -192,7 +192,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSString *filename = self.attachmentStream.sourceFilename;
     if (!filename) {
-        filename = [[self.attachmentStream filePath] lastPathComponent];
+        filename = [self.attachmentStream.originalFilePath lastPathComponent];
     }
     NSString *topText = [[filename stringByDeletingPathExtension] ows_stripped];
     if (topText.length < 1) {

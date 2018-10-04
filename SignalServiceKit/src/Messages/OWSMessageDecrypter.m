@@ -13,13 +13,12 @@
 #import "OWSPrimaryStorage+SessionStore.h"
 #import "OWSPrimaryStorage+SignedPreKeyStore.h"
 #import "OWSPrimaryStorage.h"
-#import "OWSSignalServiceProtos.pb.h"
+#import "SSKEnvironment.h"
 #import "SignalRecipient.h"
 #import "TSAccountManager.h"
 #import "TSContactThread.h"
 #import "TSErrorMessage.h"
 #import "TSPreKeyManager.h"
-#import "TextSecureKitEnv.h"
 #import <AxolotlKit/AxolotlExceptions.h>
 #import <AxolotlKit/SessionCipher.h>
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
@@ -81,23 +80,23 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Blocking
 
-- (BOOL)isEnvelopeBlocked:(SSKEnvelope *)envelope
+- (BOOL)isEnvelopeSenderBlocked:(SSKProtoEnvelope *)envelope
 {
-    OWSAssert(envelope);
+    OWSAssertDebug(envelope);
 
     return [_blockingManager.blockedPhoneNumbers containsObject:envelope.source];
 }
 
 #pragma mark - Decryption
 
-- (void)decryptEnvelope:(SSKEnvelope *)envelope
+- (void)decryptEnvelope:(SSKProtoEnvelope *)envelope
            successBlock:(DecryptSuccessBlock)successBlockParameter
            failureBlock:(DecryptFailureBlock)failureBlockParameter
 {
-    OWSAssert(envelope);
-    OWSAssert(successBlockParameter);
-    OWSAssert(failureBlockParameter);
-    OWSAssert([TSAccountManager isRegistered]);
+    OWSAssertDebug(envelope);
+    OWSAssertDebug(successBlockParameter);
+    OWSAssertDebug(failureBlockParameter);
+    OWSAssertDebug([TSAccountManager isRegistered]);
 
     // successBlock is called synchronously so that we can avail ourselves of
     // the transaction.
@@ -111,6 +110,8 @@ NS_ASSUME_NONNULL_BEGIN
 
     DecryptSuccessBlock successBlock
         = ^(NSData *_Nullable plaintextData, YapDatabaseReadWriteTransaction *transaction) {
+              // Having received a valid (decryptable) message from this user,
+              // make note of the fact that they have a valid Signal account.
               [SignalRecipient markRecipientAsRegistered:envelope.source
                                                 deviceId:envelope.sourceDevice
                                              transaction:transaction];
@@ -119,25 +120,24 @@ NS_ASSUME_NONNULL_BEGIN
           };
 
     @try {
-        DDLogInfo(@"%@ decrypting envelope: %@", self.logTag, [self descriptionForEnvelope:envelope]);
+        OWSLogInfo(@"decrypting envelope: %@", [self descriptionForEnvelope:envelope]);
 
-        OWSAssert(envelope.source.length > 0);
-        if ([self isEnvelopeBlocked:envelope]) {
-            DDLogInfo(@"%@ ignoring blocked envelope: %@", self.logTag, envelope.source);
+        OWSAssertDebug(envelope.source.length > 0);
+        if ([self isEnvelopeSenderBlocked:envelope]) {
+            OWSLogInfo(@"ignoring blocked envelope: %@", envelope.source);
             failureBlock();
             return;
         }
 
         switch (envelope.type) {
-            case SSKEnvelopeTypeCiphertext: {
+            case SSKProtoEnvelopeTypeCiphertext: {
                 [self decryptSecureMessage:envelope
                     successBlock:^(NSData *_Nullable plaintextData, YapDatabaseReadWriteTransaction *transaction) {
-                        DDLogDebug(@"%@ decrypted secure message.", self.logTag);
+                        OWSLogDebug(@"decrypted secure message.");
                         successBlock(plaintextData, transaction);
                     }
                     failureBlock:^(NSError *_Nullable error) {
-                        DDLogError(@"%@ decrypting secure message from address: %@ failed with error: %@",
-                            self.logTag,
+                        OWSLogError(@"decrypting secure message from address: %@ failed with error: %@",
                             envelopeAddress(envelope),
                             error);
                         OWSProdError([OWSAnalyticsEvents messageManagerErrorCouldNotHandleSecureMessage]);
@@ -146,16 +146,15 @@ NS_ASSUME_NONNULL_BEGIN
                 // Return to avoid double-acknowledging.
                 return;
             }
-            case SSKEnvelopeTypePrekeyBundle: {
+            case SSKProtoEnvelopeTypePrekeyBundle: {
                 [self decryptPreKeyBundle:envelope
                     successBlock:^(NSData *_Nullable plaintextData, YapDatabaseReadWriteTransaction *transaction) {
-                        DDLogDebug(@"%@ decrypted pre-key whisper message", self.logTag);
+                        OWSLogDebug(@"decrypted pre-key whisper message");
                         successBlock(plaintextData, transaction);
                     }
                     failureBlock:^(NSError *_Nullable error) {
-                        DDLogError(@"%@ decrypting pre-key whisper message from address: %@ failed "
-                                   @"with error: %@",
-                            self.logTag,
+                        OWSLogError(@"decrypting pre-key whisper message from address: %@ failed "
+                                    @"with error: %@",
                             envelopeAddress(envelope),
                             error);
                         OWSProdError([OWSAnalyticsEvents messageManagerErrorCouldNotHandlePrekeyBundle]);
@@ -165,9 +164,9 @@ NS_ASSUME_NONNULL_BEGIN
                 return;
             }
             // These message types don't have a payload to decrypt.
-            case SSKEnvelopeTypeReceipt:
-            case SSKEnvelopeTypeKeyExchange:
-            case SSKEnvelopeTypeUnknown: {
+            case SSKProtoEnvelopeTypeReceipt:
+            case SSKProtoEnvelopeTypeKeyExchange:
+            case SSKProtoEnvelopeTypeUnknown: {
                 [self.dbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
                     successBlock(nil, transaction);
                 }];
@@ -175,31 +174,31 @@ NS_ASSUME_NONNULL_BEGIN
                 return;
             }
             default:
-                DDLogWarn(@"Received unhandled envelope type: %d", (int)envelope.type);
+                OWSLogWarn(@"Received unhandled envelope type: %d", (int)envelope.type);
                 break;
         }
     } @catch (NSException *exception) {
-        OWSProdLogAndFail(@"%@ Received an invalid envelope: %@", self.logTag, exception.debugDescription);
+        OWSFailDebug(@"Received an invalid envelope: %@", exception.debugDescription);
         OWSProdFail([OWSAnalyticsEvents messageManagerErrorInvalidProtocolMessage]);
 
         [[OWSPrimaryStorage.sharedManager newDatabaseConnection]
             readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
                 TSErrorMessage *errorMessage = [TSErrorMessage corruptedMessageInUnknownThread];
-                [[TextSecureKitEnv sharedEnv].notificationsManager notifyUserForThreadlessErrorMessage:errorMessage
-                                                                                           transaction:transaction];
+                [SSKEnvironment.shared.notificationsManager notifyUserForThreadlessErrorMessage:errorMessage
+                                                                                    transaction:transaction];
             }];
     }
 
     failureBlock();
 }
 
-- (void)decryptSecureMessage:(SSKEnvelope *)envelope
+- (void)decryptSecureMessage:(SSKProtoEnvelope *)envelope
                 successBlock:(DecryptSuccessBlock)successBlock
                 failureBlock:(void (^)(NSError *_Nullable error))failureBlock
 {
-    OWSAssert(envelope);
-    OWSAssert(successBlock);
-    OWSAssert(failureBlock);
+    OWSAssertDebug(envelope);
+    OWSAssertDebug(successBlock);
+    OWSAssertDebug(failureBlock);
 
     [self decryptEnvelope:envelope
             cipherTypeName:@"Secure Message"
@@ -210,13 +209,13 @@ NS_ASSUME_NONNULL_BEGIN
               failureBlock:failureBlock];
 }
 
-- (void)decryptPreKeyBundle:(SSKEnvelope *)envelope
+- (void)decryptPreKeyBundle:(SSKProtoEnvelope *)envelope
                successBlock:(DecryptSuccessBlock)successBlock
                failureBlock:(void (^)(NSError *_Nullable error))failureBlock
 {
-    OWSAssert(envelope);
-    OWSAssert(successBlock);
-    OWSAssert(failureBlock);
+    OWSAssertDebug(envelope);
+    OWSAssertDebug(successBlock);
+    OWSAssertDebug(failureBlock);
 
     // Check whether we need to refresh our PreKeys every time we receive a PreKeyWhisperMessage.
     [TSPreKeyManager checkPreKeys];
@@ -230,17 +229,17 @@ NS_ASSUME_NONNULL_BEGIN
               failureBlock:failureBlock];
 }
 
-- (void)decryptEnvelope:(SSKEnvelope *)envelope
+- (void)decryptEnvelope:(SSKProtoEnvelope *)envelope
          cipherTypeName:(NSString *)cipherTypeName
      cipherMessageBlock:(id<CipherMessage> (^_Nonnull)(NSData *))cipherMessageBlock
            successBlock:(DecryptSuccessBlock)successBlock
            failureBlock:(void (^)(NSError *_Nullable error))failureBlock
 {
-    OWSAssert(envelope);
-    OWSAssert(cipherTypeName.length > 0);
-    OWSAssert(cipherMessageBlock);
-    OWSAssert(successBlock);
-    OWSAssert(failureBlock);
+    OWSAssertDebug(envelope);
+    OWSAssertDebug(cipherTypeName.length > 0);
+    OWSAssertDebug(cipherMessageBlock);
+    OWSAssertDebug(successBlock);
+    OWSAssertDebug(failureBlock);
 
     OWSPrimaryStorage *primaryStorage = self.primaryStorage;
     NSString *recipientId = envelope.source;
@@ -265,13 +264,16 @@ NS_ASSUME_NONNULL_BEGIN
                                                                         recipientId:recipientId
                                                                            deviceId:deviceId];
 
-                NSData *plaintextData = [[cipher decrypt:cipherMessage protocolContext:transaction] removePadding];
+                // plaintextData may be nil for some envelope types.
+                NSData *_Nullable plaintextData =
+                    [[cipher decrypt:cipherMessage protocolContext:transaction] removePadding];
                 successBlock(plaintextData, transaction);
             } @catch (NSException *exception) {
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                     [self processException:exception envelope:envelope];
                     NSString *errorDescription = [NSString
                         stringWithFormat:@"Exception while decrypting %@: %@", cipherTypeName, exception.description];
+                    OWSFailDebug(@"%@", errorDescription);
                     NSError *error = OWSErrorWithCodeDescription(OWSErrorCodeFailedToDecryptMessage, errorDescription);
                     failureBlock(error);
                 });
@@ -279,13 +281,10 @@ NS_ASSUME_NONNULL_BEGIN
         }];
 }
 
-- (void)processException:(NSException *)exception envelope:(SSKEnvelope *)envelope
+- (void)processException:(NSException *)exception envelope:(SSKProtoEnvelope *)envelope
 {
-    DDLogError(@"%@ Got exception: %@ of type: %@ with reason: %@",
-        self.logTag,
-        exception.description,
-        exception.name,
-        exception.reason);
+    OWSLogError(
+        @"Got exception: %@ of type: %@ with reason: %@", exception.description, exception.name, exception.reason);
 
 
     [self.dbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
@@ -301,7 +300,7 @@ NS_ASSUME_NONNULL_BEGIN
             OWSProdErrorWEnvelope([OWSAnalyticsEvents messageManagerErrorInvalidKeyId], envelope);
             errorMessage = [TSErrorMessage invalidKeyExceptionWithEnvelope:envelope withTransaction:transaction];
         } else if ([exception.name isEqualToString:DuplicateMessageException]) {
-            // Duplicate messages are dismissed
+            // Duplicate messages are silently discarded.
             return;
         } else if ([exception.name isEqualToString:InvalidVersionException]) {
             OWSProdErrorWEnvelope([OWSAnalyticsEvents messageManagerErrorInvalidMessageVersion], envelope);
@@ -309,15 +308,14 @@ NS_ASSUME_NONNULL_BEGIN
         } else if ([exception.name isEqualToString:UntrustedIdentityKeyException]) {
             // Should no longer get here, since we now record the new identity for incoming messages.
             OWSProdErrorWEnvelope([OWSAnalyticsEvents messageManagerErrorUntrustedIdentityKeyException], envelope);
-            OWSFail(
-                @"%@ Failed to trust identity on incoming message from: %@", self.logTag, envelopeAddress(envelope));
+            OWSFailDebug(@"Failed to trust identity on incoming message from: %@", envelopeAddress(envelope));
             return;
         } else {
             OWSProdErrorWEnvelope([OWSAnalyticsEvents messageManagerErrorCorruptMessage], envelope);
             errorMessage = [TSErrorMessage corruptedMessageWithEnvelope:envelope withTransaction:transaction];
         }
 
-        OWSAssert(errorMessage);
+        OWSAssertDebug(errorMessage);
         if (errorMessage != nil) {
             [errorMessage saveWithTransaction:transaction];
             [self notifyUserForErrorMessage:errorMessage envelope:envelope transaction:transaction];
@@ -326,13 +324,13 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (void)notifyUserForErrorMessage:(TSErrorMessage *)errorMessage
-                         envelope:(SSKEnvelope *)envelope
+                         envelope:(SSKProtoEnvelope *)envelope
                       transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
     TSThread *contactThread = [TSContactThread getOrCreateThreadWithContactId:envelope.source transaction:transaction];
-    [[TextSecureKitEnv sharedEnv].notificationsManager notifyUserForErrorMessage:errorMessage
-                                                                          thread:contactThread
-                                                                     transaction:transaction];
+    [SSKEnvironment.shared.notificationsManager notifyUserForErrorMessage:errorMessage
+                                                                   thread:contactThread
+                                                              transaction:transaction];
 }
 
 @end

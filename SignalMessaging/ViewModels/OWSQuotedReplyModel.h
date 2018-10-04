@@ -2,14 +2,16 @@
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
-@class ConversationViewItem;
+#import <SignalServiceKit/TSQuotedMessage.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+@protocol ConversationViewItem;
+
 @class TSAttachmentPointer;
 @class TSAttachmentStream;
 @class TSMessage;
-@class TSQuotedMessage;
 @class YapDatabaseReadTransaction;
-
-NS_ASSUME_NONNULL_BEGIN
 
 // View model which has already fetched any attachments.
 @interface OWSQuotedReplyModel : NSObject
@@ -23,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 // This property should be set IFF we are quoting a text message
 // or attachment with caption.
 @property (nullable, nonatomic, readonly) NSString *body;
+@property (nonatomic, readonly) BOOL isRemotelySourced;
 
 #pragma mark - Attachments
 
@@ -33,27 +36,17 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, nullable) NSString *sourceFilename;
 @property (nonatomic, readonly, nullable) UIImage *thumbnailImage;
 
-// Convenience initializer for building an outgoing quoted reply preview, before it's sent
-- (instancetype)initWithTimestamp:(uint64_t)timestamp
-                         authorId:(NSString *)authorId
-                             body:(NSString *_Nullable)body
-                 attachmentStream:(nullable TSAttachmentStream *)attachment; //TODO quotedAttachmentStream?
-
-// Convenience initializer for building an outgoing quoted reply preview, before it's sent
-- (instancetype)initWithTimestamp:(uint64_t)timestamp
-                         authorId:(NSString *)authorId
-                             body:(NSString *_Nullable)body
-                   thumbnailImage:(nullable UIImage *)thumbnailImage;
+- (instancetype)init NS_UNAVAILABLE;
 
 // Used for persisted quoted replies, both incoming and outgoing.
-- (instancetype)initWithQuotedMessage:(TSQuotedMessage *)quotedMessage
-                          transaction:(YapDatabaseReadTransaction *)transaction;
++ (instancetype)quotedReplyWithQuotedMessage:(TSQuotedMessage *)quotedMessage
+                                 transaction:(YapDatabaseReadTransaction *)transaction;
 
 // Builds a not-yet-sent QuotedReplyModel
-+ (nullable instancetype)quotedReplyForConversationViewItem:(ConversationViewItem *)conversationItem
-                                                transaction:(YapDatabaseReadTransaction *)transaction;
++ (nullable instancetype)quotedReplyForSendingWithConversationViewItem:(id<ConversationViewItem>)conversationItem
+                                                           transaction:(YapDatabaseReadTransaction *)transaction;
 
-- (TSQuotedMessage *)buildQuotedMessage;
+- (TSQuotedMessage *)buildQuotedMessageForSending;
 
 
 @end

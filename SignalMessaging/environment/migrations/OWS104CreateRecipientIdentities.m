@@ -26,7 +26,7 @@ static NSString *const OWS104CreateRecipientIdentitiesMigrationId = @"104";
 
 - (void)runUpWithTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     NSMutableDictionary<NSString *, NSData *> *identityKeys = [NSMutableDictionary new];
 
@@ -34,10 +34,10 @@ static NSString *const OWS104CreateRecipientIdentitiesMigrationId = @"104";
         enumerateKeysAndObjectsInCollection:OWSPrimaryStorageTrustedKeysCollection
                                  usingBlock:^(NSString *_Nonnull recipientId, id _Nonnull object, BOOL *_Nonnull stop) {
                                      if (![object isKindOfClass:[NSData class]]) {
-                                         OWSFail(@"%@ Unexpected object in trusted keys collection key: %@ object: %@",
-                                             self.logTag,
+                                         OWSFailDebug(
+                                             @"Unexpected object in trusted keys collection key: %@ object: %@",
                                              recipientId,
-                                             object);
+                                             [object class]);
                                          return;
                                      }
                                      NSData *identityKey = (NSData *)object;
@@ -46,7 +46,7 @@ static NSString *const OWS104CreateRecipientIdentitiesMigrationId = @"104";
 
     [identityKeys enumerateKeysAndObjectsUsingBlock:^(
         NSString *_Nonnull recipientId, NSData *_Nonnull identityKey, BOOL *_Nonnull stop) {
-        DDLogInfo(@"%@ Migrating identity key for recipient: %@", self.logTag, recipientId);
+        OWSLogInfo(@"Migrating identity key for recipient: %@", recipientId);
         [[[OWSRecipientIdentity alloc] initWithRecipientId:recipientId
                                                identityKey:identityKey
                                            isFirstKnownKey:NO

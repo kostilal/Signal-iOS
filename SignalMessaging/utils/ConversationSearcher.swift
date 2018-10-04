@@ -23,7 +23,7 @@ public class ConversationSearchResult: Comparable {
         self.snippet = snippet
     }
 
-    // Mark: Comparable
+    // MARK: Comparable
 
     public static func < (lhs: ConversationSearchResult, rhs: ConversationSearchResult) -> Bool {
         return lhs.sortKey < rhs.sortKey
@@ -50,7 +50,7 @@ public class ContactSearchResult: Comparable {
         self.contactsManager = contactsManager
     }
 
-    // Mark: Comparable
+    // MARK: Comparable
 
     public static func < (lhs: ContactSearchResult, rhs: ContactSearchResult) -> Bool {
         return lhs.contactsManager.compare(signalAccount: lhs.signalAccount, with: rhs.signalAccount) == .orderedAscending
@@ -136,7 +136,7 @@ public class ConversationSearcher: NSObject {
                 let searchResult = ContactSearchResult(signalAccount: signalAccount, contactsManager: contactsManager)
                 contacts.append(searchResult)
             } else {
-                owsFail("\(self.logTag) in \(#function) unhandled item: \(match)")
+                owsFailDebug("unhandled item: \(match)")
             }
         }
 
@@ -166,7 +166,7 @@ public class ConversationSearcher: NSObject {
             case let contactThread as TSContactThread:
                 return self.contactThreadSearcher.matches(item: contactThread, query: searchText)
             default:
-                owsFail("Unexpected thread type: \(thread)")
+                owsFailDebug("Unexpected thread type: \(thread)")
                 return false
             }
         }
@@ -216,7 +216,7 @@ public class ConversationSearcher: NSObject {
     }
 
     private var contactsManager: OWSContactsManager {
-        return Environment.current().contactsManager
+        return Environment.shared.contactsManager
     }
 
     private func indexingString(recipientId: String) -> String {

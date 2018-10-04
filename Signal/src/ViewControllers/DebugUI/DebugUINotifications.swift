@@ -17,10 +17,10 @@ class DebugUINotifications: DebugUIPage {
         return SignalApp.shared().callService.notificationsAdapter
     }
     var messageSender: MessageSender {
-        return Environment.current().messageSender
+        return SSKEnvironment.shared.messageSender
     }
     var contactsManager: OWSContactsManager {
-        return Environment.current().contactsManager
+        return Environment.shared.contactsManager
     }
 
     // MARK: Overrides
@@ -31,7 +31,7 @@ class DebugUINotifications: DebugUIPage {
 
     override func section(thread aThread: TSThread?) -> OWSTableSection? {
         guard let thread = aThread else {
-            owsFail("\(logTag) Notifications must specify thread.")
+            owsFailDebug("Notifications must specify thread.")
             return nil
         }
 
@@ -41,25 +41,25 @@ class DebugUINotifications: DebugUIPage {
                     return
                 }
 
-                Logger.info("\(strongSelf.logTag) scheduling notification for incoming message.")
+                Logger.info("scheduling notification for incoming message.")
                 strongSelf.delayedNotificationDispatch {
-                    Logger.info("\(strongSelf.logTag) dispatching")
+                    Logger.info("dispatching")
                     OWSPrimaryStorage.shared().newDatabaseConnection().read { (transaction) in
                         guard let viewTransaction = transaction.ext(TSMessageDatabaseViewExtensionName) as? YapDatabaseViewTransaction  else {
-                            owsFail("unable to build view transaction")
+                            owsFailDebug("unable to build view transaction")
                             return
                         }
 
                         guard let threadId = thread.uniqueId else {
-                            owsFail("thread had no uniqueId")
+                            owsFailDebug("thread had no uniqueId")
                             return
                         }
 
                         guard let incomingMessage = viewTransaction.lastObject(inGroup: threadId) as? TSIncomingMessage else {
-                            owsFail("last message was not an incoming message.")
+                            owsFailDebug("last message was not an incoming message.")
                             return
                         }
-                        Logger.info("\(strongSelf.logTag) notifying user of incoming message")
+                        Logger.info("notifying user of incoming message")
                         strongSelf.notificationsManager.notifyUser(for: incomingMessage, in: thread, contactsManager: strongSelf.contactsManager, transaction: transaction)
                     }
                 }

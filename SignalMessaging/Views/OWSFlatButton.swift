@@ -7,7 +7,6 @@ import SignalServiceKit
 
 @objc
 public class OWSFlatButton: UIView {
-    let TAG = "[OWSFlatButton]"
 
     private let button: UIButton
 
@@ -18,13 +17,13 @@ public class OWSFlatButton: UIView {
 
     override public var backgroundColor: UIColor? {
         willSet {
-            owsFail("Use setBackgroundColors(upColor:) instead.")
+            owsFailDebug("Use setBackgroundColors(upColor:) instead.")
         }
     }
 
     @objc
     public init() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         button = UIButton(type: .custom)
 
@@ -35,7 +34,7 @@ public class OWSFlatButton: UIView {
 
     @available(*, unavailable, message:"use other constructor instead.")
     required public init?(coder aDecoder: NSCoder) {
-        fatalError("\(#function) is unimplemented.")
+        notImplemented()
     }
 
     private func createContent() {
@@ -158,7 +157,7 @@ public class OWSFlatButton: UIView {
     @objc
     public func setPressedBlock(_ pressedBlock: @escaping () -> Void) {
         guard self.pressedBlock == nil else {
-            owsFail("Button already has pressed block.")
+            owsFailDebug("Button already has pressed block.")
             return
         }
         self.pressedBlock = pressedBlock

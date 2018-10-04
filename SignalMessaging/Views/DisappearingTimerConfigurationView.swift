@@ -28,20 +28,20 @@ public class DisappearingTimerConfigurationView: UIView {
 
     override public var frame: CGRect {
         didSet {
-            Logger.verbose("\(logTag) in \(#function): \(oldValue) -> \(frame)")
+            Logger.verbose("\(oldValue) -> \(frame)")
         }
     }
 
     override public var bounds: CGRect {
         didSet {
-            Logger.verbose("\(logTag) in \(#function): \(oldValue) -> \(bounds)")
+            Logger.verbose("\(oldValue) -> \(bounds)")
         }
     }
 
     override public func layoutSubviews() {
         let oldFrame = self.frame
         super.layoutSubviews()
-        Logger.verbose("\(logTag) in \(#function). Frame: \(oldFrame) -> \(self.frame)")
+        Logger.verbose("Frame: \(oldFrame) -> \(self.frame)")
     }
 
     private let imageView: UIImageView
@@ -49,7 +49,7 @@ public class DisappearingTimerConfigurationView: UIView {
     private var pressGesture: UILongPressGestureRecognizer!
 
     public required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     @objc
@@ -60,7 +60,6 @@ public class DisappearingTimerConfigurationView: UIView {
         self.label = UILabel()
         label.text = NSString.formatDurationSeconds(durationSeconds, useShortFormat: true)
         label.font = UIFont.systemFont(ofSize: 10)
-        label.textColor = UIColor.white
         label.textAlignment = .center
         label.minimumScaleFactor = 0.5
 
@@ -98,7 +97,7 @@ public class DisappearingTimerConfigurationView: UIView {
 
     @objc
     func pressHandler(_ gestureRecognizer: UILongPressGestureRecognizer) {
-        Logger.verbose("\(self.logTag) in \(#function)")
+        Logger.verbose("")
 
         // handle touch down and touch up events separately
         if gestureRecognizer.state == .began {

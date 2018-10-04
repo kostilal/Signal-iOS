@@ -35,11 +35,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) UIView *replacingView;
 @property (nonatomic) UIButton *shareButton;
 
-@property (nonatomic) NSData *fileData;
-
 @property (nonatomic) TSAttachmentStream *attachmentStream;
-@property (nonatomic, nullable) ConversationViewItem *viewItem;
-@property (nonatomic, readonly) UIImage *image;
+@property (nonatomic, nullable) id<ConversationViewItem> viewItem;
+@property (nonatomic, nullable) UIImage *image;
 
 @property (nonatomic, nullable) OWSVideoPlayer *videoPlayer;
 @property (nonatomic, nullable) UIButton *playVideoButton;
@@ -55,6 +53,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+#pragma mark -
+
 @implementation MediaDetailViewController
 
 - (void)dealloc
@@ -63,7 +63,7 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (instancetype)initWithGalleryItemBox:(GalleryItemBox *)galleryItemBox
-                              viewItem:(ConversationViewItem *_Nullable)viewItem
+                              viewItem:(nullable id<ConversationViewItem>)viewItem
 {
     self = [super initWithNibName:nil bundle:nil];
     if (!self) {
@@ -72,8 +72,18 @@ NS_ASSUME_NONNULL_BEGIN
 
     _galleryItemBox = galleryItemBox;
     _viewItem = viewItem;
+
     // We cache the image data in case the attachment stream is deleted.
-    _image = galleryItemBox.attachmentStream.image;
+    __weak MediaDetailViewController *weakSelf = self;
+    _image = [galleryItemBox.attachmentStream
+        thumbnailImageLargeWithSuccess:^(UIImage *image) {
+            weakSelf.image = image;
+            [weakSelf updateContents];
+            [weakSelf updateMinZoomScale];
+        }
+        failure:^{
+            OWSLogWarn(@"Could not load media.");
+        }];
 
     return self;
 }
@@ -81,22 +91,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (TSAttachmentStream *)attachmentStream
 {
     return self.galleryItemBox.attachmentStream;
-}
-
-- (NSURL *_Nullable)attachmentUrl
-{
-    return self.attachmentStream.mediaURL;
-}
-
-- (NSData *)fileData
-{
-    if (!_fileData) {
-        NSURL *_Nullable url = self.attachmentUrl;
-        if (url) {
-            _fileData = [NSData dataWithContentsOfURL:url];
-        }
-    }
-    return _fileData;
 }
 
 - (BOOL)isAnimated
@@ -115,7 +109,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     self.view.backgroundColor = [UIColor clearColor];
 
-    [self createContents];
+    [self updateContents];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -134,12 +128,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)updateMinZoomScale
 {
+    if (!self.image) {
+        self.scrollView.minimumZoomScale = 1.f;
+        self.scrollView.maximumZoomScale = 1.f;
+        self.scrollView.zoomScale = 1.f;
+        return;
+    }
+
     CGSize viewSize = self.scrollView.bounds.size;
     UIImage *image = self.image;
-    OWSAssert(image);
+    OWSAssertDebug(image);
 
     if (image.size.width == 0 || image.size.height == 0) {
-        OWSFail(@"%@ Invalid image dimensions. %@", self.logTag, NSStringFromCGSize(image.size));
+        OWSFailDebug(@"Invalid image dimensions. %@", NSStringFromCGSize(image.size));
         return;
     }
 
@@ -163,8 +164,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Initializers
 
-- (void)createContents
+- (void)updateContents
 {
+    [self.mediaView removeFromSuperview];
+    [self.scrollView removeFromSuperview];
+    [self.playVideoButton removeFromSuperview];
+    [self.videoProgressBar removeFromSuperview];
+
     UIScrollView *scrollView = [UIScrollView new];
     [self.view addSubview:scrollView];
     self.scrollView = scrollView;
@@ -184,23 +190,32 @@ NS_ASSUME_NONNULL_BEGIN
 
     if (self.isAnimated) {
         if (self.attachmentStream.isValidImage) {
-            YYImage *animatedGif = [YYImage imageWithData:self.fileData];
+            YYImage *animatedGif = [YYImage imageWithContentsOfFile:self.attachmentStream.originalFilePath];
             YYAnimatedImageView *animatedView = [YYAnimatedImageView new];
             animatedView.image = animatedGif;
             self.mediaView = animatedView;
         } else {
-            self.mediaView = [UIImageView new];
+            self.mediaView = [UIView new];
+            self.mediaView.backgroundColor = Theme.offBackgroundColor;
         }
+    } else if (!self.image) {
+        // Still loading thumbnail.
+        self.mediaView = [UIView new];
+        self.mediaView.backgroundColor = Theme.offBackgroundColor;
     } else if (self.isVideo) {
-        self.mediaView = [self buildVideoPlayerView];
+        if (self.attachmentStream.isValidVideo) {
+            self.mediaView = [self buildVideoPlayerView];
+        } else {
+            self.mediaView = [UIView new];
+            self.mediaView.backgroundColor = Theme.offBackgroundColor;
+        }
     } else {
         // Present the static image using standard UIImageView
         UIImageView *imageView = [[UIImageView alloc] initWithImage:self.image];
-
         self.mediaView = imageView;
     }
 
-    OWSAssert(self.mediaView);
+    OWSAssertDebug(self.mediaView);
 
     // We add these gestures to mediaView rather than
     // the root view so that interacting with the video player
@@ -260,12 +275,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (UIView *)buildVideoPlayerView
 {
+    NSURL *_Nullable attachmentUrl = self.attachmentStream.originalMediaURL;
+
     NSFileManager *fileManager = [NSFileManager defaultManager];
-    if (![fileManager fileExistsAtPath:[self.attachmentUrl path]]) {
-        OWSFail(@"%@ Missing video file: %@", self.logTag, self.attachmentStream.mediaURL);
+    if (![fileManager fileExistsAtPath:[attachmentUrl path]]) {
+        OWSFailDebug(@"Missing video file");
     }
 
-    OWSVideoPlayer *player = [[OWSVideoPlayer alloc] initWithUrl:self.attachmentUrl];
+    OWSVideoPlayer *player = [[OWSVideoPlayer alloc] initWithUrl:attachmentUrl];
     [player seekToTime:kCMTimeZero];
     player.delegate = self;
     self.videoPlayer = player;
@@ -308,7 +325,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)didDoubleTapImage:(UITapGestureRecognizer *)gesture
 {
-    DDLogVerbose(@"%@ did double tap image.", self.logTag);
+    OWSLogVerbose(@"did double tap image.");
     if (self.scrollView.zoomScale == self.scrollView.minimumZoomScale) {
         CGFloat kDoubleTapZoomScale = 2;
 
@@ -333,9 +350,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)didPressShare:(id)sender
 {
-    DDLogInfo(@"%@: didPressShare", self.logTag);
+    OWSLogInfo(@"didPressShare");
     if (!self.viewItem) {
-        OWSFail(@"share should only be available when a viewItem is present");
+        OWSFailDebug(@"share should only be available when a viewItem is present");
         return;
     }
 
@@ -344,9 +361,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)didPressDelete:(id)sender
 {
-    DDLogInfo(@"%@: didPressDelete", self.logTag);
+    OWSLogInfo(@"didPressDelete");
     if (!self.viewItem) {
-        OWSFail(@"delete should only be available when a viewItem is present");
+        OWSFailDebug(@"delete should only be available when a viewItem is present");
         return;
     }
 
@@ -355,15 +372,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)didPressPlayBarButton:(id)sender
 {
-    OWSAssert(self.isVideo);
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.isVideo);
+    OWSAssertDebug(self.videoPlayer);
     [self playVideo];
 }
 
 - (void)didPressPauseBarButton:(id)sender
 {
-    OWSAssert(self.isVideo);
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.isVideo);
+    OWSAssertDebug(self.videoPlayer);
     [self pauseVideo];
 }
 
@@ -376,7 +393,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)centerMediaViewConstraints
 {
-    OWSAssert(self.scrollView);
+    OWSAssertDebug(self.scrollView);
 
     CGSize scrollViewSize = self.scrollView.bounds.size;
     CGSize imageViewSize = self.mediaView.frame.size;
@@ -411,7 +428,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)playVideo
 {
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.videoPlayer);
 
     self.playVideoButton.hidden = YES;
 
@@ -422,8 +439,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)pauseVideo
 {
-    OWSAssert(self.isVideo);
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.isVideo);
+    OWSAssertDebug(self.videoPlayer);
 
     [self.videoPlayer pause];
 
@@ -439,8 +456,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)stopVideo
 {
-    OWSAssert(self.isVideo);
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.isVideo);
+    OWSAssertDebug(self.videoPlayer);
 
     [self.videoPlayer stop];
 
@@ -453,9 +470,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)videoPlayerDidPlayToCompletion:(OWSVideoPlayer *)videoPlayer
 {
-    OWSAssert(self.isVideo);
-    OWSAssert(self.videoPlayer);
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSAssertDebug(self.isVideo);
+    OWSAssertDebug(self.videoPlayer);
+    OWSLogVerbose(@"");
 
     [self stopVideo];
 }
@@ -464,13 +481,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)playerProgressBarDidStartScrubbing:(PlayerProgressBar *)playerProgressBar
 {
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.videoPlayer);
     [self.videoPlayer pause];
 }
 
 - (void)playerProgressBar:(PlayerProgressBar *)playerProgressBar scrubbedToTime:(CMTime)time
 {
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.videoPlayer);
     [self.videoPlayer seekToTime:time];
 }
 
@@ -478,7 +495,7 @@ NS_ASSUME_NONNULL_BEGIN
     didFinishScrubbingAtTime:(CMTime)time
         shouldResumePlayback:(BOOL)shouldResumePlayback
 {
-    OWSAssert(self.videoPlayer);
+    OWSAssertDebug(self.videoPlayer);
     [self.videoPlayer seekToTime:time];
 
     if (shouldResumePlayback) {
@@ -491,9 +508,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo
 {
     if (error) {
-        DDLogWarn(@"There was a problem saving <%@> to camera roll from %s ",
-            error.localizedDescription,
-            __PRETTY_FUNCTION__);
+        OWSLogWarn(@"There was a problem saving <%@> to camera roll.", error.localizedDescription);
     }
 }
 

@@ -22,7 +22,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)dealloc
 {
     // Surface memory leaks by logging the deallocation of view controllers.
-    DDLogVerbose(@"Dealloc: %@", self.class);
+    OWSLogVerbose(@"Dealloc: %@", self.class);
 
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
@@ -62,10 +62,10 @@ NS_ASSUME_NONNULL_BEGIN
     }
 }
 
-- (void)autoPinViewToBottomOfViewControllerOrKeyboard:(UIView *)view
+- (void)autoPinViewToBottomOfViewControllerOrKeyboard:(UIView *)view avoidNotch:(BOOL)avoidNotch
 {
-    OWSAssert(view);
-    OWSAssert(!self.bottomLayoutConstraint);
+    OWSAssertDebug(view);
+    OWSAssertDebug(!self.bottomLayoutConstraint);
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(keyboardWillShow:)
@@ -93,7 +93,11 @@ NS_ASSUME_NONNULL_BEGIN
                                                object:nil];
 
     self.bottomLayoutView = view;
-    self.bottomLayoutConstraint = [view autoPinEdge:ALEdgeBottom toEdge:ALEdgeBottom ofView:self.view];
+    if (avoidNotch) {
+        self.bottomLayoutConstraint = [view autoPinToBottomLayoutGuideOfViewController:self withInset:0.f];
+    } else {
+        self.bottomLayoutConstraint = [view autoPinEdge:ALEdgeBottom toEdge:ALEdgeBottom ofView:self.view];
+    }
 }
 
 - (void)observeActivation
@@ -151,7 +155,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSValue *_Nullable keyboardEndFrameValue = userInfo[UIKeyboardFrameEndUserInfoKey];
     if (!keyboardEndFrameValue) {
-        OWSFail(@"%@ Missing keyboard end frame", self.logTag);
+        OWSFailDebug(@"Missing keyboard end frame");
         return;
     }
 

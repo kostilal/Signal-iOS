@@ -113,10 +113,11 @@ NS_ASSUME_NONNULL_BEGIN
     OWSTableSection *screenSecuritySection = [OWSTableSection new];
     screenSecuritySection.headerTitle = NSLocalizedString(@"SETTINGS_SECURITY_TITLE", @"Section header");
     screenSecuritySection.footerTitle = NSLocalizedString(@"SETTINGS_SCREEN_SECURITY_DETAIL", nil);
-    [screenSecuritySection addItem:[OWSTableItem switchItemWithText:NSLocalizedString(@"SETTINGS_SCREEN_SECURITY", @"")
-                                                               isOn:[Environment.preferences screenSecurityIsEnabled]
-                                                             target:weakSelf
-                                                           selector:@selector(didToggleScreenSecuritySwitch:)]];
+    [screenSecuritySection
+        addItem:[OWSTableItem switchItemWithText:NSLocalizedString(@"SETTINGS_SCREEN_SECURITY", @"")
+                                            isOn:[Environment.shared.preferences screenSecurityIsEnabled]
+                                          target:weakSelf
+                                        selector:@selector(didToggleScreenSecuritySwitch:)]];
     [contents addSection:screenSecuritySection];
     
     // Allow calls to connect directly vs. using TURN exclusively
@@ -128,7 +129,7 @@ NS_ASSUME_NONNULL_BEGIN
     [callingSection addItem:[OWSTableItem switchItemWithText:NSLocalizedString(
                                                                  @"SETTINGS_CALLING_HIDES_IP_ADDRESS_PREFERENCE_TITLE",
                                                                  @"Table cell label")
-                                                        isOn:[Environment.preferences doCallsHideIPAddress]
+                                                        isOn:[Environment.shared.preferences doCallsHideIPAddress]
                                                       target:weakSelf
                                                     selector:@selector(didToggleCallsHideIPAddressSwitch:)]];
     [contents addSection:callingSection];
@@ -139,7 +140,7 @@ NS_ASSUME_NONNULL_BEGIN
             addItem:[OWSTableItem switchItemWithText:NSLocalizedString(
                                                          @"SETTINGS_PRIVACY_CALLKIT_SYSTEM_CALL_LOG_PREFERENCE_TITLE",
                                                          @"Short table cell label")
-                                                isOn:[Environment.preferences isSystemCallLogEnabled]
+                                                isOn:[Environment.shared.preferences isSystemCallLogEnabled]
                                               target:weakSelf
                                             selector:@selector(didToggleEnableSystemCallLogSwitch:)]];
         callKitSection.footerTitle = NSLocalizedString(
@@ -151,14 +152,14 @@ NS_ASSUME_NONNULL_BEGIN
             = NSLocalizedString(@"SETTINGS_SECTION_CALL_KIT_DESCRIPTION", @"Settings table section footer.");
         [callKitSection addItem:[OWSTableItem switchItemWithText:NSLocalizedString(@"SETTINGS_PRIVACY_CALLKIT_TITLE",
                                                                      @"Short table cell label")
-                                                            isOn:[Environment.preferences isCallKitEnabled]
+                                                            isOn:[Environment.shared.preferences isCallKitEnabled]
                                                           target:weakSelf
                                                         selector:@selector(didToggleEnableCallKitSwitch:)]];
-        if (Environment.preferences.isCallKitEnabled) {
+        if (Environment.shared.preferences.isCallKitEnabled) {
             [callKitSection
                 addItem:[OWSTableItem switchItemWithText:NSLocalizedString(@"SETTINGS_PRIVACY_CALLKIT_PRIVACY_TITLE",
                                                              @"Label for 'CallKit privacy' preference")
-                                                    isOn:![Environment.preferences isCallKitPrivacyEnabled]
+                                                    isOn:![Environment.shared.preferences isCallKitPrivacyEnabled]
                                                   target:weakSelf
                                                 selector:@selector(didToggleEnableCallKitPrivacySwitch:)]];
         }
@@ -233,28 +234,28 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)didToggleScreenSecuritySwitch:(UISwitch *)sender
 {
     BOOL enabled = sender.isOn;
-    DDLogInfo(@"%@ toggled screen security: %@", self.logTag, enabled ? @"ON" : @"OFF");
-    [Environment.preferences setScreenSecurity:enabled];
+    OWSLogInfo(@"toggled screen security: %@", enabled ? @"ON" : @"OFF");
+    [Environment.shared.preferences setScreenSecurity:enabled];
 }
 
 - (void)didToggleReadReceiptsSwitch:(UISwitch *)sender
 {
     BOOL enabled = sender.isOn;
-    DDLogInfo(@"%@ toggled areReadReceiptsEnabled: %@", self.logTag, enabled ? @"ON" : @"OFF");
+    OWSLogInfo(@"toggled areReadReceiptsEnabled: %@", enabled ? @"ON" : @"OFF");
     [OWSReadReceiptManager.sharedManager setAreReadReceiptsEnabled:enabled];
 }
 
 - (void)didToggleCallsHideIPAddressSwitch:(UISwitch *)sender
 {
     BOOL enabled = sender.isOn;
-    DDLogInfo(@"%@ toggled callsHideIPAddress: %@", self.logTag, enabled ? @"ON" : @"OFF");
-    [Environment.preferences setDoCallsHideIPAddress:enabled];
+    OWSLogInfo(@"toggled callsHideIPAddress: %@", enabled ? @"ON" : @"OFF");
+    [Environment.shared.preferences setDoCallsHideIPAddress:enabled];
 }
 
 - (void)didToggleEnableSystemCallLogSwitch:(UISwitch *)sender
 {
-    DDLogInfo(@"%@ user toggled call kit preference: %@", self.logTag, (sender.isOn ? @"ON" : @"OFF"));
-    [[Environment current].preferences setIsSystemCallLogEnabled:sender.isOn];
+    OWSLogInfo(@"user toggled call kit preference: %@", (sender.isOn ? @"ON" : @"OFF"));
+    [Environment.shared.preferences setIsSystemCallLogEnabled:sender.isOn];
 
     // rebuild callUIAdapter since CallKit configuration changed.
     [SignalApp.sharedApp.callService createCallUIAdapter];
@@ -262,8 +263,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)didToggleEnableCallKitSwitch:(UISwitch *)sender
 {
-    DDLogInfo(@"%@ user toggled call kit preference: %@", self.logTag, (sender.isOn ? @"ON" : @"OFF"));
-    [[Environment current].preferences setIsCallKitEnabled:sender.isOn];
+    OWSLogInfo(@"user toggled call kit preference: %@", (sender.isOn ? @"ON" : @"OFF"));
+    [Environment.shared.preferences setIsCallKitEnabled:sender.isOn];
 
     // rebuild callUIAdapter since CallKit vs not changed.
     [SignalApp.sharedApp.callService createCallUIAdapter];
@@ -274,8 +275,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)didToggleEnableCallKitPrivacySwitch:(UISwitch *)sender
 {
-    DDLogInfo(@"%@ user toggled call kit privacy preference: %@", self.logTag, (sender.isOn ? @"ON" : @"OFF"));
-    [[Environment current].preferences setIsCallKitPrivacyEnabled:!sender.isOn];
+    OWSLogInfo(@"user toggled call kit privacy preference: %@", (sender.isOn ? @"ON" : @"OFF"));
+    [Environment.shared.preferences setIsCallKitPrivacyEnabled:!sender.isOn];
 
     // rebuild callUIAdapter since CallKit configuration changed.
     [SignalApp.sharedApp.callService createCallUIAdapter];
@@ -283,7 +284,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)show2FASettings
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     OWS2FASettingsViewController *vc = [OWS2FASettingsViewController new];
     vc.mode = OWS2FASettingsMode_Status;
@@ -295,25 +296,25 @@ NS_ASSUME_NONNULL_BEGIN
     BOOL shouldBeEnabled = sender.isOn;
 
     if (shouldBeEnabled == OWSScreenLock.sharedManager.isScreenLockEnabled) {
-        DDLogError(@"%@ ignoring redundant screen lock.", self.logTag);
+        OWSLogError(@"ignoring redundant screen lock.");
         return;
     }
 
-    DDLogInfo(@"%@ trying to set is screen lock enabled: %@", self.logTag, @(shouldBeEnabled));
+    OWSLogInfo(@"trying to set is screen lock enabled: %@", @(shouldBeEnabled));
 
     [OWSScreenLock.sharedManager setIsScreenLockEnabled:shouldBeEnabled];
 }
 
 - (void)screenLockDidChange:(NSNotification *)notification
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     [self updateTableContents];
 }
 
 - (void)showScreenLockTimeoutUI
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     UIAlertController *controller = [UIAlertController
         alertControllerWithTitle:NSLocalizedString(@"SETTINGS_SCREEN_LOCK_ACTIVITY_TIMEOUT",

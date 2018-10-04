@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
 /**
@@ -62,12 +62,11 @@ struct AppNotifications {
 
 @available(iOS 10.0, *)
 class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNotificationCenterDelegate {
-    let TAG = "[UserNotificationsAdaptee]"
 
     private let center: UNUserNotificationCenter
 
     var previewType: NotificationType {
-        return Environment.current().preferences.notificationPreviewType()
+        return Environment.shared.preferences.notificationPreviewType()
     }
 
     override init() {
@@ -89,11 +88,11 @@ class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNot
     func requestAuthorization() {
         center.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
             if granted {
-                Logger.debug("\(self.TAG) \(#function) succeeded.")
+                Logger.debug("succeeded.")
             } else if error != nil {
-                Logger.error("\(self.TAG) \(#function) failed with error: \(error!)")
+                Logger.error("failed with error: \(error!)")
             } else {
-                Logger.error("\(self.TAG) \(#function) failed without error.")
+                Logger.error("failed without error.")
             }
         }
     }
@@ -101,13 +100,13 @@ class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNot
     // MARK: - OWSCallNotificationsAdaptee
 
     public func presentIncomingCall(_ call: SignalCall, callerName: String) {
-        Logger.debug("\(TAG) \(#function) is no-op, because it's handled with callkit.")
+        Logger.debug("is no-op, because it's handled with callkit.")
         // TODO since CallKit doesn't currently work on the simulator,
         // we could implement UNNotifications for simulator testing, or if people have opted out of callkit.
     }
 
     public func presentMissedCall(_ call: SignalCall, callerName: String) {
-        Logger.debug("\(TAG) \(#function)")
+        Logger.debug("")
 
         let content = UNMutableNotificationContent()
         // TODO group by thread identifier
@@ -118,7 +117,7 @@ class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNot
             case .noNameNoPreview:
                 return CallStrings.missedCallNotificationBodyWithoutCallerName
             case .nameNoPreview, .namePreview:
-                return (Environment.current().preferences.isCallKitPrivacyEnabled()
+                return (Environment.shared.preferences.isCallKitPrivacyEnabled()
                     ? CallStrings.missedCallNotificationBodyWithoutCallerName
                     : String(format: CallStrings.missedCallNotificationBodyWithCallerName, callerName))
         }}()
@@ -133,7 +132,7 @@ class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNot
     }
 
     public func presentMissedCallBecauseOfNoLongerVerifiedIdentity(call: SignalCall, callerName: String) {
-        Logger.debug("\(TAG) \(#function)")
+        Logger.debug("")
 
         let content = UNMutableNotificationContent()
         // TODO group by thread identifier
@@ -144,7 +143,7 @@ class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNot
             case .noNameNoPreview:
                 return CallStrings.missedCallWithIdentityChangeNotificationBodyWithoutCallerName
             case .nameNoPreview, .namePreview:
-                return (Environment.current().preferences.isCallKitPrivacyEnabled()
+                return (Environment.shared.preferences.isCallKitPrivacyEnabled()
                     ? CallStrings.missedCallWithIdentityChangeNotificationBodyWithoutCallerName
                     : String(format: CallStrings.missedCallWithIdentityChangeNotificationBodyWithCallerName, callerName))
             }}()
@@ -159,7 +158,7 @@ class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNot
     }
 
     public func presentMissedCallBecauseOfNewIdentity(call: SignalCall, callerName: String) {
-        Logger.debug("\(TAG) \(#function)")
+        Logger.debug("")
 
         let content = UNMutableNotificationContent()
         // TODO group by thread identifier
@@ -170,7 +169,7 @@ class UserNotificationsAdaptee: NSObject, OWSCallNotificationsAdaptee, UNUserNot
             case .noNameNoPreview:
                 return CallStrings.missedCallWithIdentityChangeNotificationBodyWithoutCallerName
             case .nameNoPreview, .namePreview:
-                return (Environment.current().preferences.isCallKitPrivacyEnabled()
+                return (Environment.shared.preferences.isCallKitPrivacyEnabled()
                     ? CallStrings.missedCallWithIdentityChangeNotificationBodyWithoutCallerName
                     : String(format: CallStrings.missedCallWithIdentityChangeNotificationBodyWithCallerName, callerName))
             }}()

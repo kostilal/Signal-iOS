@@ -8,6 +8,7 @@
 #import "OWSPrimaryStorage.h"
 #import "OWSRequestFactory.h"
 #import "PhoneNumber.h"
+#import "SSKEnvironment.h"
 #import "TSNetworkManager.h"
 #import "Threading.h"
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
@@ -21,17 +22,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+#pragma mark -
+
 @implementation ContactsUpdater
 
 + (instancetype)sharedUpdater {
-    static dispatch_once_t onceToken;
-    static id sharedInstance = nil;
-    dispatch_once(&onceToken, ^{
-        sharedInstance = [self new];
-    });
-    return sharedInstance;
-}
+    OWSAssertDebug(SSKEnvironment.shared.contactsUpdater);
 
+    return SSKEnvironment.shared.contactsUpdater;
+}
 
 - (instancetype)init
 {
@@ -42,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     _contactIntersectionQueue = [NSOperationQueue new];
     _contactIntersectionQueue.maxConcurrentOperationCount = 1;
+    _contactIntersectionQueue.name = self.logTag;
 
     OWSSingletonAssert();
 
@@ -53,7 +53,7 @@ NS_ASSUME_NONNULL_BEGIN
                  failure:(void (^)(NSError *error))failure
 {
     if (identifiers.count < 1) {
-        OWSFail(@"%@ Cannot lookup zero identifiers", self.logTag);
+        OWSFailDebug(@"Cannot lookup zero identifiers");
         DispatchMainThreadSafe(^{
             failure(
                 OWSErrorWithCodeDescription(OWSErrorCodeInvalidMethodParameters, @"Cannot lookup zero identifiers"));
@@ -64,7 +64,7 @@ NS_ASSUME_NONNULL_BEGIN
     [self contactIntersectionWithSet:[NSSet setWithArray:identifiers]
         success:^(NSSet<SignalRecipient *> *recipients) {
             if (recipients.count == 0) {
-                DDLogInfo(@"%@ in %s no contacts are Signal users", self.logTag, __PRETTY_FUNCTION__);
+                OWSLogInfo(@"no contacts are Signal users");
             }
             DispatchMainThreadSafe(^{
                 success(recipients.allObjects);
@@ -81,10 +81,10 @@ NS_ASSUME_NONNULL_BEGIN
                            success:(void (^)(NSSet<SignalRecipient *> *recipients))success
                            failure:(void (^)(NSError *error))failure
 {
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        OWSLegacyContactDiscoveryOperation *operation =
-            [[OWSLegacyContactDiscoveryOperation alloc] initWithRecipientIdsToLookup:recipientIdsToLookup.allObjects];
+    OWSLegacyContactDiscoveryOperation *operation =
+        [[OWSLegacyContactDiscoveryOperation alloc] initWithRecipientIdsToLookup:recipientIdsToLookup.allObjects];
 
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSArray<NSOperation *> *operationAndDependencies = [operation.dependencies arrayByAddingObject:operation];
         [self.contactIntersectionQueue addOperations:operationAndDependencies waitUntilFinished:YES];
 

@@ -27,12 +27,12 @@ NS_ASSUME_NONNULL_BEGIN
 
     for (NSString *relativePath in directoryEnumerator) {
         NSString *filePath = [dirPath stringByAppendingPathComponent:relativePath];
-        DDLogDebug(@"%@ path: %@ had attributes: %@", self.logTag, filePath, directoryEnumerator.fileAttributes);
+        OWSLogDebug(@"path: %@ had attributes: %@", filePath, directoryEnumerator.fileAttributes);
 
         success = success && [self protectFileOrFolderAtPath:filePath];
     }
 
-    DDLogInfo(@"%@ protected contents at path: %@", self.logTag, path);
+    OWSLogInfo(@"protected contents at path: %@", path);
     return success;
 }
 
@@ -44,7 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)protectFileOrFolderAtPath:(NSString *)path fileProtectionType:(NSFileProtectionType)fileProtectionType
 {
-    DDLogVerbose(@"%@ protecting file at path: %@", self.logTag, path);
+    OWSLogVerbose(@"protecting file at path: %@", path);
     if (![NSFileManager.defaultManager fileExistsAtPath:path]) {
         return NO;
     }
@@ -59,7 +59,7 @@ NS_ASSUME_NONNULL_BEGIN
     BOOL success = [ressourceURL setResourceValues:resourcesAttrs error:&error];
 
     if (error || !success) {
-        OWSFail(@"Could not protect file or folder: %@", error);
+        OWSFailDebug(@"Could not protect file or folder: %@", error);
         OWSProdCritical([OWSAnalyticsEvents storageErrorFileProtection]);
         return NO;
     }
@@ -71,23 +71,23 @@ NS_ASSUME_NONNULL_BEGIN
     BOOL isDirectory;
     BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isDirectory];
     if (!exists) {
-        OWSFail(@"%@ error retrieving file attributes for issing file", self.logTag);
+        OWSFailDebug(@"error retrieving file attributes for missing file");
         return;
     }
 
     if (isDirectory) {
         NSDirectoryEnumerator *directoryEnumerator = [[NSFileManager defaultManager] enumeratorAtPath:(NSString *)path];
         for (NSString *path in directoryEnumerator) {
-            DDLogDebug(@"%@ path: %@ has attributes: %@", self.logTag, path, directoryEnumerator.fileAttributes);
+            OWSLogDebug(@"path: %@ has attributes: %@", path, directoryEnumerator.fileAttributes);
         }
     } else {
         NSError *error;
         NSDictionary<NSFileAttributeKey, id> *_Nullable attributes =
             [[NSFileManager defaultManager] attributesOfItemAtPath:path error:&error];
         if (error) {
-            OWSFail(@"%@ error retrieving file attributes: %@", self.logTag, error);
+            OWSFailDebug(@"error retrieving file attributes: %@", error);
         } else {
-            DDLogDebug(@"%@ path: %@ has attributes: %@", self.logTag, path, attributes);
+            OWSLogDebug(@"path: %@ has attributes: %@", path, attributes);
         }
     }
 }
@@ -102,23 +102,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSString *)appDocumentDirectoryPath
 {
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSURL *documentDirectoryURL =
-        [[fileManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] lastObject];
-    return [documentDirectoryURL path];
+    return CurrentAppContext().appDocumentDirectoryPath;
 }
 
 + (NSString *)appSharedDataDirectoryPath
 {
-    NSURL *groupContainerDirectoryURL =
-        [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:SignalApplicationGroup];
-    return [groupContainerDirectoryURL path];
+    return CurrentAppContext().appSharedDataDirectoryPath;
 }
 
 + (NSString *)cachesDirectoryPath
 {
     NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-    OWSAssert(paths.count >= 1);
+    OWSAssertDebug(paths.count >= 1);
     return paths[0];
 }
 
@@ -132,16 +127,13 @@ NS_ASSUME_NONNULL_BEGIN
     NSString *newFilePath =
         [[oldFilePath stringByAppendingString:@"."] stringByAppendingString:[NSUUID UUID].UUIDString];
 
-    DDLogInfo(@"%@ Moving file or directory from: %@ to: %@", self.logTag, oldFilePath, newFilePath);
+    OWSLogInfo(@"Moving file or directory from: %@ to: %@", oldFilePath, newFilePath);
 
     NSError *_Nullable error;
     BOOL success = [fileManager moveItemAtPath:oldFilePath toPath:newFilePath error:&error];
     if (!success || error) {
-        OWSProdLogAndFail(@"%@ Could not move file or directory from: %@ to: %@, error: %@",
-            self.logTag,
-            oldFilePath,
-            newFilePath,
-            error);
+        OWSLogDebug(@"Could not move file or directory from: %@ to: %@, error: %@", oldFilePath, newFilePath, error);
+        OWSFailDebug(@"Could not move file or directory with error: %@", error);
         return error;
     }
     return nil;
@@ -154,7 +146,7 @@ NS_ASSUME_NONNULL_BEGIN
         return nil;
     }
 
-    DDLogInfo(@"%@ Moving file or directory from: %@ to: %@", self.logTag, oldFilePath, newFilePath);
+    OWSLogInfo(@"Moving file or directory from: %@ to: %@", oldFilePath, newFilePath);
 
     if ([fileManager fileExistsAtPath:newFilePath]) {
         // If a file/directory already exists at the destination,
@@ -166,10 +158,9 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     if ([fileManager fileExistsAtPath:newFilePath]) {
-        OWSProdLogAndFail(@"%@ Can't move file or directory from: %@ to: %@; destination already exists.",
-            self.logTag,
-            oldFilePath,
-            newFilePath);
+        OWSLogDebug(
+            @"Can't move file or directory from: %@ to: %@; destination already exists.", oldFilePath, newFilePath);
+        OWSFailDebug(@"Can't move file or directory; destination already exists.");
         return OWSErrorWithCodeDescription(
             OWSErrorCodeMoveFileToSharedDataContainerError, @"Can't move file; destination already exists.");
     }
@@ -179,16 +170,13 @@ NS_ASSUME_NONNULL_BEGIN
     NSError *_Nullable error;
     BOOL success = [fileManager moveItemAtPath:oldFilePath toPath:newFilePath error:&error];
     if (!success || error) {
-        OWSProdLogAndFail(@"%@ Could not move file or directory from: %@ to: %@, error: %@",
-            self.logTag,
-            oldFilePath,
-            newFilePath,
-            error);
+        OWSLogDebug(@"Could not move file or directory from: %@ to: %@, error: %@", oldFilePath, newFilePath, error);
+        OWSFailDebug(@"Could not move file or directory with error: %@", error);
         return error;
     }
 
-    DDLogInfo(@"%@ Moved file or directory from: %@ to: %@ in: %f",
-        self.logTag,
+    OWSLogInfo(@"Moved file or directory in: %f", fabs([startDate timeIntervalSinceNow]));
+    OWSLogDebug(@"Moved file or directory from: %@ to: %@ in: %f",
         oldFilePath,
         newFilePath,
         fabs([startDate timeIntervalSinceNow]));
@@ -205,14 +193,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)ensureDirectoryExists:(NSString *)dirPath
 {
+    return [self ensureDirectoryExists:dirPath fileProtectionType:NSFileProtectionCompleteUntilFirstUserAuthentication];
+}
+
++ (BOOL)ensureDirectoryExists:(NSString *)dirPath fileProtectionType:(NSFileProtectionType)fileProtectionType
+{
     BOOL isDirectory;
     BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:dirPath isDirectory:&isDirectory];
     if (exists) {
-        OWSAssert(isDirectory);
+        OWSAssertDebug(isDirectory);
 
-        return [self protectFileOrFolderAtPath:dirPath];
+        return [self protectFileOrFolderAtPath:dirPath fileProtectionType:fileProtectionType];
     } else {
-        DDLogInfo(@"%@ Creating directory at: %@", self.logTag, dirPath);
+        OWSLogInfo(@"Creating directory at: %@", dirPath);
 
         NSError *error = nil;
         [[NSFileManager defaultManager] createDirectoryAtPath:dirPath
@@ -220,10 +213,10 @@ NS_ASSUME_NONNULL_BEGIN
                                                    attributes:nil
                                                         error:&error];
         if (error) {
-            OWSFail(@"%@ Failed to create directory: %@, error: %@", self.logTag, dirPath, error);
+            OWSFailDebug(@"Failed to create directory: %@, error: %@", dirPath, error);
             return NO;
         }
-        return [self protectFileOrFolderAtPath:dirPath];
+        return [self protectFileOrFolderAtPath:dirPath fileProtectionType:fileProtectionType];
     }
 }
 
@@ -235,7 +228,7 @@ NS_ASSUME_NONNULL_BEGIN
     } else {
         BOOL success = [[NSFileManager defaultManager] createFileAtPath:filePath contents:nil attributes:nil];
         if (!success) {
-            OWSFail(@"%@ Failed to create file.", self.logTag);
+            OWSFailDebug(@"Failed to create file.");
             return NO;
         }
         return [self protectFileOrFolderAtPath:filePath];
@@ -247,7 +240,7 @@ NS_ASSUME_NONNULL_BEGIN
     NSError *error;
     BOOL success = [[NSFileManager defaultManager] removeItemAtPath:filePath error:&error];
     if (!success || error) {
-        DDLogError(@"%@ Failed to delete file: %@", self.logTag, error.description);
+        OWSLogError(@"Failed to delete file: %@", error.description);
         return NO;
     }
     return YES;
@@ -263,13 +256,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSArray<NSString *> *_Nullable)allFilesInDirectoryRecursive:(NSString *)dirPath error:(NSError **)error
 {
-    OWSAssert(dirPath.length > 0);
+    OWSAssertDebug(dirPath.length > 0);
 
     *error = nil;
 
     NSArray<NSString *> *filenames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dirPath error:error];
     if (*error) {
-        OWSFail(@"%@ could not find files in directory: %@", self.logTag, *error);
+        OWSFailDebug(@"could not find files in directory: %@", *error);
         return nil;
     }
 
@@ -300,7 +293,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSString *)temporaryFilePathWithFileExtension:(NSString *_Nullable)fileExtension
 {
-    NSString *temporaryDirectory = NSTemporaryDirectory();
+    NSString *temporaryDirectory = OWSTemporaryDirectory();
     NSString *tempFileName = NSUUID.UUID.UUIDString;
     if (fileExtension.length > 0) {
         tempFileName = [[tempFileName stringByAppendingString:@"."] stringByAppendingString:fileExtension];
@@ -312,13 +305,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (nullable NSString *)writeDataToTemporaryFile:(NSData *)data fileExtension:(NSString *_Nullable)fileExtension
 {
-    OWSAssert(data);
+    OWSAssertDebug(data);
 
     NSString *tempFilePath = [self temporaryFilePathWithFileExtension:fileExtension];
     NSError *error;
     BOOL success = [data writeToFile:tempFilePath options:NSDataWritingAtomic error:&error];
     if (!success || error) {
-        OWSFail(@"%@ could not write to temporary file: %@", self.logTag, error);
+        OWSFailDebug(@"could not write to temporary file: %@", error);
         return nil;
     }
 
@@ -334,7 +327,7 @@ NS_ASSUME_NONNULL_BEGIN
     unsigned long long fileSize =
         [[fileManager attributesOfItemAtPath:filePath error:&error][NSFileSize] unsignedLongLongValue];
     if (error) {
-        DDLogError(@"%@ Couldn't fetch file size[%@]: %@", self.logTag, filePath, error);
+        OWSLogError(@"Couldn't fetch file size[%@]: %@", filePath, error);
         return nil;
     } else {
         return @(fileSize);
@@ -342,5 +335,23 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 @end
+
+NSString *OWSTemporaryDirectory(void)
+{
+    NSString *dirName = @"ows_temp";
+    NSString *dirPath = [NSTemporaryDirectory() stringByAppendingPathComponent:dirName];
+    BOOL success = [OWSFileSystem ensureDirectoryExists:dirPath fileProtectionType:NSFileProtectionComplete];
+    OWSCAssert(success);
+    return dirPath;
+}
+
+NSString *OWSTemporaryDirectoryAccessibleAfterFirstAuth(void)
+{
+    NSString *dirPath = NSTemporaryDirectory();
+    BOOL success = [OWSFileSystem ensureDirectoryExists:dirPath
+                                     fileProtectionType:NSFileProtectionCompleteUntilFirstUserAuthentication];
+    OWSCAssert(success);
+    return dirPath;
+}
 
 NS_ASSUME_NONNULL_END

@@ -24,9 +24,9 @@ static NSString *const OWS101ExistingUsersBlockOnIdentityChangeMigrationId = @"1
 
 - (void)runUpWithTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
-    OWSFail(@"[OWS101ExistingUsersBlockOnIdentityChange] has been obviated.");
+    OWSFailDebug(@"[OWS101ExistingUsersBlockOnIdentityChange] has been obviated.");
 }
 
 @end

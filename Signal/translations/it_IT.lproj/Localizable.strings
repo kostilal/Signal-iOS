@@ -69,7 +69,7 @@
 "APN_MESSAGE_IN_GROUP_DETAILED" = "%@ in gruppo %@: %@";
 
 /* Message for the 'app launch failed' alert. */
-"APP_LAUNCH_FAILURE_ALERT_MESSAGE" = "Signal non riesce ad avviarsi. Invia i tuoi log di debug al nostro team cosicchè cercheremo di risolvere il problema.";
+"APP_LAUNCH_FAILURE_ALERT_MESSAGE" = "Signal non riesce ad avviarsi. Invia il log di debug a support@signal.org così da permetterci di risolvere il problema.";
 
 /* Title for the 'app launch failed' alert. */
 "APP_LAUNCH_FAILURE_ALERT_TITLE" = "Errore";
@@ -77,7 +77,10 @@
 /* Text prompting user to edit their profile name. */
 "APP_SETTINGS_EDIT_PROFILE_NAME_PROMPT" = "Inserisci il tuo nome";
 
-/* Message format for the 'new app version available' alert. Embeds: {{The latest app version number.}}. */
+/* Label for the 'dismiss' button in the 'new app version available' alert. */
+"APP_UPDATE_NAG_ALERT_DISMISS_BUTTON" = "Non ora";
+
+/* Message format for the 'new app version available' alert. Embeds: {{The latest app version number}} */
 "APP_UPDATE_NAG_ALERT_MESSAGE_FORMAT" = "La versione %@ è ora disponibile nell'App Store.";
 
 /* Title for the 'new app version available' alert. */
@@ -95,7 +98,7 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Allegato";
 
-/* One line label indicating the user can add no more text to the attachment caption. */
+/* One-line label indicating the user can add no more text to the attachment caption. */
 "ATTACHMENT_APPROVAL_CAPTION_LENGTH_LIMIT_REACHED" = "Limite del messaggio raggiunto.";
 
 /* Format string for file extension label in call interstitial view */
@@ -111,7 +114,7 @@
 "ATTACHMENT_DEFAULT_FILENAME" = "Allegato";
 
 /* Status label when an attachment download has failed. */
-"ATTACHMENT_DOWNLOADING_STATUS_FAILED" = "Fallito. Premi per riprovare.";
+"ATTACHMENT_DOWNLOADING_STATUS_FAILED" = "Download fallito. Premi per riprovare.";
 
 /* Status label when an attachment is currently downloading */
 "ATTACHMENT_DOWNLOADING_STATUS_IN_PROGRESS" = "Download in corso...";
@@ -123,13 +126,13 @@
 "ATTACHMENT_ERROR_ALERT_TITLE" = "Errore invio allegato";
 
 /* Attachment error message for image attachments which could not be converted to JPEG */
-"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Impossibile ridimensionare l'immagine allegata.";
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Impossibile convertire l'immagine.";
 
 /* Attachment error message for video attachments which could not be converted to MP4 */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Impossibile elaborare il video.";
 
 /* Attachment error message for image attachments which cannot be parsed */
-"ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Impossibile elaborare l'immagine allegata.";
+"ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Impossibile analizzare l'immagine.";
 
 /* Attachment error message for image attachments in which metadata could not be removed */
 "ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Impossibile rimuovere i metadati dall'immagine.";
@@ -141,10 +144,10 @@
 "ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "L'allegato è troppo grande.";
 
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Contenuto dell'allegato non valido.";
+"ATTACHMENT_ERROR_INVALID_DATA" = "L'allegato contiene un contenuto non valido.";
 
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Formato dell'allegato non valido.";
+"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Il formato dell'allegato non è valido.";
 
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "L'allegato è vuoto.";
@@ -162,7 +165,7 @@
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Scelta del documento fallita.";
 
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Signal non può gestire questo file così com'è. Prova a comprimerlo prima di inviarlo.";
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Crea un archivio compresso di questo file o cartella e quindi prova a inviarlo.";
 
 /* Alert title when picking a document fails because user picked a directory/bundle */
 "ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Documento non supportato";
@@ -221,35 +224,47 @@
 /* Indicates that the backup import data is being restored. */
 "BACKUP_IMPORT_PHASE_RESTORING_FILES" = "Ripristino file";
 
-/* An explanation of the consequences of blocking another user. */
-"BLOCK_BEHAVIOR_EXPLANATION" = "Gli utenti bloccati non potranno chiamarti o inviarti messaggi.";
+/* An explanation of the consequences of blocking a group. */
+"BLOCK_GROUP_BEHAVIOR_EXPLANATION" = "Non riceverai più messaggi o aggiornamenti da questo gruppo.";
 
 /* Button label for the 'block' button */
 "BLOCK_LIST_BLOCK_BUTTON" = "Blocca";
 
+/* A format for the 'block group' action sheet title. Embeds the {{group name}}. */
+"BLOCK_LIST_BLOCK_GROUP_TITLE_FORMAT" = "Blocca e lascia il gruppo \"%@\"?";
+
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_TITLE_FORMAT" = "Bloccare %@?";
+"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Bloccare %@?";
+
+/* Section header for groups that have been blocked */
+"BLOCK_LIST_BLOCKED_GROUPS_SECTION" = "Gruppi bloccati";
+
+/* Section header for users that have been blocked */
+"BLOCK_LIST_BLOCKED_USERS_SECTION" = "Utenti bloccati";
 
 /* Button label for the 'unblock' button */
 "BLOCK_LIST_UNBLOCK_BUTTON" = "Sblocca";
 
-/* A format for the 'unblock user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
+/* Action sheet body when confirming you want to unblock a group */
+"BLOCK_LIST_UNBLOCK_GROUP_BODY" = "I membri esistenti potranno aggiungerti nel gruppo nuovamente.";
+
+/* Action sheet title when confirming you want to unblock a group. */
+"BLOCK_LIST_UNBLOCK_GROUP_TITLE" = "Sbloccare questo gruppo?";
+
+/* A format for the 'unblock conversation' action sheet title. Embeds the {{conversation title}}. */
 "BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Sbloccare %@?";
 
 /* A label for the block button in the block list view */
 "BLOCK_LIST_VIEW_BLOCK_BUTTON" = "Blocca";
 
-/* The title of the 'block user failed' alert. */
-"BLOCK_LIST_VIEW_BLOCK_FAILED_ALERT_MESSAGE" = "Blocco utente non riuscito.";
-
-/* The title of the 'block user failed' alert. */
-"BLOCK_LIST_VIEW_BLOCK_FAILED_ALERT_TITLE" = "Errore";
-
-/* The message format of the 'user blocked' alert. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ è stato bloccato";
+/* The message format of the 'conversation blocked' alert. Embeds the {{conversation title}}. */
+"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ è stato bloccato.";
 
 /* The title of the 'user blocked' alert. */
 "BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "Utente bloccato";
+
+/* The title of the 'group blocked' alert. */
+"BLOCK_LIST_VIEW_BLOCKED_GROUP_ALERT_TITLE" = "Gruppo bloccato";
 
 /* The message of the 'You can't block yourself' alert. */
 "BLOCK_LIST_VIEW_CANT_BLOCK_SELF_ALERT_MESSAGE" = "Non puoi bloccare te stesso.";
@@ -257,23 +272,20 @@
 /* The title of the 'You can't block yourself' alert. */
 "BLOCK_LIST_VIEW_CANT_BLOCK_SELF_ALERT_TITLE" = "Errore";
 
-/* The title of the 'unblock user failed' alert. */
-"BLOCK_LIST_VIEW_UNBLOCK_FAILED_ALERT_MESSAGE" = "Sblocco utente non riuscito.";
+/* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
+"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ è stato sbloccato.";
 
-/* The title of the 'unblock user failed' alert. */
-"BLOCK_LIST_VIEW_UNBLOCK_FAILED_ALERT_TITLE" = "Errore";
-
-/* The message format of the 'user unblocked' alert. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_MESSAGE_FORMAT" = "%@ è stato sbloccato.";
-
-/* The title of the 'user unblocked' alert. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE" = "Utente sbloccato";
+/* Alert body after unblocking a group. */
+"BLOCK_LIST_VIEW_UNBLOCKED_GROUP_ALERT_BODY" = "I membri esistenti possono ora aggiungerti nel gruppo nuovamente.";
 
 /* Action sheet that will block an unknown user. */
 "BLOCK_OFFER_ACTIONSHEET_BLOCK_ACTION" = "Blocco";
 
 /* Title format for action sheet that offers to block an unknown user.Embeds {{the unknown user's name or phone number}}. */
 "BLOCK_OFFER_ACTIONSHEET_TITLE_FORMAT" = "Blocca %@?";
+
+/* An explanation of the consequences of blocking another user. */
+"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Gli utenti bloccati non potranno chiamarti o inviarti messaggi.";
 
 /* Label for 'continue' button. */
 "BUTTON_CONTINUE" = "Continua";
@@ -288,7 +300,7 @@
 "CALL_AGAIN_BUTTON_TITLE" = "Richiama";
 
 /* Alert message when calling and permissions for microphone are missing */
-"CALL_AUDIO_PERMISSION_MESSAGE" = "Signal richiede l'accesso al tuo microfono per effettuare chiamate e registrare messaggi vocali. Puoi consentire questo accesso dall'app Impostazioni.";
+"CALL_AUDIO_PERMISSION_MESSAGE" = "Puoi abilitare l'accesso al microfono nelle impostazioni di iOS per effettuare chiamate e registrare messaggi vocali in Signal.";
 
 /* Alert title when calling and permissions for microphone are missing */
 "CALL_AUDIO_PERMISSION_TITLE" = "Accesso microfono richiesto";
@@ -297,7 +309,7 @@
 "CALL_LABEL" = "Chiama";
 
 /* Call setup status label after outgoing call times out */
-"CALL_SCREEN_STATUS_NO_ANSWER" = "Nessuna risposta.";
+"CALL_SCREEN_STATUS_NO_ANSWER" = "Nessuna risposta";
 
 /* embeds {{Call Status}} in call screen label. For ongoing calls, {{Call Status}} is a seconds timer like 01:23, otherwise {{Call Status}} is a short text like 'Ringing', 'Busy', or 'Failed Call' */
 "CALL_STATUS_FORMAT" = "Signal %@";
@@ -327,10 +339,10 @@
 "CALL_VIEW_MUTE_LABEL" = "Muto";
 
 /* Reminder to the user of the benefits of enabling CallKit and disabling CallKit privacy. */
-"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_ALL" = "Puoi rispondere alla chiamate direttamente dalla schermata di blocco e visualizzare il nome e numero del chiamante cambiando le impostazioni.\n\nVisualizza le impostazioni sulla privacy per maggiori dettagli.";
+"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_ALL" = "Puoi abilitare le chiamate integrate iOS nelle impostazioni della privacy di Signal per rispondere alle chiamate in arrivo mentre il telefono è bloccato.";
 
 /* Reminder to the user of the benefits of disabling CallKit privacy. */
-"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_PRIVACY" = "Puoi vedere il nome e il numero del chiamante cambiando le impostazioni nella configurazione.\n\nVisualizza le impostazioni sulla privacy per maggiori dettagli.";
+"CALL_VIEW_SETTINGS_NAG_DESCRIPTION_PRIVACY" = "Puoi abilitare le chiamate integrate iOS nelle impostazioni della privacy di Signal per vedere il nome e il numero di telefono di chi ti sta chiamando.";
 
 /* Label for button that dismiss the call view's settings nag. */
 "CALL_VIEW_SETTINGS_NAG_NOT_NOW_BUTTON" = "Non ora";
@@ -338,7 +350,7 @@
 /* Label for button that shows the privacy settings. */
 "CALL_VIEW_SETTINGS_NAG_SHOW_CALL_SETTINGS" = "Mostra impostazioni privacy";
 
-/* Accessibility label to toggle front vs. rear facing camera */
+/* Accessibility label to toggle front- vs. rear-facing camera */
 "CALL_VIEW_SWITCH_CAMERA_DIRECTION" = "Cambia orientamento fotocamera";
 
 /* Accessibility label to switch to audio only */
@@ -374,6 +386,15 @@
 /* Error indicating that the app was prevented from accessing the user's CloudKit account. */
 "CLOUDKIT_STATUS_RESTRICTED" = "Signal non ha l'accesso al tuo account iCloud per i backup.";
 
+/* The first of two messages demonstrating the chosen conversation color, by rendering this message in an outgoing message bubble. */
+"COLOR_PICKER_DEMO_MESSAGE_1" = "Choose the color of outgoing messages in this conversation.";
+
+/* The second of two messages demonstrating the chosen conversation color, by rendering this message in an incoming message bubble. */
+"COLOR_PICKER_DEMO_MESSAGE_2" = "Only you will see the color you choose.";
+
+/* Modal Sheet title when picking a conversation color. */
+"COLOR_PICKER_SHEET_TITLE" = "Conversation Color";
+
 /* Activity Sheet label */
 "COMPARE_SAFETY_NUMBER_ACTION" = "Confronta con gli appunti";
 
@@ -387,10 +408,10 @@
 "COMPOSE_MESSAGE_INVITE_SECTION_TITLE" = "Invita";
 
 /* Multi-line label explaining why compose-screen contact picker is empty. */
-"COMPOSE_SCREEN_MISSING_CONTACTS_PERMISSION" = "Per visualizzare quale dei tuoi contatti è un utente Signal, autorizza l'accesso ai contatti nelle impostazioni di sistema.";
+"COMPOSE_SCREEN_MISSING_CONTACTS_PERMISSION" = "Puoi abilitare l'accesso ai contatti nelle impostazioni di iOS per vedere quali dei tuoi contatti è un utente Signal.";
 
 /* No comment provided by engineer. */
-"CONFIRM_ACCOUNT_DESTRUCTION_TEXT" = "Questo azzererà l'applicazione cancellando i messaggi e cancellando la tua registrazione nel server. L'applicazione si chiuderà dopo la cancellazione dei dati.";
+"CONFIRM_ACCOUNT_DESTRUCTION_TEXT" = "Questo azzererà l'applicazione cancellando i messaggi e rimuovendo la tua registrazione dal server. L'applicazione si chiuderà una volta completato il processo.";
 
 /* No comment provided by engineer. */
 "CONFIRM_ACCOUNT_DESTRUCTION_TITLE" = "Se sicuro di voler cancellare il tuo account?";
@@ -510,13 +531,16 @@
 "CONVERSATION_SETTINGS_ADD_TO_EXISTING_CONTACT" = "Aggiungi ad un contatto esistente";
 
 /* table cell label in conversation settings */
-"CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Blocca questo utente";
+"CONVERSATION_SETTINGS_BLOCK_THIS_GROUP" = "Blocca questo gruppo";
+
+/* table cell label in conversation settings */
+"CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Blocca questo utente ";
 
 /* Navbar title when viewing settings for a 1-on-1 thread */
 "CONVERSATION_SETTINGS_CONTACT_INFO_TITLE" = "Info contatto";
 
 /* Label for table cell which leads to picking a new conversation color */
-"CONVERSATION_SETTINGS_CONVERSATION_COLOR" = "Colore";
+"CONVERSATION_SETTINGS_CONVERSATION_COLOR" = "Conversation Color";
 
 /* Navbar title when viewing settings for a group thread */
 "CONVERSATION_SETTINGS_GROUP_INFO_TITLE" = "Info gruppo";
@@ -582,7 +606,7 @@
 "CONVERSATION_VIEW_CONTACTS_OFFER_TITLE" = "Questo utente non è presente nei tuoi contatti.";
 
 /* Indicates that the app is loading more messages in this conversation. */
-"CONVERSATION_VIEW_LOADING_MORE_MESSAGES" = "Caricamento messaggi...";
+"CONVERSATION_VIEW_LOADING_MORE_MESSAGES" = "Caricamento di altri messaggi...";
 
 /* Indicator on truncated text messages that they can be tapped to see the entire text message. */
 "CONVERSATION_VIEW_OVERSIZE_TEXT_TAP_FOR_MORE" = "Mostra tutto";
@@ -703,7 +727,7 @@
 "DOMAIN_FRONTING_COUNTRY_VIEW_SECTION_HEADER" = "Raggiro Luogo Censura";
 
 /* Alert body for when the user has just tried to edit a contacts after declining to give Signal contacts permissions */
-"EDIT_CONTACT_WITHOUT_CONTACTS_PERMISSION_ALERT_BODY" = "Puoi dare l'accesso nelle impostazioni di sistema.";
+"EDIT_CONTACT_WITHOUT_CONTACTS_PERMISSION_ALERT_BODY" = "Puoi abilitare l'accesso nelle impostazioni di iOS.";
 
 /* Alert title for when the user has just tried to edit a contacts after declining to give Signal contacts permissions */
 "EDIT_CONTACT_WITHOUT_CONTACTS_PERMISSION_ALERT_TITLE" = "Signal richiede l'accesso ai contatti per modificarne il contenuto.";
@@ -730,7 +754,7 @@
 "EDIT_GROUP_UPDATE_BUTTON" = "Aggiorna";
 
 /* The alert message if user tries to exit update group view without saving changes. */
-"EDIT_GROUP_VIEW_UNSAVED_CHANGES_MESSAGE" = "Hai cambiato questo gruppo. Vuoi salvare le modifiche?";
+"EDIT_GROUP_VIEW_UNSAVED_CHANGES_MESSAGE" = "Vuoi salvare le modifiche apportate a questo gruppo?";
 
 /* The alert title if user tries to exit update group view without saving changes. */
 "EDIT_GROUP_VIEW_UNSAVED_CHANGES_TITLE" = "Modifiche non salvate";
@@ -747,16 +771,10 @@
 /* subject of email sent to contacts when inviting to install Signal */
 "EMAIL_INVITE_SUBJECT" = "Passiamo a Signal";
 
-/* Second part of the label that shows up when there are neither active nor archived conversations */
-"EMPTY_ARCHIVE_FIRST_TEXT" = "Tocca il tasto \"composizione\"";
+/* Body text an existing user sees when viewing an empty archive */
+"EMPTY_ARCHIVE_TEXT" = "Puoi archiviare le conversazioni inattive dalla lista chat.";
 
-/* First (bolded) part of the label that shows up when there are neither active nor archived conversations */
-"EMPTY_ARCHIVE_FIRST_TITLE" = "Inizia la tua prima conversazione su Signal!";
-
-/* No comment provided by engineer. */
-"EMPTY_ARCHIVE_TEXT" = "Puoi archiviare conversazioni inattive dalla lista chat per consultarle successivamente.";
-
-/* No comment provided by engineer. */
+/* Header text an existing user sees when viewing an empty archive */
 "EMPTY_ARCHIVE_TITLE" = "Pulisci le tue conversazioni";
 
 /* Full width label displayed when attempting to compose message */
@@ -765,17 +783,17 @@
 /* Full width label displayed when attempting to compose message */
 "EMPTY_CONTACTS_LABEL_LINE2" = "Perché non inviti qualcuno?";
 
-/* No comment provided by engineer. */
-"EMPTY_INBOX_FIRST_TEXT" = "Suggerimento: aggiungi una conversazione come promemoria!";
+/* Body text a new user sees when viewing an empty inbox */
+"EMPTY_INBOX_NEW_USER_TEXT" = "Tocca il tasto \"composizione\"";
 
-/* No comment provided by engineer. */
-"EMPTY_INBOX_FIRST_TITLE" = "Fatto. Fatto. Fatto.";
+/* Header text a new user sees when viewing an empty inbox */
+"EMPTY_INBOX_NEW_USER_TITLE" = "Inizia la tua prima conversazione su Signal!";
 
-/* No comment provided by engineer. */
+/* Body text an existing user sees when viewing an empty inbox */
 "EMPTY_INBOX_TEXT" = "Nessun messaggio. Niente. Zero. Nada.";
 
-/* No comment provided by engineer. */
-"EMPTY_INBOX_TITLE" = "Tutto pulito e profumato.";
+/* Header text an existing user sees when viewing an empty inbox */
+"EMPTY_INBOX_TITLE" = "Nessun messaggio";
 
 /* Indicates that user should confirm their 'two factor auth pin'. */
 "ENABLE_2FA_VIEW_CONFIRM_PIN_INSTRUCTIONS" = "Conferma il tuo PIN";
@@ -811,7 +829,7 @@
 "ENABLE_2FA_VIEW_TITLE" = "Blocco registrazione";
 
 /* Call setup status label */
-"END_CALL_RESPONDER_IS_BUSY" = "Occupato.";
+"END_CALL_RESPONDER_IS_BUSY" = "Occupato";
 
 /* Call setup status label */
 "END_CALL_UNCATEGORIZED_FAILURE" = "Chiamata fallita.";
@@ -823,16 +841,16 @@
 "ERROR_DESCRIPTION_CLIENT_SENDING_FAILURE" = "Invio messaggio fallito.";
 
 /* Error message indicating that message send is disabled due to prekey update failures */
-"ERROR_DESCRIPTION_MESSAGE_SEND_DISABLED_PREKEY_UPDATE_FAILURES" = "Invio non riuscito a causa di informazioni sulla privacy scaduti.";
+"ERROR_DESCRIPTION_MESSAGE_SEND_DISABLED_PREKEY_UPDATE_FAILURES" = "Impossibile inviare a causa di dati prekey non aggiornati.";
 
 /* Error message indicating that message send failed due to block list */
 "ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_BLOCK_LIST" = "Impossibile inviare un messaggio ad un utente bloccato.";
 
 /* Error message indicating that message send failed due to failed attachment write */
-"ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_FAILED_ATTACHMENT_WRITE" = "Fallito a causa di un problema in scrittura.";
+"ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_FAILED_ATTACHMENT_WRITE" = "Creazione e invio dell'allegato non riusciti.";
 
 /* Generic error used whenever Signal can't contact the server */
-"ERROR_DESCRIPTION_NO_INTERNET" = "Signal non è in grado di connettersi ad Internet. Riprovare da un'altra rete WiFi o tramite rete dati.";
+"ERROR_DESCRIPTION_NO_INTERNET" = "Signal non è in grado di connettersi ad Internet. Riprovare.";
 
 /* Error indicating that an outgoing message had no valid recipients. */
 "ERROR_DESCRIPTION_NO_VALID_RECIPIENTS" = "Invio messaggio fallito per mancanza di un valido destinatario.";
@@ -847,7 +865,7 @@
 "ERROR_DESCRIPTION_RESPONSE_FAILED" = "Risposta del servizio non valida.";
 
 /* Error message when attempting to send message */
-"ERROR_DESCRIPTION_SENDING_UNAUTHORIZED" = "Il dispositivo non è più registrato per il tuo numero di telefono Devi rimuovere e reinstallare Signal.";
+"ERROR_DESCRIPTION_SENDING_UNAUTHORIZED" = "Il dispositivo non è più registrato con il tuo numero di telefono. Si pregad i reinstallare Signal.";
 
 /* Generic server error */
 "ERROR_DESCRIPTION_SERVER_FAILURE" = "Errore del server. Si prega di riprovare.";
@@ -859,10 +877,10 @@
 "ERROR_DESCRIPTION_UNREGISTERED_RECIPIENT" = "Il contatto non è un utente Signal";
 
 /* Error message when unable to receive an attachment because the sending client is too old. */
-"ERROR_MESSAGE_ATTACHMENT_FROM_OLD_CLIENT" = "Errore: Chiedi al mittente di aggiornare Signal e rispedire. ";
+"ERROR_MESSAGE_ATTACHMENT_FROM_OLD_CLIENT" = "Errore con l'allegato: chiedi al tuo contatto di inviare nuovamente il messaggio dopo aver aggiornato Signal all'ultima versione.";
 
 /* No comment provided by engineer. */
-"ERROR_MESSAGE_DUPLICATE_MESSAGE" = "Ricevuto messaggio duplicato.";
+"ERROR_MESSAGE_DUPLICATE_MESSAGE" = "Ricevuto un messaggio duplicato.";
 
 /* No comment provided by engineer. */
 "ERROR_MESSAGE_INVALID_KEY_EXCEPTION" = "La chiave del destinatario non è valida.";
@@ -871,7 +889,7 @@
 "ERROR_MESSAGE_INVALID_MESSAGE" = "Il messaggio ricevuto è disallineato.";
 
 /* No comment provided by engineer. */
-"ERROR_MESSAGE_INVALID_VERSION" = "Ricevuto messaggio non compatibile con questa versione.";
+"ERROR_MESSAGE_INVALID_VERSION" = "Ricevuto un messaggio non compatibile con questa versione.";
 
 /* No comment provided by engineer. */
 "ERROR_MESSAGE_NO_SESSION" = "Nessuna sessione disponibile per il contatto";
@@ -892,10 +910,10 @@
 "ERROR_UNREGISTERED_USER_FORMAT" = "Utente non registrato: %@";
 
 /* action sheet header when re-sending message which failed because of too many attempts */
-"FAILED_SENDING_BECAUSE_RATE_LIMIT" = "Troppi fallimenti con questo contatto. Riprovare tra un po'.";
+"FAILED_SENDING_BECAUSE_RATE_LIMIT" = "Troppi tentativi falliti con questo contatto. Riprovare più tardi.";
 
 /* action sheet header when re-sending message which failed because of untrusted identity keys */
-"FAILED_SENDING_BECAUSE_UNTRUSTED_IDENTITY_KEY" = "Il tuo codice di sicurezza con %@ è cambiato di recente. Potresti verificare prima di inviare nuovamente. ";
+"FAILED_SENDING_BECAUSE_UNTRUSTED_IDENTITY_KEY" = "Il tuo codice di sicurezza con %@ è cambiato di recente. Ti consigliamo di fare una verifica prima di inviare nuovamente.";
 
 /* alert title */
 "FAILED_VERIFICATION_TITLE" = "Verifica del codice di sicurezza fallita!";
@@ -987,7 +1005,7 @@
 /* Button label for the 'show contact info' button */
 "GROUP_MEMBERS_VIEW_CONTACT_INFO" = "Informazioni contatto";
 
-/* No comment provided by engineer. */
+/* Modal text when removing a group */
 "GROUP_REMOVING" = "Lasciato il gruppo %@";
 
 /* Title of alert indicating that group deletion failed. */
@@ -1005,8 +1023,8 @@
 /* Label for 'archived conversations' button. */
 "HOME_VIEW_ARCHIVED_CONVERSATIONS" = "Conversazioni archiviate";
 
-/* A label for conversations with blocked users. */
-"HOME_VIEW_BLOCKED_CONTACT_CONVERSATION" = "Bloccato";
+/* Table cell subtitle label for a conversation the user has blocked. */
+"HOME_VIEW_BLOCKED_CONVERSATION" = "Bloccato";
 
 /* Placeholder text for search bar which filters conversations. */
 "HOME_VIEW_CONVERSATION_SEARCHBAR_PLACEHOLDER" = "Cerca";
@@ -1036,10 +1054,10 @@
 "IN_CALL_TERMINATED" = "Chiamata terminata.";
 
 /* Label reminding the user that they are in archive mode. */
-"INBOX_VIEW_ARCHIVE_MODE_REMINDER" = "Queste conversazioni sono archiviate. Compariranno nella inbox se verranno ricevuti nuovi messaggi.";
+"INBOX_VIEW_ARCHIVE_MODE_REMINDER" = "Queste conversazioni sono archiviate e compariranno nella lista di chat solo se verranno ricevuti nuovi messaggi.";
 
 /* Multi-line label explaining how to show names instead of phone numbers in your inbox */
-"INBOX_VIEW_MISSING_CONTACTS_PERMISSION" = "Per vedere i nomi dei tuoi contatti, aggiorna le impostazioni di sistema abilitandone l'accesso.";
+"INBOX_VIEW_MISSING_CONTACTS_PERMISSION" = "Puoi abilitare l'accesso ai contatti tramite le impostazioni iOS per vedere i nomi dei contatti nell'elenco delle chat.";
 
 /* notification body */
 "INCOMING_CALL" = "Chiamata in entrata";
@@ -1060,7 +1078,7 @@
 "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Audio file non valido.";
 
 /* Alert body when contacts disabled while trying to invite contacts to signal */
-"INVITE_FLOW_REQUIRES_CONTACT_ACCESS_BODY" = "Per invitare i tuoi contatti, devi abilitare l'accesso dei tuoi contatti a Signal nelle impostazioni di sistema.";
+"INVITE_FLOW_REQUIRES_CONTACT_ACCESS_BODY" = "Puoi abilitare l'accesso ai contatti nelle impostazioni iOS per invitare i tuoi amici ad unirsi a Signal.";
 
 /* Alert title when contacts disabled while trying to invite contacts to signal */
 "INVITE_FLOW_REQUIRES_CONTACT_ACCESS_TITLE" = "Abilita accesso contatti";
@@ -1075,7 +1093,7 @@
 "INVITE_FRIENDS_PICKER_TITLE" = "Invita i tuoi amici";
 
 /* Alert warning that sending an invite to multiple users will create a group message whose recipients will be able to see each other. */
-"INVITE_WARNING_MULTIPLE_INVITES_BY_TEXT" = "L'invito di più utenti simultaneo invierà un messaggio di gruppo nel quale i destinatari possono vedere tutti gli altri.";
+"INVITE_WARNING_MULTIPLE_INVITES_BY_TEXT" = "L'invito simultaneo di più utenti invierà un messaggio di gruppo e i destinatari potranno vedere tutti gli altri.";
 
 /* Slider label embeds {{TIME_AMOUNT}}, e.g. '2 hours'. See *_TIME_AMOUNT strings for examples. */
 "KEEP_MESSAGES_DURATION" = "I messaggi scompariranno dopo %@.";
@@ -1090,13 +1108,13 @@
 "LEAVE_GROUP_ACTION" = "Abbandona il gruppo";
 
 /* report an invalid linking code */
-"LINK_DEVICE_INVALID_CODE_BODY" = "Questo codice a barre non è valido, assicurarati che stai effettuando la scansione del codice QR visualizzato sul dispositivo che si desidera collegare.";
+"LINK_DEVICE_INVALID_CODE_BODY" = "Questo codice QR non è valido. Assicurarati che stai effettuando la scansione del codice QR visualizzato sul dispositivo che desideri collegare.";
 
 /* report an invalid linking code */
 "LINK_DEVICE_INVALID_CODE_TITLE" = "Collegamento con dispositivo fallito";
 
 /* confirm the users intent to link a new device */
-"LINK_DEVICE_PERMISSION_ALERT_BODY" = "Questo dispositivo sarà in grado di accedere a gruppi, contatti, messaggi e ad inviare messaggi a tuo nome. ";
+"LINK_DEVICE_PERMISSION_ALERT_BODY" = "Questo dispositivo sarà in grado di vedere i tuoi gruppi e contatti, accedere alle conversazioni e inviare messaggi a tuo nome. ";
 
 /* confirm the users intent to link a new device */
 "LINK_DEVICE_PERMISSION_ALERT_TITLE" = "Associa questo dispositivo?";
@@ -1105,7 +1123,7 @@
 "LINK_DEVICE_RESTART" = "Riprova";
 
 /* QR Scanning screen instructions, placed alongside a camera view for scanning QR Codes */
-"LINK_DEVICE_SCANNING_INSTRUCTIONS" = "Per associare scansiona il codice QR visualizzato sul dispositivo. ";
+"LINK_DEVICE_SCANNING_INSTRUCTIONS" = "Scansiona il codice QR visualizzato sul dispositivo che vuoi associare.";
 
 /* Subheading for 'Link New Device' navigation */
 "LINK_NEW_DEVICE_SUBTITLE" = "Scansiona il codice QR";
@@ -1162,7 +1180,7 @@
 "MESSAGE_ACTION_DELETE_MESSAGE" = "Elimina questo messaggio";
 
 /* Action sheet button subtitle */
-"MESSAGE_ACTION_DELETE_MESSAGE_SUBTITLE" = "Verrà eliminato solo in questo dispositivo";
+"MESSAGE_ACTION_DELETE_MESSAGE_SUBTITLE" = "Verrà eliminato solo da questo dispositivo.";
 
 /* Action sheet button title */
 "MESSAGE_ACTION_DETAILS" = "Altre informazioni";
@@ -1266,14 +1284,11 @@
 /* Indicates that this 1:1 conversation is no longer verified. Embeds {{user's name or phone number}}. */
 "MESSAGES_VIEW_CONTACT_NO_LONGER_VERIFIED_FORMAT" = "%@ non è più segnato come verificato. Tocca per le opzioni.";
 
-/* Action sheet title after tapping on failed download. */
-"MESSAGES_VIEW_FAILED_DOWNLOAD_ACTIONSHEET_TITLE" = "Scaricamento fallito.";
-
-/* Action sheet button text */
-"MESSAGES_VIEW_FAILED_DOWNLOAD_RETRY_ACTION" = "Scarica di nuovo";
-
 /* Indicates that a single member of this group has been blocked. */
 "MESSAGES_VIEW_GROUP_1_MEMBER_BLOCKED" = "Hai bloccato 1 membro di questo gruppo";
+
+/* Indicates that this group conversation has been blocked. */
+"MESSAGES_VIEW_GROUP_BLOCKED" = "Hai bloccato questo gruppo";
 
 /* Indicates that some members of this group has been blocked. Embeds {{the number of blocked users in this group}}. */
 "MESSAGES_VIEW_GROUP_N_MEMBERS_BLOCKED_FORMAT" = "Hai bloccato %@ membri di questo gruppo";
@@ -1307,26 +1322,26 @@
 
 /* Alert body
    Alert body when camera is not authorized */
-"MISSING_CAMERA_PERMISSION_MESSAGE" = "Signal ha bisogno di accedere alla tua fotocamera per le video chiamate. Puoi consentire l'accesso nell'app Impostazioni >> Privacy >> Camera >> Signal";
+"MISSING_CAMERA_PERMISSION_MESSAGE" = "Puoi abilitare l'accesso alla fotocamera nelle impostazioni iOS per effettuare videochiamate con Signal.";
 
 /* Alert title
    Alert title when camera is not authorized */
 "MISSING_CAMERA_PERMISSION_TITLE" = "Signal ha bisogno di accedere alla tua fotocamera.";
 
 /* Alert body when user has previously denied media library access */
-"MISSING_MEDIA_LIBRARY_PERMISSION_MESSAGE" = "Puoi abilitare questo permesso dall'app Impostazioni.";
+"MISSING_MEDIA_LIBRARY_PERMISSION_MESSAGE" = "Puoi abilitare questo permesso nelle impostazioni iOS.";
 
 /* Alert title when user has previously denied media library access */
-"MISSING_MEDIA_LIBRARY_PERMISSION_TITLE" = "Signal necessita dell'accesso alla galleria multimediale per fare questo.";
+"MISSING_MEDIA_LIBRARY_PERMISSION_TITLE" = "Signal necessita dell'accesso alla tua libreria multimediale per questa funzione.";
 
 /* notification title. Embeds {{caller's name or phone number}} */
 "MSGVIEW_MISSED_CALL_WITH_NAME" = "Chiamata persa da %@.";
 
-/* No comment provided by engineer. */
+/* alert title: cannot link - reached max linked devices */
 "MULTIDEVICE_PAIRING_MAX_DESC" = "Non è possibile associare ulteriori dispositivi.";
 
-/* No comment provided by engineer. */
-"MULTIDEVICE_PAIRING_MAX_RECOVERY" = "Hai raggiunto il numero massimo di dispositivi associabili a questo account. Rimuovi un dispositivo oppure riprova l'associazione più tardi.";
+/* alert body: cannot link - reached max linked devices */
+"MULTIDEVICE_PAIRING_MAX_RECOVERY" = "Hai raggiunto il numero massimo di dispositivi attualmente associabili a questo account. Rimuovi un dispositivo e riprova l'associazione.";
 
 /* An explanation of the consequences of muting a thread. */
 "MUTE_BEHAVIOR_EXPLANATION" = "Non riceverai alcuna notifica dalle conversazioni silenziose.";
@@ -1359,7 +1374,7 @@
 "NEW_CONVERSATION_FIND_BY_PHONE_NUMBER" = "Cerca per numero";
 
 /* A label for the cell that lets you add a new non-contact member to a group. */
-"NEW_GROUP_ADD_NON_CONTACT" = "Aggiungi per numero";
+"NEW_GROUP_ADD_NON_CONTACT" = "Aggiungi da numero di telefono";
 
 /* Action Sheet title prompting the user for a group avatar */
 "NEW_GROUP_ADD_PHOTO_ACTION" = "Imposta foto del gruppo";
@@ -1530,7 +1545,7 @@
 "PRIVACY_VERIFICATION_FAILED_WITH_OLD_REMOTE_VERSION" = "I tuoi compagni stanno usando una vecchia versione di Signal. Devono aggiornarla prima di poter verificare.";
 
 /* alert body */
-"PRIVACY_VERIFICATION_FAILURE_INVALID_QRCODE" = "Il codice letto non sembra quello di un codice di sicurezza. State usando entrambi una versione aggiornata di Signal?";
+"PRIVACY_VERIFICATION_FAILURE_INVALID_QRCODE" = "Il codice scansionato non sembra quello di un codice di sicurezza. State usando entrambi un versione aggiornata di Signal?";
 
 /* Paragraph(s) shown alongside the safety number when verifying privacy with {{contact name}} */
 "PRIVACY_VERIFICATION_INSTRUCTIONS" = "Se desideri verificare la sicurezza della tua codifica end-to-end con %@, confronta i numeri precedenti con quelli del suo dispositivo.\n\nIn alternativa puoi fare uno scan del codice sul suo telefono o chiedergli di fare una scansione del tuo.";
@@ -1605,10 +1620,19 @@
 "QUOTED_REPLY_AUTHOR_INDICATOR_FORMAT" = "Rispondendo a %@";
 
 /* message header label when someone else is quoting you */
-"QUOTED_REPLY_AUTHOR_INDICATOR_YOU" = "Rispondendo a Te";
+"QUOTED_REPLY_AUTHOR_INDICATOR_YOU" = "Rispondendo a te";
 
 /* message header label when quoting yourself */
 "QUOTED_REPLY_AUTHOR_INDICATOR_YOURSELF" = "Rispondendo a te stesso";
+
+/* Footer label that appears below quoted messages when the quoted content was not derived locally. When the local user doesn't have a copy of the message being quoted, e.g. if it had since been deleted, we instead show the content specified by the sender. */
+"QUOTED_REPLY_CONTENT_FROM_REMOTE_SOURCE" = "Messaggio originale non trovato.";
+
+/* Toast alert text shown when tapping on a quoted message which we cannot scroll to because the local copy of the message was since deleted. */
+"QUOTED_REPLY_ORIGINAL_MESSAGE_DELETED" = "Messaggio originale non più disponibile.";
+
+/* Toast alert text shown when tapping on a quoted message which we cannot scroll to because the local copy of the message didn't exist when the quote was received. */
+"QUOTED_REPLY_ORIGINAL_MESSAGE_REMOTELY_SOURCED" = "Messaggio originale non trovato.";
 
 /* Indicates this message is a quoted reply to an attachment of unknown type. */
 "QUOTED_REPLY_TYPE_ATTACHMENT" = "Allegato";
@@ -1624,15 +1648,6 @@
 
 /* Indicates this message is a quoted reply to a video file. */
 "QUOTED_REPLY_TYPE_VIDEO" = "Video";
-
-/* No comment provided by engineer. */
-"RATING_MSG" = "Se hai apprezzato l'uso di Signal per avere conversazioni private, puoi supportare il nostro progetto lasciando una recensione. Non richiederà più di un minuto ed aiuterà altre persone ad avere un po' di privacy.";
-
-/* No comment provided by engineer. */
-"RATING_RATE" = "Valuta Signal";
-
-/* No comment provided by engineer. */
-"RATING_TITLE" = "Supporta Signal!";
 
 /* Label for 'I forgot my PIN' link in the 2FA registration view. */
 "REGISTER_2FA_FORGOT_PIN" = "Ho dimenticato il mio PIN.";
@@ -1701,7 +1716,7 @@
 "REGISTRATION_PHONENUMBER_BUTTON" = "Numero di telefono";
 
 /* No comment provided by engineer. */
-"REGISTRATION_RESTRICTED_MESSAGE" = "Qualcuno è impaziente di inviare il suo primo messaggio! Prima di poter eseguire questa operazione è necessario iscriversi.";
+"REGISTRATION_RESTRICTED_MESSAGE" = "Devi iscriverti prima di poter inviare un messaggio.";
 
 /* No comment provided by engineer. */
 "REGISTRATION_TITLE_LABEL" = "Il tuo numero di telefono";
@@ -1889,14 +1904,14 @@
 /* Table header for the 'censorship circumvention' section. */
 "SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_HEADER" = "Raggiro censura";
 
+/* Label for setting that enables dark theme. */
+"SETTINGS_ADVANCED_DARK_THEME" = "Tema scuro";
+
 /* No comment provided by engineer. */
 "SETTINGS_ADVANCED_DEBUGLOG" = "Abilita il log di debug";
 
 /* No comment provided by engineer. */
 "SETTINGS_ADVANCED_SUBMIT_DEBUGLOG" = "Invia il log di debug";
-
-/* No comment provided by engineer. */
-"SETTINGS_ADVANCED_THEME" = "Tema";
 
 /* No comment provided by engineer. */
 "SETTINGS_ADVANCED_TITLE" = "Avanzate";
@@ -1938,7 +1953,7 @@
 "SETTINGS_BACKUP_STATUS_SUCCEEDED" = "Backup eseguito con successo";
 
 /* A label for the 'add phone number' button in the block list table. */
-"SETTINGS_BLOCK_LIST_ADD_BUTTON" = "Aggiungi...";
+"SETTINGS_BLOCK_LIST_ADD_BUTTON" = "Aggiungi utente bloccato";
 
 /* A label that indicates the user has no Signal contacts. */
 "SETTINGS_BLOCK_LIST_NO_CONTACTS" = "Non hai contatti su Signal.";
@@ -1953,13 +1968,13 @@
 "SETTINGS_CALLING_HIDES_IP_ADDRESS_PREFERENCE_TITLE" = "Inoltra sempre le chiamate";
 
 /* User settings section footer, a detailed explanation */
-"SETTINGS_CALLING_HIDES_IP_ADDRESS_PREFERENCE_TITLE_DETAIL" = "Inoltra sempre le chiamate tramite il server Signal per evitare di rivelare il tuo indirizzo IP ai tuoi contatti. L'attivazione riduce la qualità delle chiamate.";
+"SETTINGS_CALLING_HIDES_IP_ADDRESS_PREFERENCE_TITLE_DETAIL" = "Inoltra tutte le chiamate tramite il server Signal per evitare di rivelare il tuo indirizzo IP al tuo contatto. L'attivazione riduce la qualità delle chiamate.";
 
 /* No comment provided by engineer. */
-"SETTINGS_CLEAR_HISTORY" = "Svuota Conversazione";
+"SETTINGS_CLEAR_HISTORY" = "Cancella storico conversazioni";
 
 /* No comment provided by engineer. */
-"SETTINGS_COPYRIGHT" = "Copyright Open Whisper Systems\nLicenza secondo direttive GPLv3";
+"SETTINGS_COPYRIGHT" = "Copyright Signal Messenger\nLicenza secondo direttive GPLv3";
 
 /* No comment provided by engineer. */
 "SETTINGS_DELETE_ACCOUNT_BUTTON" = "Cancella account";
@@ -1968,7 +1983,7 @@
 "SETTINGS_DELETE_DATA_BUTTON" = "Cancella tutti i dati";
 
 /* Alert message before user confirms clearing history */
-"SETTINGS_DELETE_HISTORYLOG_CONFIRMATION" = "Sei sicuro di voler cancellare tutta la tua cronologia (messaggi, allegati, chiamate, ecc...)? L'operazione non potrà essere annullata.";
+"SETTINGS_DELETE_HISTORYLOG_CONFIRMATION" = "Sei sicuro di voler cancellare tutta la tua cronologia (messaggi, allegati, chiamate, ecc.)? Questa azione non può essere annullata.";
 
 /* Confirmation text for button which deletes all message, calling, attachments, etc. */
 "SETTINGS_DELETE_HISTORYLOG_CONFIRMATION_BUTTON" = "Elimina tutto";
@@ -1977,7 +1992,7 @@
 "SETTINGS_HELP_HEADER" = "Aiuto";
 
 /* Section header */
-"SETTINGS_HISTORYLOG_TITLE" = "Svuota conversazione";
+"SETTINGS_HISTORYLOG_TITLE" = "Rimuovi conversazioni";
 
 /* No comment provided by engineer. */
 "SETTINGS_INFORMATION_HEADER" = "Informazioni";
@@ -1985,7 +2000,7 @@
 /* Settings table view cell label */
 "SETTINGS_INVITE_TITLE" = "Invita i tuoi amici";
 
-/* content of tweet when inviting via twitter */
+/* content of tweet when inviting via twitter - please do not translate URL */
 "SETTINGS_INVITE_TWITTER_TEXT" = "Puoi contattarmi usando Signal @signalapp, scaricala ora: https://signal.org/download/";
 
 /* Label for settings view that allows user to change the notification sound. */
@@ -2211,7 +2226,7 @@
 "UNLINK_ACTION" = "Dissocia";
 
 /* Alert message to confirm unlinking a device */
-"UNLINK_CONFIRMATION_ALERT_BODY" = "Dissociando questo dispositivo, non sarà più possibile inviare o ricevere messaggi.";
+"UNLINK_CONFIRMATION_ALERT_BODY" = "Questo dispositivo non sarà più in grado di inviare o ricevere messaggi una volta dissociato.";
 
 /* Alert title for confirming device deletion */
 "UNLINK_CONFIRMATION_ALERT_TITLE" = "Dissociare \"%@\"?";
@@ -2280,13 +2295,13 @@
 "UPGRADE_EXPERIENCE_VIDEO_TITLE" = "Videochiamate sicure!";
 
 /* Message for the alert indicating that user should upgrade iOS. */
-"UPGRADE_IOS_ALERT_MESSAGE" = "Signal richiede iOS 9 o successivo. Per aggiornare: App Impostazioni >> Generali >> Aggiornamento Software. ";
+"UPGRADE_IOS_ALERT_MESSAGE" = "Signal richiede iOS 9 o successivo. Usa la funzione di aggiornamento sofware presente nelle impostazioni iOS.";
 
 /* Title for the alert indicating that user should upgrade iOS. */
 "UPGRADE_IOS_ALERT_TITLE" = "Aggiornare iOS";
 
 /* No comment provided by engineer. */
-"Upgrading Signal ..." = "Aggiornamento Signal...";
+"Upgrading Signal ..." = "Aggiornamento di Signal in corso...";
 
 /* button text for back button on verification view */
 "VERIFICATION_BACK_BUTTON" = "Indietro";
@@ -2347,20 +2362,3 @@
 
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
 "YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Hai impostato la scomparsa dei messaggi a %@.";
-
-// Strings Copied in from JSQMessagesViewController
-
-
-"load_earlier_messages" = "Carica messaggi più recenti";
-
-"send" = "Invia";
-
-"new_message" = "Nuovo messaggio";
-
-"text_message_accessibility_label" = "%@: %@";
-
-"media_message_accessibility_label" = "%@: messaggio multimediale";
-
-"accessory_button_accessibility_label" = "Condividi media";
-
-"new_message_received_accessibility_announcement" = "Nuovo messaggio ricevuto";

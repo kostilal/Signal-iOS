@@ -13,9 +13,12 @@
 #import <SignalMessaging/UIView+OWS.h>
 #import <SignalServiceKit/TSAttachmentStream.h>
 #import <SignalServiceKit/TSMessage.h>
-#import <SignalServiceKit/TSQuotedMessage.h>
 
 NS_ASSUME_NONNULL_BEGIN
+
+const CGFloat kRemotelySourcedContentGlyphLength = 16;
+const CGFloat kRemotelySourcedContentRowMargin = 4;
+const CGFloat kRemotelySourcedContentRowSpacing = 3;
 
 @interface OWSQuotedMessageView ()
 
@@ -29,6 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) UILabel *quotedAuthorLabel;
 @property (nonatomic, readonly) UILabel *quotedTextLabel;
+@property (nonatomic, readonly) UILabel *quoteContentSourceLabel;
 
 @end
 
@@ -42,7 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                 isOutgoing:(BOOL)isOutgoing
                                               sharpCorners:(OWSDirectionalRectCorner)sharpCorners
 {
-    OWSAssert(quotedMessage);
+    OWSAssertDebug(quotedMessage);
 
     return [[OWSQuotedMessageView alloc] initWithQuotedMessage:quotedMessage
                                          displayableQuotedText:displayableQuotedText
@@ -55,7 +59,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (OWSQuotedMessageView *)quotedMessageViewForPreview:(OWSQuotedReplyModel *)quotedMessage
                                     conversationStyle:(ConversationStyle *)conversationStyle
 {
-    OWSAssert(quotedMessage);
+    OWSAssertDebug(quotedMessage);
 
     DisplayableText *_Nullable displayableQuotedText = nil;
     if (quotedMessage.body.length > 0) {
@@ -86,7 +90,7 @@ NS_ASSUME_NONNULL_BEGIN
         return self;
     }
 
-    OWSAssert(quotedMessage);
+    OWSAssertDebug(quotedMessage);
 
     _quotedMessage = quotedMessage;
     _displayableQuotedText = displayableQuotedText;
@@ -97,6 +101,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     _quotedAuthorLabel = [UILabel new];
     _quotedTextLabel = [UILabel new];
+    _quoteContentSourceLabel = [UILabel new];
 
     return self;
 }
@@ -117,7 +122,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (UIColor *)highlightColor
 {
     BOOL isQuotingSelf = [NSObject isNullableObject:self.quotedMessage.authorId equalTo:TSAccountManager.localNumber];
-    return (isQuotingSelf ? self.conversationStyle.bubbleColorOutgoingSent
+    return (isQuotingSelf ? [self.conversationStyle bubbleColorWithIsIncoming:NO]
                           : [self.conversationStyle quotingSelfHighlightColor]);
 }
 
@@ -143,10 +148,15 @@ NS_ASSUME_NONNULL_BEGIN
     return 4.f;
 }
 
+- (UIColor *)quoteBubbleBackgroundColor
+{
+    return [self.conversationStyle quotedReplyBubbleColorWithIsIncoming:!self.isOutgoing];
+}
+
 - (void)createContents
 {
     // Ensure only called once.
-    OWSAssert(self.subviews.count < 1);
+    OWSAssertDebug(self.subviews.count < 1);
 
     self.userInteractionEnabled = YES;
     self.layoutMargins = UIEdgeInsetsZero;
@@ -179,7 +189,7 @@ NS_ASSUME_NONNULL_BEGIN
             maskLayer.path = bezierPath.CGPath;
         }];
     innerBubbleView.layer.mask = maskLayer;
-    innerBubbleView.backgroundColor = [self.conversationStyle quotedReplyBubbleColorWithIsIncoming:!self.isOutgoing];
+    innerBubbleView.backgroundColor = self.quoteBubbleBackgroundColor;
     [self addSubview:innerBubbleView];
     [innerBubbleView autoPinLeadingToSuperviewMarginWithInset:self.bubbleHMargin];
     [innerBubbleView autoPinTrailingToSuperviewMarginWithInset:self.bubbleHMargin];
@@ -189,8 +199,6 @@ NS_ASSUME_NONNULL_BEGIN
     UIStackView *hStackView = [UIStackView new];
     hStackView.axis = UILayoutConstraintAxisHorizontal;
     hStackView.spacing = self.hSpacing;
-    [innerBubbleView addSubview:hStackView];
-    [hStackView ows_autoPinToSuperviewEdges];
 
     UIView *stripeView = [UIView new];
     stripeView.backgroundColor = [self.conversationStyle quotedReplyStripeColorWithIsIncoming:!self.isOutgoing];
@@ -278,19 +286,61 @@ NS_ASSUME_NONNULL_BEGIN
         [emptyView setContentHuggingHigh];
         [emptyView autoSetDimension:ALDimensionWidth toSize:0.f];
     }
+
+    UIStackView *quoteSourceWrapper = [[UIStackView alloc] initWithArrangedSubviews:@[ hStackView ]];
+    quoteSourceWrapper.axis = UILayoutConstraintAxisVertical;
+
+    if (self.quotedMessage.isRemotelySourced) {
+        [quoteSourceWrapper addArrangedSubview:[self buildRemoteContentSourceView]];
+    }
+
+    [innerBubbleView addSubview:quoteSourceWrapper];
+    [quoteSourceWrapper ows_autoPinToSuperviewEdges];
+}
+
+- (UIView *)buildRemoteContentSourceView
+{
+    UIImage *glyphImage =
+        [[UIImage imageNamed:@"ic_broken_link"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    OWSAssertDebug(glyphImage);
+    OWSAssertDebug(CGSizeEqualToSize(
+        CGSizeMake(kRemotelySourcedContentGlyphLength, kRemotelySourcedContentGlyphLength), glyphImage.size));
+    UIImageView *glyphView = [[UIImageView alloc] initWithImage:glyphImage];
+    glyphView.tintColor = Theme.secondaryColor;
+    [glyphView
+        autoSetDimensionsToSize:CGSizeMake(kRemotelySourcedContentGlyphLength, kRemotelySourcedContentGlyphLength)];
+
+    UILabel *label = [self configureQuoteContentSourceLabel];
+    UIStackView *sourceRow = [[UIStackView alloc] initWithArrangedSubviews:@[ glyphView, label ]];
+    sourceRow.axis = UILayoutConstraintAxisHorizontal;
+    sourceRow.alignment = UIStackViewAlignmentCenter;
+    // TODO verify spacing w/ design
+    sourceRow.spacing = kRemotelySourcedContentRowSpacing;
+    sourceRow.layoutMarginsRelativeArrangement = YES;
+
+    const CGFloat leftMargin = 8;
+    sourceRow.layoutMargins = UIEdgeInsetsMake(kRemotelySourcedContentRowMargin,
+        leftMargin,
+        kRemotelySourcedContentRowMargin,
+        kRemotelySourcedContentRowMargin);
+
+    UIColor *backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.4];
+    [sourceRow addBackgroundViewWithBackgroundColor:backgroundColor];
+
+    return sourceRow;
 }
 
 - (void)didTapFailedThumbnailDownload:(UITapGestureRecognizer *)gestureRecognizer
 {
-    DDLogDebug(@"%@ in didTapFailedThumbnailDownload", self.logTag);
+    OWSLogDebug(@"in didTapFailedThumbnailDownload");
 
     if (!self.quotedMessage.thumbnailDownloadFailed) {
-        OWSFail(@"%@ in %s thumbnailDownloadFailed was unexpectedly false", self.logTag, __PRETTY_FUNCTION__);
+        OWSFailDebug(@"thumbnailDownloadFailed was unexpectedly false");
         return;
     }
 
     if (!self.quotedMessage.thumbnailAttachmentPointer) {
-        OWSFail(@"%@ in %s thumbnailAttachmentPointer was unexpectedly nil", self.logTag, __PRETTY_FUNCTION__);
+        OWSFailDebug(@"thumbnailAttachmentPointer was unexpectedly nil");
         return;
     }
 
@@ -312,7 +362,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (UIImageView *)imageViewForImage:(UIImage *)image
 {
-    OWSAssert(image);
+    OWSAssertDebug(image);
 
     UIImageView *imageView = [UIImageView new];
     imageView.image = image;
@@ -328,7 +378,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (UILabel *)configureQuotedTextLabel
 {
-    OWSAssert(self.quotedTextLabel);
+    OWSAssertDebug(self.quotedTextLabel);
 
     UIColor *textColor = self.quotedTextColor;
     SUPPRESS_DEADSTORE_WARNING(textColor);
@@ -365,6 +415,20 @@ NS_ASSUME_NONNULL_BEGIN
     self.quotedTextLabel.font = font;
 
     return self.quotedTextLabel;
+}
+
+- (UILabel *)configureQuoteContentSourceLabel
+{
+    OWSAssertDebug(self.quoteContentSourceLabel);
+
+    self.quoteContentSourceLabel.font = UIFont.ows_dynamicTypeFootnoteFont;
+    self.quoteContentSourceLabel.textColor = Theme.primaryColor;
+    self.quoteContentSourceLabel.text = NSLocalizedString(@"QUOTED_REPLY_CONTENT_FROM_REMOTE_SOURCE",
+        @"Footer label that appears below quoted messages when the quoted content was not derived locally. When the "
+        @"local user doesn't have a copy of the message being quoted, e.g. if it had since been deleted, we instead "
+        @"show the content specified by the sender.");
+
+    return self.quoteContentSourceLabel;
 }
 
 - (nullable NSString *)fileTypeForSnippet
@@ -415,7 +479,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (UILabel *)configureQuotedAuthorLabel
 {
-    OWSAssert(self.quotedAuthorLabel);
+    OWSAssertDebug(self.quotedAuthorLabel);
 
     NSString *_Nullable localNumber = [TSAccountManager localNumber];
     NSString *quotedAuthorText;
@@ -429,7 +493,7 @@ NS_ASSUME_NONNULL_BEGIN
                 @"QUOTED_REPLY_AUTHOR_INDICATOR_YOU", @"message header label when someone else is quoting you");
         }
     } else {
-        OWSContactsManager *contactsManager = Environment.current.contactsManager;
+        OWSContactsManager *contactsManager = Environment.shared.contactsManager;
         NSString *quotedAuthor = [contactsManager contactOrProfileNameForPhoneIdentifier:self.quotedMessage.authorId];
         quotedAuthorText = [NSString
             stringWithFormat:
@@ -485,6 +549,16 @@ NS_ASSUME_NONNULL_BEGIN
         CGSize textSize = CGSizeCeil([quotedTextLabel sizeThatFits:CGSizeMake(maxTextWidth, CGFLOAT_MAX)]);
         textWidth = MAX(textWidth, textSize.width);
         textHeight += textSize.height;
+    }
+
+    if (self.quotedMessage.isRemotelySourced) {
+        UILabel *quoteContentSourceLabel = [self configureQuoteContentSourceLabel];
+        CGSize textSize = CGSizeCeil([quoteContentSourceLabel sizeThatFits:CGSizeMake(maxTextWidth, CGFLOAT_MAX)]);
+        CGFloat sourceStackViewHeight = MAX(kRemotelySourcedContentGlyphLength, textSize.height);
+
+        textWidth
+            = MAX(textWidth, textSize.width + kRemotelySourcedContentGlyphLength + kRemotelySourcedContentRowSpacing);
+        result.height += kRemotelySourcedContentRowMargin * 2 + sourceStackViewHeight;
     }
 
     textWidth = MIN(textWidth, maxTextWidth);

@@ -6,43 +6,9 @@ import XCTest
 @testable import Signal
 @testable import SignalMessaging
 
+// TODO: We might be able to merge this with OWSFakeContactsManager.
 @objc
-class StubbableEnvironment: TextSecureKitEnv {
-    let proxy: TextSecureKitEnv
-
-    init(proxy: TextSecureKitEnv) {
-        self.proxy = proxy
-        super.init(callMessageHandler: proxy.callMessageHandler, contactsManager: proxy.contactsManager, messageSender: proxy.messageSender, notificationsManager: proxy.notificationsManager, profileManager: proxy.profileManager)
-    }
-
-    var stubbedCallMessageHandler: OWSCallMessageHandler?
-    override var callMessageHandler: OWSCallMessageHandler {
-        return stubbedCallMessageHandler ?? proxy.callMessageHandler
-    }
-
-    var stubbedContactsManager: ContactsManagerProtocol?
-    override var contactsManager: ContactsManagerProtocol {
-        return stubbedContactsManager ?? proxy.contactsManager
-    }
-
-    var stubbedMessageSender: MessageSender?
-    override var messageSender: MessageSender {
-        return stubbedMessageSender ?? proxy.messageSender
-    }
-
-    var stubbedNotificationsManager: NotificationsProtocol?
-    override var notificationsManager: NotificationsProtocol {
-        return stubbedNotificationsManager ?? proxy.notificationsManager
-    }
-
-    var stubbedProfileManager: ProfileManagerProtocol?
-    override var profileManager: ProfileManagerProtocol {
-        return stubbedProfileManager ?? proxy.profileManager
-    }
-}
-
-@objc
-class FakeContactsManager: NSObject, ContactsManagerProtocol {
+class ConversationSearcherContactsManager: NSObject, ContactsManagerProtocol {
 
     func displayName(forPhoneIdentifier phoneNumber: String?) -> String {
         if phoneNumber == aliceRecipientId {
@@ -67,7 +33,7 @@ class FakeContactsManager: NSObject, ContactsManagerProtocol {
     }
 
     func compare(signalAccount left: SignalAccount, with right: SignalAccount) -> ComparisonResult {
-        owsFail("if this method ends up being used by the tests, we should provide a better implementation.")
+        owsFailDebug("if this method ends up being used by the tests, we should provide a better implementation.")
 
         return .orderedAscending
     }
@@ -88,7 +54,7 @@ class FakeContactsManager: NSObject, ContactsManagerProtocol {
 let bobRecipientId = "+49030183000"
 let aliceRecipientId = "+12345678900"
 
-class ConversationSearcherTest: XCTestCase {
+class ConversationSearcherTest: SignalBaseTest {
 
     // MARK: - Dependencies
     var searcher: ConversationSearcher {
@@ -101,12 +67,8 @@ class ConversationSearcherTest: XCTestCase {
 
     // MARK: - Test Life Cycle
 
-    var originalEnvironment: TextSecureKitEnv?
-
     override func tearDown() {
         super.tearDown()
-
-        TextSecureKitEnv.setShared(originalEnvironment!)
     }
 
     override func setUp() {
@@ -114,16 +76,8 @@ class ConversationSearcherTest: XCTestCase {
 
         FullTextSearchFinder.ensureDatabaseExtensionRegistered(storage: OWSPrimaryStorage.shared())
 
-        TSContactThread.removeAllObjectsInCollection()
-        TSGroupThread.removeAllObjectsInCollection()
-        TSMessage.removeAllObjectsInCollection()
-
-        originalEnvironment = TextSecureKitEnv.shared()
-        assert(originalEnvironment != nil)
-
-        let testEnvironment: StubbableEnvironment = StubbableEnvironment(proxy: originalEnvironment!)
-        testEnvironment.stubbedContactsManager = FakeContactsManager()
-        TextSecureKitEnv.setShared(testEnvironment)
+        // Replace this singleton.
+        SSKEnvironment.shared.contactsManager = ConversationSearcherContactsManager()
 
         self.dbConnection.readWrite { transaction in
             let bookModel = TSGroupModel(title: "Book Club", memberIds: [aliceRecipientId, bobRecipientId], image: nil, groupId: Randomness.generateRandomBytes(16))
@@ -343,19 +297,19 @@ class ConversationSearcherTest: XCTestCase {
         self.dbConnection.read { transaction in
             for messageResult in messageResults {
                 guard let messageId = messageResult.messageId else {
-                    owsFail("message result missing message id")
+                    owsFailDebug("message result missing message id")
                     continue
                 }
                 guard let interaction = TSInteraction.fetch(uniqueId: messageId, transaction: transaction) else {
-                    owsFail("couldn't load interaction for message result")
+                    owsFailDebug("couldn't load interaction for message result")
                     continue
                 }
                 guard let message = interaction as? TSMessage else {
-                    owsFail("invalid message for message result")
+                    owsFailDebug("invalid message for message result")
                     continue
                 }
                 guard let messageBody = message.body else {
-                    owsFail("message result missing message body")
+                    owsFailDebug("message result missing message body")
                     continue
                 }
                 result.append(messageBody)
@@ -365,7 +319,7 @@ class ConversationSearcherTest: XCTestCase {
         return result.sorted()
     }
 
-    // Mark: Helpers
+    // MARK: Helpers
 
     private func searchConversations(searchText: String) -> [ThreadViewModel] {
         let results = getResultSet(searchText: searchText)
@@ -375,13 +329,13 @@ class ConversationSearcherTest: XCTestCase {
     private func getResultSet(searchText: String) -> SearchResultSet {
         var results: SearchResultSet!
         self.dbConnection.read { transaction in
-            results = self.searcher.results(searchText: searchText, transaction: transaction, contactsManager: TextSecureKitEnv.shared().contactsManager)
+            results = self.searcher.results(searchText: searchText, transaction: transaction, contactsManager: SSKEnvironment.shared.contactsManager)
         }
         return results
     }
 }
 
-class SearcherTest: XCTestCase {
+class SearcherTest: SignalBaseTest {
 
     struct TestCharacter {
         let name: String

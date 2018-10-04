@@ -63,13 +63,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)commonInit
 {
-    _contactsManager = [Environment current].contactsManager;
+    _contactsManager = Environment.shared.contactsManager;
     _contactsViewHelper = [[ContactsViewHelper alloc] initWithDelegate:self];
 }
 
 - (void)configureWithRecipientId:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     _recipientId = recipientId;
 }
@@ -78,7 +78,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)didFinishEditingContact
 {
-    DDLogDebug(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogDebug(@"");
     [self dismissViewControllerAnimated:NO
                              completion:^{
                                  [self.navigationController popViewControllerAnimated:YES];
@@ -94,13 +94,13 @@ NS_ASSUME_NONNULL_BEGIN
         // Saving normally returns you to the "Show Contact" view
         // which we're not interested in, so we skip it here. There is
         // an unfortunate blip of the "Show Contact" view on slower devices.
-        DDLogDebug(@"%@ completed editing contact.", self.logTag);
+        OWSLogDebug(@"completed editing contact.");
         [self dismissViewControllerAnimated:NO
                                  completion:^{
                                      [self.navigationController popViewControllerAnimated:YES];
                                  }];
     } else {
-        DDLogDebug(@"%@ canceled editing contact.", self.logTag);
+        OWSLogDebug(@"canceled editing contact.");
         [self dismissViewControllerAnimated:YES
                                  completion:^{
                                      [self.navigationController popViewControllerAnimated:YES];
@@ -129,7 +129,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable NSString *)displayNameForContact:(Contact *)contact
 {
-    OWSAssert(contact);
+    OWSAssertDebug(contact);
 
     if (contact.fullName.length > 0) {
         return contact.fullName;
@@ -186,16 +186,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)presentContactViewControllerForContact:(Contact *)contact
 {
-    OWSAssert(contact);
-    OWSAssert(self.recipientId);
+    OWSAssertDebug(contact);
+    OWSAssertDebug(self.recipientId);
 
     if (!self.contactsManager.supportsContactEditing) {
-        OWSFail(@"%@ Contact editing not supported", self.logTag);
+        OWSFailDebug(@"Contact editing not supported");
         return;
     }
     CNContact *_Nullable cnContact = [self.contactsManager cnContactWithId:contact.cnContactId];
     if (!cnContact) {
-        OWSFail(@"%@ Could not load system contact.", self.logTag);
+        OWSFailDebug(@"Could not load system contact.");
         return;
     }
     [self.contactsViewHelper presentContactViewControllerForRecipientId:self.recipientId

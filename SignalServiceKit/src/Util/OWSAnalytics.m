@@ -4,6 +4,7 @@
 
 #import "OWSAnalytics.h"
 #import "AppContext.h"
+#import "Cryptography.h"
 #import "OWSBackgroundTask.h"
 #import "OWSPrimaryStorage.h"
 #import "OWSQueues.h"
@@ -69,7 +70,7 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         OWSPrimaryStorage *primaryStorage = [OWSPrimaryStorage sharedManager];
-        OWSAssert(primaryStorage);
+        OWSAssertDebug(primaryStorage);
         // Use a newDatabaseConnection so as not to block reads in the launch path.
         instance = primaryStorage.newDatabaseConnection;
     });
@@ -132,7 +133,7 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
         // * There's no network available.
         // * There's already a sync request in flight.
         if (!self.reachability.isReachable) {
-            DDLogVerbose(@"%@ Not reachable", self.logTag);
+            OWSLogVerbose(@"Not reachable");
             return;
         }
         if (self.hasRequestInFlight) {
@@ -153,8 +154,8 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
             }
             
             firstEventDictionary = [transaction objectForKey:firstEventKey inCollection:kOWSAnalytics_EventsCollection];
-            OWSAssert(firstEventDictionary);
-            OWSAssert([firstEventDictionary isKindOfClass:[NSDictionary class]]);
+            OWSAssertDebug(firstEventDictionary);
+            OWSAssertDebug([firstEventDictionary isKindOfClass:[NSDictionary class]]);
         }];
 
         if (firstEventDictionary) {
@@ -165,18 +166,18 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
 
 - (void)sendEvent:(NSDictionary *)eventDictionary eventKey:(NSString *)eventKey isCritical:(BOOL)isCritical
 {
-    OWSAssert(eventDictionary);
-    OWSAssert(eventKey);
+    OWSAssertDebug(eventDictionary);
+    OWSAssertDebug(eventKey);
     AssertOnDispatchQueue(self.serialQueue);
 
     if (isCritical) {
         [self submitEvent:eventDictionary
             eventKey:eventKey
             success:^{
-                DDLogDebug(@"%@ sendEvent[critical] succeeded: %@", self.logTag, eventKey);
+                OWSLogDebug(@"sendEvent[critical] succeeded: %@", eventKey);
             }
             failure:^{
-                DDLogError(@"%@ sendEvent[critical] failed: %@", self.logTag, eventKey);
+                OWSLogError(@"sendEvent[critical] failed: %@", eventKey);
             }];
     } else {
         self.hasRequestInFlight = YES;
@@ -188,7 +189,7 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
                     return;
                 }
                 isComplete = YES;
-                DDLogDebug(@"%@ sendEvent succeeded: %@", self.logTag, eventKey);
+                OWSLogDebug(@"sendEvent succeeded: %@", eventKey);
                 dispatch_async(self.serialQueue, ^{
                     self.hasRequestInFlight = NO;
 
@@ -209,7 +210,7 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
                     return;
                 }
                 isComplete = YES;
-                DDLogError(@"%@ sendEvent failed: %@", self.logTag, eventKey);
+                OWSLogError(@"sendEvent failed: %@", eventKey);
                 dispatch_async(self.serialQueue, ^{
                     self.hasRequestInFlight = NO;
 
@@ -228,11 +229,11 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
             success:(void (^_Nonnull)(void))successBlock
             failure:(void (^_Nonnull)(void))failureBlock
 {
-    OWSAssert(eventDictionary);
-    OWSAssert(eventKey);
+    OWSAssertDebug(eventDictionary);
+    OWSAssertDebug(eventKey);
     AssertOnDispatchQueue(self.serialQueue);
 
-    DDLogDebug(@"%@ submitting: %@", self.logTag, eventKey);
+    OWSLogDebug(@"submitting: %@", eventKey);
 
     __block OWSBackgroundTask *backgroundTask =
         [OWSBackgroundTask backgroundTaskWithLabelStr:__PRETTY_FUNCTION__
@@ -298,8 +299,8 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
 
 - (void)addEvent:(NSString *)eventName severity:(OWSAnalyticsSeverity)severity properties:(NSDictionary *)properties
 {
-    OWSAssert(eventName.length > 0);
-    OWSAssert(properties);
+    OWSAssertDebug(eventName.length > 0);
+    OWSAssertDebug(properties);
 
 #ifndef NO_SIGNAL_ANALYTICS
     BOOL isError = severity == OWSAnalyticsSeverityError;
@@ -307,7 +308,7 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
 
     uint32_t discardValue = arc4random_uniform(101);
     if (!isError && !isCritical && discardValue < kOWSAnalytics_DiscardFrequency) {
-        DDLogVerbose(@"Discarding event: %@", eventName);
+        OWSLogVerbose(@"Discarding event: %@", eventName);
         return;
     }
 
@@ -317,9 +318,9 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
         [eventProperties addEntriesFromDictionary:self.eventSuperProperties];
 
         NSDictionary *eventDictionary = [eventProperties copy];
-        OWSAssert(eventDictionary);
+        OWSAssertDebug(eventDictionary);
         NSString *eventKey = [NSUUID UUID].UUIDString;
-        DDLogDebug(@"%@ enqueuing event: %@", self.logTag, eventKey);
+        OWSLogDebug(@"enqueuing event: %@", eventKey);
 
         if (isCritical) {
             // Critical events should not be serialized or enqueued - they should be submitted immediately.
@@ -329,7 +330,7 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
             [self.dbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
                 const int kMaxQueuedEvents = 5000;
                 if ([transaction numberOfKeysInCollection:kOWSAnalytics_EventsCollection] > kMaxQueuedEvents) {
-                    DDLogError(@"%@ Event queue overflow.", self.logTag);
+                    OWSLogError(@"Event queue overflow.");
                     return;
                 }
 
@@ -375,7 +376,7 @@ NSString *NSStringForOWSAnalyticsSeverity(OWSAnalyticsSeverity severity)
             logFlag = DDLogFlagError;
             break;
         default:
-            OWSFail(@"Unknown severity.");
+            OWSFailDebug(@"Unknown severity.");
             logFlag = DDLogFlagDebug;
             break;
     }

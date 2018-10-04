@@ -47,9 +47,9 @@ NSString *const kOWSPrimaryStorageOWSContactsSyncingLastMessageKey
 
 - (instancetype)initDefault
 {
-    return [self initWithContactsManager:Environment.current.contactsManager
+    return [self initWithContactsManager:Environment.shared.contactsManager
                          identityManager:OWSIdentityManager.sharedManager
-                           messageSender:Environment.current.messageSender
+                           messageSender:SSKEnvironment.shared.messageSender
                           profileManager:OWSProfileManager.sharedManager];
 }
 
@@ -64,9 +64,9 @@ NSString *const kOWSPrimaryStorageOWSContactsSyncingLastMessageKey
         return self;
     }
 
-    OWSAssert(contactsManager);
-    OWSAssert(messageSender);
-    OWSAssert(identityManager);
+    OWSAssertDebug(contactsManager);
+    OWSAssertDebug(messageSender);
+    OWSAssertDebug(identityManager);
 
     _contactsManager = contactsManager;
     _identityManager = identityManager;
@@ -124,13 +124,18 @@ NSString *const kOWSPrimaryStorageOWSContactsSyncingLastMessageKey
                                                    identityManager:self.identityManager
                                                     profileManager:self.profileManager];
 
-        __block NSData *messageData;
-        __block NSData *lastMessageData;
+        __block NSData *_Nullable messageData;
+        __block NSData *_Nullable lastMessageData;
         [self.editingDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
             messageData = [syncContactsMessage buildPlainTextAttachmentDataWithTransaction:transaction];
             lastMessageData = [transaction objectForKey:kOWSPrimaryStorageOWSContactsSyncingLastMessageKey
                                            inCollection:kOWSPrimaryStorageOWSContactsSyncingCollection];
         }];
+
+        if (!messageData) {
+            OWSFailDebug(@"Failed to serialize contacts sync message.");
+            return;
+        }
 
         if (lastMessageData && [lastMessageData isEqual:messageData]) {
             // Ignore redundant contacts sync message.
@@ -144,7 +149,7 @@ NSString *const kOWSPrimaryStorageOWSContactsSyncingLastMessageKey
             contentType:OWSMimeTypeApplicationOctetStream
             inMessage:syncContactsMessage
             success:^{
-                DDLogInfo(@"%@ Successfully sent contacts sync message.", self.logTag);
+                OWSLogInfo(@"Successfully sent contacts sync message.");
 
                 [self.editingDatabaseConnection setObject:messageData
                                                    forKey:kOWSPrimaryStorageOWSContactsSyncingLastMessageKey
@@ -155,7 +160,7 @@ NSString *const kOWSPrimaryStorageOWSContactsSyncingLastMessageKey
                 });
             }
             failure:^(NSError *error) {
-                DDLogError(@"%@ Failed to send contacts sync message with error: %@", self.logTag, error);
+                OWSLogError(@"Failed to send contacts sync message with error: %@", error);
 
                 dispatch_async(self.serialQueue, ^{
                     self.isRequestInFlight = NO;

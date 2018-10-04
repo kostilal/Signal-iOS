@@ -21,14 +21,15 @@
 #import <PromiseKit/AnyPromise.h>
 #import <SignalMessaging/OWSContactsManager.h>
 #import <SignalMessaging/OWSFormat.h>
+#import <SignalMessaging/SignalMessaging-Swift.h>
 #import <SignalMessaging/UIUtil.h>
 #import <SignalServiceKit/NSDate+OWS.h>
-#import <SignalServiceKit/OWSBlockingManager.h>
 #import <SignalServiceKit/OWSMessageSender.h>
 #import <SignalServiceKit/OWSMessageUtils.h>
 #import <SignalServiceKit/TSAccountManager.h>
 #import <SignalServiceKit/TSOutgoingMessage.h>
 #import <SignalServiceKit/Threading.h>
+#import <StoreKit/StoreKit.h>
 #import <YapDatabase/YapDatabase.h>
 #import <YapDatabase/YapDatabaseViewChange.h>
 #import <YapDatabase/YapDatabaseViewConnection.h>
@@ -63,7 +64,8 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     UITableViewDataSource,
     UIViewControllerPreviewingDelegate,
     UISearchBarDelegate,
-    ConversationSearchViewDelegate>
+    ConversationSearchViewDelegate,
+    OWSBlockListCacheDelegate>
 
 @property (nonatomic) UITableView *tableView;
 @property (nonatomic) UILabel *emptyBoxLabel;
@@ -73,11 +75,10 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 @property (nonatomic) YapDatabaseViewMappings *threadMappings;
 @property (nonatomic) HomeViewMode homeViewMode;
 @property (nonatomic) id previewingContext;
-@property (nonatomic) NSSet<NSString *> *blockedPhoneNumberSet;
 @property (nonatomic, readonly) NSCache<NSString *, ThreadViewModel *> *threadViewModelCache;
 @property (nonatomic) BOOL isViewVisible;
 @property (nonatomic) BOOL shouldObserveDBModifications;
-@property (nonatomic) BOOL hasBeenPresented;
+@property (nonatomic) BOOL hasEverAppeared;
 
 // Mark: Search
 
@@ -89,7 +90,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 @property (nonatomic, readonly) AccountManager *accountManager;
 @property (nonatomic, readonly) OWSContactsManager *contactsManager;
 @property (nonatomic, readonly) OWSMessageSender *messageSender;
-@property (nonatomic, readonly) OWSBlockingManager *blockingManager;
+@property (nonatomic, readonly) OWSBlockListCache *blocklistCache;
 
 // Views
 
@@ -130,7 +131,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
 - (nullable instancetype)initWithCoder:(NSCoder *)aDecoder
 {
-    OWSFail(@"Do not load this from the storyboard.");
+    OWSFailDebug(@"Do not load this from the storyboard.");
 
     self = [super initWithCoder:aDecoder];
     if (!self) {
@@ -145,10 +146,10 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 - (void)commonInit
 {
     _accountManager = SignalApp.sharedApp.accountManager;
-    _contactsManager = [Environment current].contactsManager;
-    _messageSender = [Environment current].messageSender;
-    _blockingManager = [OWSBlockingManager sharedManager];
-    _blockedPhoneNumberSet = [NSSet setWithArray:[_blockingManager blockedPhoneNumbers]];
+    _contactsManager = Environment.shared.contactsManager;
+    _messageSender = SSKEnvironment.shared.messageSender;
+    _blocklistCache = [OWSBlockListCache new];
+    [_blocklistCache startObservingAndSyncStateWithDelegate:self];
     _threadViewModelCache = [NSCache new];
 
     // Ensure ExperienceUpgradeFinder has been initialized.
@@ -156,11 +157,10 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 #pragma GCC diagnostic ignored "-Wunused-result"
     [ExperienceUpgradeFinder sharedManager];
 #pragma GCC diagnostic pop
+}
 
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(blockedPhoneNumbersDidChange:)
-                                                 name:kNSNotificationName_BlockedPhoneNumbersDidChange
-                                               object:nil];
+- (void)observeNotifications
+{
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(signalAccountsDidChange:)
                                                  name:OWSContactsManagerSignalAccountsDidChangeNotification
@@ -197,6 +197,10 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                                              selector:@selector(themeDidChange:)
                                                  name:ThemeDidChangeNotification
                                                object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(localProfileDidChange:)
+                                                 name:kNSNotificationName_LocalProfileDidChange
+                                               object:nil];
 }
 
 - (void)dealloc
@@ -205,15 +209,6 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 }
 
 #pragma mark - Notifications
-
-- (void)blockedPhoneNumbersDidChange:(id)notification
-{
-    OWSAssertIsOnMainThread();
-
-    _blockedPhoneNumberSet = [NSSet setWithArray:[_blockingManager blockedPhoneNumbers]];
-
-    [self reloadTableViewData];
-}
 
 - (void)signalAccountsDidChange:(id)notification
 {
@@ -236,9 +231,16 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     [self updateReminderViews];
 }
 
+- (void)localProfileDidChange:(id)notification
+{
+    OWSAssertIsOnMainThread();
+
+    [self updateBarButtonItems];
+}
+
 #pragma mark - Theme
 
-- (void)themeDidChange:(id)notification
+- (void)themeDidChange:(NSNotification *)notification
 {
     OWSAssertIsOnMainThread();
 
@@ -251,13 +253,11 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 - (void)applyTheme
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(self.tableView);
-    OWSAssert(self.searchBar);
+    OWSAssertDebug(self.tableView);
+    OWSAssertDebug(self.searchBar);
 
     self.view.backgroundColor = Theme.backgroundColor;
     self.tableView.backgroundColor = Theme.backgroundColor;
-    self.searchBar.backgroundColor = Theme.backgroundColor;
-    self.searchBar.barStyle = Theme.barStyle;
 }
 
 #pragma mark - View Life Cycle
@@ -319,6 +319,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    self.tableView.separatorColor = Theme.cellSeparatorColor;
     [self.tableView registerClass:[HomeViewCell class] forCellReuseIdentifier:HomeViewCell.cellReuseIdentifier];
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:kArchivedConversationsReuseIdentifier];
     [self.view addSubview:self.tableView];
@@ -345,8 +346,6 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                           action:@selector(pullToRefreshPerformed:)
                 forControlEvents:UIControlEventValueChanged];
     [self.tableView insertSubview:pullToRefreshView atIndex:0];
-    
-    [self updateReminderViews];
 }
 
 - (void)updateReminderViews
@@ -362,6 +361,16 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         || !self.deregisteredView.isHidden || !self.outageView.isHidden;
 }
 
+- (void)setHasVisibleReminders:(BOOL)hasVisibleReminders
+{
+    if (_hasVisibleReminders == hasVisibleReminders) {
+        return;
+    }
+    _hasVisibleReminders = hasVisibleReminders;
+    // If the reminders show/hide, reload the table.
+    [self.tableView reloadData];
+}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
@@ -374,6 +383,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     [self updateMappings];
     [self checkIfEmptyView];
     [self updateReminderViews];
+    [self observeNotifications];
 
     // because this uses the table data source, `tableViewSetup` must happen
     // after mappings have been set up in `showInboxGrouping`
@@ -398,17 +408,18 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     
     // Search
 
-    UISearchBar *searchBar = [UISearchBar new];
+    UISearchBar *searchBar = [OWSSearchBar new];
     _searchBar = searchBar;
-    searchBar.searchBarStyle = UISearchBarStyleMinimal;
     searchBar.placeholder = NSLocalizedString(@"HOME_VIEW_CONVERSATION_SEARCHBAR_PLACEHOLDER",
         @"Placeholder text for search bar which filters conversations.");
     searchBar.delegate = self;
     [searchBar sizeToFit];
 
     // Setting tableHeader calls numberOfSections, which must happen after updateMappings has been called at least once.
-    OWSAssert(self.tableView.tableHeaderView == nil);
+    OWSAssertDebug(self.tableView.tableHeaderView == nil);
     self.tableView.tableHeaderView = self.searchBar;
+    // Hide search bar by default.  User can pull down to search.
+    self.tableView.contentOffset = CGPointMake(0, CGRectGetHeight(searchBar.frame));
 
     ConversationSearchViewController *searchResultsController = [ConversationSearchViewController new];
     searchResultsController.delegate = self;
@@ -423,6 +434,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }
     searchResultsController.view.hidden = YES;
 
+    [self updateReminderViews];
     [self updateBarButtonItems];
 
     [self applyTheme];
@@ -463,7 +475,11 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         self.hasThemeChanged = NO;
     }
 
+    [self requestReviewIfAppropriate];
+
     [self.searchResultsController viewDidAppear:animated];
+
+    self.hasEverAppeared = YES;
 }
 
 - (void)viewDidDisappear:(BOOL)animated
@@ -480,11 +496,31 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }
 
     //  Settings button.
-    //
-    // TODO: Theme
-    UIImage *image = [UIImage imageNamed:@"button_settings_white"];
-    UIBarButtonItem *settingsButton = [[UIBarButtonItem alloc] initWithImage:image style:UIBarButtonItemStylePlain target:self action:@selector(settingsButtonPressed:)];
-    settingsButton.accessibilityLabel = CommonStrings.openSettingsButton;
+    UIBarButtonItem *settingsButton;
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(10, 0)) {
+        const NSUInteger kAvatarSize = 28;
+        UIImage *_Nullable localProfileAvatarImage = [OWSProfileManager.sharedManager localProfileAvatarImage];
+        UIImage *avatarImage = (localProfileAvatarImage
+                ?: [[[OWSContactAvatarBuilder alloc] initForLocalUserWithDiameter:kAvatarSize] buildDefaultImage]);
+        OWSAssertDebug(avatarImage);
+        AvatarImageView *avatarView = [[AvatarImageView alloc] initWithImage:avatarImage];
+        [avatarView autoSetDimension:ALDimensionWidth toSize:kAvatarSize];
+        [avatarView autoSetDimension:ALDimensionHeight toSize:kAvatarSize];
+        avatarView.userInteractionEnabled = YES;
+        [avatarView
+            addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                         action:@selector(settingsButtonPressed:)]];
+        settingsButton = [[UIBarButtonItem alloc] initWithCustomView:avatarView];
+        settingsButton.accessibilityLabel = CommonStrings.openSettingsButton;
+    } else {
+        // iOS 9 has a bug around layout of custom views in UIBarButtonItem,
+        // so we just use a simple icon.
+        UIImage *image = [UIImage imageNamed:@"button_settings_white"];
+        settingsButton = [[UIBarButtonItem alloc] initWithImage:image
+                                                          style:UIBarButtonItemStylePlain
+                                                         target:self
+                                                         action:@selector(settingsButtonPressed:)];
+    }
     self.navigationItem.leftBarButtonItem = settingsButton;
 
     self.navigationItem.rightBarButtonItem =
@@ -536,22 +572,21 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 {
     OWSAssertIsOnMainThread();
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     NewContactThreadViewController *viewController = [NewContactThreadViewController new];
 
     [self.contactsManager requestSystemContactsOnceWithCompletion:^(NSError *_Nullable error) {
         if (error) {
-            DDLogError(@"%@ Error when requesting contacts: %@", self.logTag, error);
+            OWSLogError(@"Error when requesting contacts: %@", error);
         }
         // Even if there is an error fetching contacts we proceed to the next screen.
         // As the compose view will present the proper thing depending on contact access.
         //
         // We just want to make sure contact access is *complete* before showing the compose
         // screen to avoid flicker.
-        OWSNavigationController *navigationController =
-            [[OWSNavigationController alloc] initWithRootViewController:viewController];
-        [self presentTopLevelModalViewController:navigationController animateDismissal:YES animatePresentation:YES];
+        OWSNavigationController *modal = [[OWSNavigationController alloc] initWithRootViewController:viewController];
+        [self.navigationController presentViewController:modal animated:YES completion:nil];
     }];
 }
 
@@ -575,10 +610,10 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
     BOOL isShowingSearchResults = !self.searchResultsController.view.hidden;
     if (isShowingSearchResults) {
-        OWSAssert(self.searchBar.text.ows_stripped.length > 0);
+        OWSAssertDebug(self.searchBar.text.ows_stripped.length > 0);
         [self scrollSearchBarToTopAnimated:NO];
     } else if (self.lastThread) {
-        OWSAssert(self.searchBar.text.ows_stripped.length == 0);
+        OWSAssertDebug(self.searchBar.text.ows_stripped.length == 0);
         
         // When returning to home view, try to ensure that the "last" thread is still
         // visible.  The threads often change ordering while in conversation view due
@@ -739,13 +774,9 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         ExperienceUpgradesPageViewController *experienceUpgradeViewController =
             [[ExperienceUpgradesPageViewController alloc] initWithExperienceUpgrades:unseenUpgrades];
         [self presentViewController:experienceUpgradeViewController animated:YES completion:nil];
-    } else if (!self.hasBeenPresented && [ProfileViewController shouldDisplayProfileViewOnLaunch]) {
-        [ProfileViewController presentForUpgradeOrNag:self];
     } else {
         [OWSAlerts showIOSUpgradeNagIfNecessary];
     }
-
-    self.hasBeenPresented = YES;
 }
 
 - (void)tableViewSetUp
@@ -788,14 +819,14 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         }
     }
 
-    OWSFail(@"%@ failure: unexpected section: %lu", self.logTag, (unsigned long)section);
+    OWSFailDebug(@"failure: unexpected section: %lu", (unsigned long)section);
     return 0;
 }
 
 - (ThreadViewModel *)threadViewModelForIndexPath:(NSIndexPath *)indexPath
 {
     TSThread *threadRecord = [self threadForIndexPath:indexPath];
-    OWSAssert(threadRecord);
+    OWSAssertDebug(threadRecord);
 
     ThreadViewModel *_Nullable cachedThreadViewModel = [self.threadViewModelCache objectForKey:threadRecord.uniqueId];
     if (cachedThreadViewModel) {
@@ -815,6 +846,8 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     HomeViewControllerSection section = (HomeViewControllerSection)indexPath.section;
     switch (section) {
         case HomeViewControllerSectionReminders: {
+            OWSAssert(self.reminderStackView);
+
             return self.reminderViewCell;
         }
         case HomeViewControllerSectionConversations: {
@@ -825,19 +858,19 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         }
     }
 
-    OWSFail(@"%@ failure: unexpected section: %lu", self.logTag, (unsigned long)section);
+    OWSFailDebug(@"failure: unexpected section: %lu", (unsigned long)section);
     return [UITableViewCell new];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForConversationAtIndexPath:(NSIndexPath *)indexPath
 {
     HomeViewCell *cell = [self.tableView dequeueReusableCellWithIdentifier:HomeViewCell.cellReuseIdentifier];
-    OWSAssert(cell);
+    OWSAssertDebug(cell);
 
     ThreadViewModel *thread = [self threadViewModelForIndexPath:indexPath];
-    [cell configureWithThread:thread
-              contactsManager:self.contactsManager
-        blockedPhoneNumberSet:self.blockedPhoneNumberSet];
+
+    BOOL isBlocked = [self.blocklistCache isThreadBlocked:thread.threadRecord];
+    [cell configureWithThread:thread contactsManager:self.contactsManager isBlocked:isBlocked];
 
     return cell;
 }
@@ -845,7 +878,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 - (UITableViewCell *)cellForArchivedConversationsRow:(UITableView *)tableView
 {
     UITableViewCell *cell = [self.tableView dequeueReusableCellWithIdentifier:kArchivedConversationsReuseIdentifier];
-    OWSAssert(cell);
+    OWSAssertDebug(cell);
     [OWSTableItem configureCell:cell];
 
     for (UIView *subview in cell.contentView.subviews) {
@@ -853,7 +886,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }
 
     UIImage *disclosureImage = [UIImage imageNamed:(CurrentAppContext().isRTL ? @"NavBarBack" : @"NavBarBackRTL")];
-    OWSAssert(disclosureImage);
+    OWSAssertDebug(disclosureImage);
     UIImageView *disclosureImageView = [UIImageView new];
     disclosureImageView.image = [disclosureImage imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     disclosureImageView.tintColor = [UIColor colorWithRGBHex:0xd1d1d6];
@@ -893,15 +926,20 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                                                                                  withMappings:self.threadMappings];
     }];
 
+    if (![thread isKindOfClass:[TSThread class]]) {
+        OWSLogError(@"Invalid object in thread view: %@", [thread class]);
+        [OWSStorage incrementVersionOfDatabaseExtension:TSThreadDatabaseViewExtensionName];
+    }
+
     return thread;
 }
 
 - (void)pullToRefreshPerformed:(UIRefreshControl *)refreshControl
 {
     OWSAssertIsOnMainThread();
-    DDLogInfo(@"%@ beggining refreshing.", self.logTag);
+    OWSLogInfo(@"beggining refreshing.");
     [SignalApp.sharedApp.messageFetcherJob run].always(^{
-        DDLogInfo(@"%@ ending refreshing.", self.logTag);
+        OWSLogInfo(@"ending refreshing.");
         [refreshControl endRefreshing];
     });
 }
@@ -938,7 +976,6 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                                            @"Pressing this button moves a thread from the inbox to the archive")
                                handler:^(UITableViewRowAction *_Nonnull action, NSIndexPath *_Nonnull tappedIndexPath) {
                                    [self archiveIndexPath:tappedIndexPath];
-                                   [Environment.preferences setHasArchivedAMessage:YES];
                                }];
 
             } else {
@@ -1011,7 +1048,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     self.searchBar.text = nil;
 
     [self.searchBar resignFirstResponder];
-    OWSAssert(!self.searchBar.isFirstResponder);
+    OWSAssertDebug(!self.searchBar.isFirstResponder);
 
     [self updateSearchResultsVisibility];
 
@@ -1051,7 +1088,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView
 {
     [self.searchBar resignFirstResponder];
-    OWSAssert(!self.searchBar.isFirstResponder);
+    OWSAssertDebug(!self.searchBar.isFirstResponder);
 }
 
 #pragma mark - ConversationSearchViewDelegate
@@ -1059,7 +1096,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 - (void)conversationSearchViewWillBeginDragging
 {
     [self.searchBar resignFirstResponder];
-    OWSAssert(!self.searchBar.isFirstResponder);
+    OWSAssertDebug(!self.searchBar.isFirstResponder);
 }
 
 #pragma mark - HomeFeedTableViewCellDelegate
@@ -1067,46 +1104,36 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 - (void)tableViewCellTappedDelete:(NSIndexPath *)indexPath
 {
     if (indexPath.section != HomeViewControllerSectionConversations) {
-        OWSFail(@"%@ failure: unexpected section: %lu", self.logTag, (unsigned long)indexPath.section);
+        OWSFailDebug(@"failure: unexpected section: %lu", (unsigned long)indexPath.section);
         return;
     }
 
     TSThread *thread = [self threadForIndexPath:indexPath];
-    if ([thread isKindOfClass:[TSGroupThread class]]) {
 
+    if ([thread isKindOfClass:[TSGroupThread class]]) {
         TSGroupThread *gThread = (TSGroupThread *)thread;
         if ([gThread.groupModel.groupMemberIds containsObject:[TSAccountManager localNumber]]) {
-            UIAlertController *removingFromGroup = [UIAlertController
-                alertControllerWithTitle:[NSString
-                                             stringWithFormat:NSLocalizedString(@"GROUP_REMOVING", nil), [thread name]]
-                                 message:nil
-                          preferredStyle:UIAlertControllerStyleAlert];
-            [self presentViewController:removingFromGroup animated:YES completion:nil];
+            [ThreadUtil sendLeaveGroupMessageInThread:gThread
+                             presentingViewController:self
+                                        messageSender:self.messageSender
+                                           completion:^(NSError *_Nullable error) {
+                                               if (error) {
+                                                   NSString *title = NSLocalizedString(@"GROUP_REMOVING_FAILED",
+                                                       @"Title of alert indicating that group deletion failed.");
 
-            TSOutgoingMessage *message = [TSOutgoingMessage outgoingMessageInThread:thread
-                                                                   groupMetaMessage:TSGroupMessageQuit
-                                                                   expiresInSeconds:0];
-            [self.messageSender enqueueMessage:message
-                success:^{
-                    [self dismissViewControllerAnimated:YES
-                                             completion:^{
-                                                 [self deleteThread:thread];
-                                             }];
-                }
-                failure:^(NSError *error) {
-                    [self dismissViewControllerAnimated:YES
-                                             completion:^{
-                                                 [OWSAlerts
-                                                     showAlertWithTitle:
-                                                         NSLocalizedString(@"GROUP_REMOVING_FAILED",
-                                                             @"Title of alert indicating that group deletion failed.")
-                                                                message:error.localizedRecoverySuggestion];
-                                             }];
-                }];
+                                                   [OWSAlerts showAlertWithTitle:title
+                                                                         message:error.localizedRecoverySuggestion];
+                                                   return;
+                                               }
+
+                                               [self deleteThread:thread];
+                                           }];
         } else {
+            // MJK - turn these trailing elses into guards
             [self deleteThread:thread];
         }
     } else {
+        // MJK - turn these trailing elses into guards
         [self deleteThread:thread];
     }
 }
@@ -1123,7 +1150,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 - (void)archiveIndexPath:(NSIndexPath *)indexPath
 {
     if (indexPath.section != HomeViewControllerSectionConversations) {
-        OWSFail(@"%@ failure: unexpected section: %lu", self.logTag, (unsigned long)indexPath.section);
+        OWSFailDebug(@"failure: unexpected section: %lu", (unsigned long)indexPath.section);
         return;
     }
 
@@ -1144,7 +1171,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    DDLogInfo(@"%@ %s %ld %ld", self.logTag, __PRETTY_FUNCTION__, (long)indexPath.row, (long)indexPath.section);
+    OWSLogInfo(@"%ld %ld", (long)indexPath.row, (long)indexPath.section);
 
     [self.searchBar resignFirstResponder];
     HomeViewControllerSection section = (HomeViewControllerSection)indexPath.section;
@@ -1154,7 +1181,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         }
         case HomeViewControllerSectionConversations: {
             TSThread *thread = [self threadForIndexPath:indexPath];
-            [self presentThread:thread action:ConversationViewActionNone];
+            [self presentThread:thread action:ConversationViewActionNone animated:YES];
             [tableView deselectRowAtIndexPath:indexPath animated:YES];
             break;
         }
@@ -1165,113 +1192,49 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }
 }
 
-- (void)presentThread:(TSThread *)thread action:(ConversationViewAction)action
+- (void)presentThread:(TSThread *)thread action:(ConversationViewAction)action animated:(BOOL)isAnimated
 {
-    [self presentThread:thread action:action focusMessageId:nil];
+    [self presentThread:thread action:action focusMessageId:nil animated:isAnimated];
 }
 
 - (void)presentThread:(TSThread *)thread
                action:(ConversationViewAction)action
        focusMessageId:(nullable NSString *)focusMessageId
+             animated:(BOOL)isAnimated
 {
     if (thread == nil) {
-        OWSFail(@"Thread unexpectedly nil");
+        OWSFailDebug(@"Thread unexpectedly nil");
         return;
     }
 
     // We do this synchronously if we're already on the main thread.
     DispatchMainThreadSafe(^{
-        ConversationViewController *viewController = [ConversationViewController new];
-        [viewController configureForThread:thread action:action focusMessageId:focusMessageId];
+        ConversationViewController *conversationVC = [ConversationViewController new];
+        [conversationVC configureForThread:thread action:action focusMessageId:focusMessageId];
         self.lastThread = thread;
 
-        [self pushTopLevelViewController:viewController animateDismissal:YES animatePresentation:YES];
+        [self.navigationController setViewControllers:@[ self, conversationVC ] animated:isAnimated];
     });
-}
-
-- (void)presentTopLevelModalViewController:(UIViewController *)viewController
-                          animateDismissal:(BOOL)animateDismissal
-                       animatePresentation:(BOOL)animatePresentation
-{
-    OWSAssertIsOnMainThread();
-    OWSAssert(viewController);
-
-    [self presentViewControllerWithBlock:^{
-        [self presentViewController:viewController animated:animatePresentation completion:nil];
-    }
-                        animateDismissal:animateDismissal];
-}
-
-- (void)pushTopLevelViewController:(UIViewController *)viewController
-                  animateDismissal:(BOOL)animateDismissal
-               animatePresentation:(BOOL)animatePresentation
-{
-    OWSAssertIsOnMainThread();
-    OWSAssert(viewController);
-
-    [self presentViewControllerWithBlock:^{
-        [self.navigationController pushViewController:viewController animated:animatePresentation];
-    }
-                        animateDismissal:animateDismissal];
-}
-
-- (void)presentViewControllerWithBlock:(void (^)(void))presentationBlock animateDismissal:(BOOL)animateDismissal
-{
-    OWSAssertIsOnMainThread();
-    OWSAssert(presentationBlock);
-
-    // Presenting a "top level" view controller has three steps:
-    //
-    // First, dismiss any presented modal.
-    // Second, pop to the root view controller if necessary.
-    // Third present the new view controller using presentationBlock.
-
-    // Define a block to perform the second step.
-    void (^dismissNavigationBlock)(void) = ^{
-        if (self.navigationController.viewControllers.lastObject != self) {
-            [CATransaction begin];
-            [CATransaction setCompletionBlock:^{
-                presentationBlock();
-            }];
-
-            [self.navigationController popToViewController:self animated:animateDismissal];
-
-            [CATransaction commit];
-        } else {
-            presentationBlock();
-        }
-    };
-
-    // Perform the first step.
-    if (self.presentedViewController) {
-        if ([self.presentedViewController isKindOfClass:[CallViewController class]]) {
-            OWSProdInfo([OWSAnalyticsEvents errorCouldNotPresentViewDueToCall]);
-            return;
-        }
-        [self.presentedViewController dismissViewControllerAnimated:animateDismissal completion:dismissNavigationBlock];
-    } else {
-        dismissNavigationBlock();
-    }
 }
 
 #pragma mark - Groupings
 
 - (YapDatabaseViewMappings *)threadMappings
 {
-    OWSAssert(_threadMappings != nil);
+    OWSAssertDebug(_threadMappings != nil);
     return _threadMappings;
 }
 
 - (void)showInboxGrouping
 {
-    OWSAssert(self.homeViewMode == HomeViewMode_Archive);
+    OWSAssertDebug(self.homeViewMode == HomeViewMode_Archive);
 
     [self.navigationController popToRootViewControllerAnimated:YES];
 }
 
 - (void)showArchivedConversations
 {
-    OWSAssert(self.homeViewMode == HomeViewMode_Inbox);
+    OWSAssertDebug(self.homeViewMode == HomeViewMode_Inbox);
 
     // When showing archived conversations, we want to use a conventional "back" button
     // to return to the "inbox" home view.
@@ -1328,7 +1291,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 {
     OWSAssertIsOnMainThread();
 
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogVerbose(@"");
 
     if (self.shouldObserveDBModifications) {
         // External database modifications can't be converted into incremental updates,
@@ -1349,7 +1312,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         return;
     }
 
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogVerbose(@"");
 
     NSArray *notifications = [self.uiDatabaseConnection beginLongLivedReadTransaction];
 
@@ -1416,7 +1379,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
     for (YapDatabaseViewRowChange *rowChange in rowChanges) {
         NSString *key = rowChange.collectionKey.key;
-        OWSAssert(key);
+        OWSAssertDebug(key);
         [self.threadViewModelCache removeObjectForKey:key];
 
         switch (rowChange.type) {
@@ -1500,24 +1463,23 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     NSString *secondLine = @"";
 
     if (self.homeViewMode == HomeViewMode_Inbox) {
-        if ([Environment.preferences getHasSentAMessage]) {
-            //  FIXME: This doesn't appear to ever show up as the defaults flag is never set (setHasSentAMessage: is never called).
-            firstLine = NSLocalizedString(@"EMPTY_INBOX_FIRST_TITLE", @"");
-            secondLine = NSLocalizedString(@"EMPTY_INBOX_FIRST_TEXT", @"");
+        if ([Environment.shared.preferences hasSentAMessage]) {
+            firstLine = NSLocalizedString(
+                @"EMPTY_INBOX_TITLE", @"Header text an existing user sees when viewing an empty inbox");
+            secondLine = NSLocalizedString(
+                @"EMPTY_INBOX_TEXT", @"Body text an existing user sees when viewing an empty inbox");
         } else {
-            //  FIXME: Misleading localizable string key name.
-            firstLine = NSLocalizedString(@"EMPTY_ARCHIVE_FIRST_TITLE", @"First (bolded) part of the label that shows up when there are neither active nor archived conversations");
-            secondLine = NSLocalizedString(@"EMPTY_ARCHIVE_FIRST_TEXT", @"Second part of the label that shows up when there are neither active nor archived conversations");
+            firstLine = NSLocalizedString(
+                @"EMPTY_INBOX_NEW_USER_TITLE", @"Header text a new user sees when viewing an empty inbox");
+            secondLine = NSLocalizedString(
+                @"EMPTY_INBOX_NEW_USER_TEXT", @"Body text a new user sees when viewing an empty inbox");
         }
     } else {
-        if ([Environment.preferences getHasArchivedAMessage]) {
-            //  FIXME: Shows up after the archival tab is cleared up completely by the user, the localizable string key is misleading.
-            firstLine = NSLocalizedString(@"EMPTY_INBOX_TITLE", @"");
-            secondLine = NSLocalizedString(@"EMPTY_INBOX_TEXT", @"");
-        } else {
-            firstLine = NSLocalizedString(@"EMPTY_ARCHIVE_TITLE", @"");
-            secondLine = NSLocalizedString(@"EMPTY_ARCHIVE_TEXT", @"");
-        }
+        OWSAssertDebug(self.homeViewMode == HomeViewMode_Archive);
+        firstLine = NSLocalizedString(
+            @"EMPTY_ARCHIVE_TITLE", @"Header text an existing user sees when viewing an empty archive");
+        secondLine = NSLocalizedString(
+            @"EMPTY_ARCHIVE_TEXT", @"Body text an existing user sees when viewing an empty archive");
     }
     NSMutableAttributedString *fullLabelString =
         [[NSMutableAttributedString alloc] initWithString:[NSString stringWithFormat:@"%@\n%@", firstLine, secondLine]];
@@ -1536,6 +1498,38 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                             value:Theme.secondaryColor
                             range:NSMakeRange(firstLine.length + 1, secondLine.length)];
     _emptyBoxLabel.attributedText = fullLabelString;
+}
+
+// We want to delay asking for a review until an opportune time.
+// If the user has *just* launched Signal they intend to do something, we don't want to interrupt them.
+// If the user hasn't sent a message, we don't want to ask them for a review yet.
+- (void)requestReviewIfAppropriate
+{
+    if (self.hasEverAppeared && Environment.shared.preferences.hasSentAMessage) {
+        OWSLogDebug(@"requesting review");
+        if (@available(iOS 10, *)) {
+            // In Debug this pops up *every* time, which is helpful, but annoying.
+            // In Production this will pop up at most 3 times per 365 days.
+#ifndef DEBUG
+            static dispatch_once_t onceToken;
+            // Despite `SKStoreReviewController` docs, some people have reported seeing the "request review" prompt
+            // repeatedly after first installation. Let's make sure it only happens at most once per launch.
+            dispatch_once(&onceToken, ^{
+                [SKStoreReviewController requestReview];
+            });
+#endif
+        }
+    } else {
+        OWSLogDebug(@"not requesting review");
+    }
+}
+
+#pragma mark - OWSBlockListCacheDelegate
+
+- (void)blockListCacheDidUpdate:(OWSBlockListCache *_Nonnull)blocklistCache
+{
+    OWSLogVerbose(@"");
+    [self reloadTableViewData];
 }
 
 @end

@@ -19,14 +19,14 @@ NS_ASSUME_NONNULL_BEGIN
     self.conversationStyle = nil;
 }
 
-- (void)loadForDisplayWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (void)loadForDisplay
 {
-    OWS_ABSTRACT_METHOD();
+    OWSAbstractMethod();
 }
 
-- (CGSize)cellSizeWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (CGSize)cellSize
 {
-    OWS_ABSTRACT_METHOD();
+    OWSAbstractMethod();
 
     return CGSizeZero;
 }
@@ -38,6 +38,13 @@ NS_ASSUME_NONNULL_BEGIN
     if (isCellVisible) {
         [self layoutIfNeeded];
     }
+}
+
+// For perf reasons, skip the default implementation which is only relevant for self-sizing cells.
+- (UICollectionViewLayoutAttributes *)preferredLayoutAttributesFittingAttributes:
+    (UICollectionViewLayoutAttributes *)layoutAttributes
+{
+    return layoutAttributes;
 }
 
 @end

@@ -21,7 +21,7 @@ class QuotedReplyPreview: UIView {
 
     @objc
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     @objc
@@ -53,7 +53,7 @@ class QuotedReplyPreview: UIView {
 
         let buttonImage: UIImage = #imageLiteral(resourceName: "quoted-message-cancel").withRenderingMode(.alwaysTemplate)
         cancelButton.setImage(buttonImage, for: .normal)
-        cancelButton.imageView?.tintColor = .darkGray
+        cancelButton.imageView?.tintColor = Theme.secondaryColor
         cancelButton.addTarget(self, action: #selector(didTapCancel), for: .touchUpInside)
 
         self.layoutMargins = .zero
@@ -81,7 +81,7 @@ class QuotedReplyPreview: UIView {
 
     func updateHeight() {
         guard let quotedMessageView = quotedMessageView else {
-            owsFail("\(logTag) missing quotedMessageView")
+            owsFailDebug("missing quotedMessageView")
             return
         }
         let size = quotedMessageView.size(forMaxWidth: CGFloat.infinity)
@@ -89,7 +89,7 @@ class QuotedReplyPreview: UIView {
     }
 
     @objc func contentSizeCategoryDidChange(_ notification: Notification) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         updateContents()
     }

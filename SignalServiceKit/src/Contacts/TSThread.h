@@ -33,9 +33,10 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (NSString *)name;
 
-@property (readonly, nullable) NSString *conversationColorName;
+@property (nonatomic, readonly) NSString *conversationColorName;
+
 - (void)updateConversationColorName:(NSString *)colorName transaction:(YapDatabaseReadWriteTransaction *)transaction;
-+ (NSString *)stableConversationColorNameForString:(NSString *)colorSeed;
++ (NSString *)stableColorNameForNewConversationWithString:(NSString *)colorSeed;
 
 /**
  * @returns

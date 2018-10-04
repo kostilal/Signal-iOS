@@ -1,12 +1,12 @@
 //
-//  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWSProvisioningCipher.h"
+#import <CommonCrypto/CommonCrypto.h>
 #import <Curve25519Kit/Curve25519.h>
 #import <HKDFKit/HKDFKit.h>
 #import <SignalServiceKit/Cryptography.h>
-#import <CommonCrypto/CommonCrypto.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -17,6 +17,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) NSData *initializationVector;
 
 @end
+
+#pragma mark -
 
 @implementation OWSProvisioningCipher
 
@@ -51,6 +53,24 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable NSData *)encrypt:(NSData *)dataToEncrypt
 {
+    @try {
+        // Exceptions can be thrown in a number of places in encryptUnsafe, e.g.:
+        //
+        // * Curve25519's generateSharedSecretFromPublicKey.
+        // * [HKDFKit deriveKey].
+        return [self encryptUnsafe:dataToEncrypt];
+    } @catch (NSException *exception) {
+        OWSFailDebug(@"exception: %@ of type: %@ with reason: %@, user info: %@.",
+            exception.description,
+            exception.name,
+            exception.reason,
+            exception.userInfo);
+        return nil;
+    }
+}
+
+- (nullable NSData *)encryptUnsafe:(NSData *)dataToEncrypt
+{
     NSData *sharedSecret =
         [Curve25519 generateSharedSecretFromPublicKey:self.theirPublicKey andKeyPair:self.ourKeyPair];
 
@@ -59,21 +79,31 @@ NS_ASSUME_NONNULL_BEGIN
     NSData *derivedSecret = [HKDFKit deriveKey:sharedSecret info:infoData salt:nullSalt outputSize:64];
     NSData *cipherKey = [derivedSecret subdataWithRange:NSMakeRange(0, 32)];
     NSData *macKey = [derivedSecret subdataWithRange:NSMakeRange(32, 32)];
-    NSAssert(cipherKey.length == 32, @"Cipher Key must be 32 bytes");
-    NSAssert(macKey.length == 32, @"Mac Key must be 32 bytes");
+    if (cipherKey.length != 32) {
+        OWSFailDebug(@"Cipher Key must be 32 bytes");
+        return nil;
+    }
+    if (macKey.length != 32) {
+        OWSFailDebug(@"Mac Key must be 32 bytes");
+        return nil;
+    }
 
     u_int8_t versionByte[] = { 0x01 };
     NSMutableData *message = [NSMutableData dataWithBytes:&versionByte length:1];
 
     NSData *_Nullable cipherText = [self encrypt:dataToEncrypt withKey:cipherKey];
     if (cipherText == nil) {
-        OWSFail(@"Provisioning cipher failed.");
+        OWSFailDebug(@"Provisioning cipher failed.");
         return nil;
     }
     
     [message appendData:cipherText];
 
-    NSData *mac = [self macForMessage:message withKey:macKey];
+    NSData *_Nullable mac = [self macForMessage:message withKey:macKey];
+    if (mac == nil) {
+        OWSFailDebug(@"mac failed.");
+        return nil;
+    }
     [message appendData:mac];
 
     return [message copy];
@@ -83,24 +113,20 @@ NS_ASSUME_NONNULL_BEGIN
 {
     NSData *iv = self.initializationVector;
     if (iv.length != kCCBlockSizeAES128) {
-        OWSFail(@"Unexpected length for iv");
+        OWSFailDebug(@"Unexpected length for iv");
+        return nil;
+    }
+    if (dataToEncrypt.length >= SIZE_MAX - (kCCBlockSizeAES128 + iv.length)) {
+        OWSFailDebug(@"data is too long to encrypt.");
         return nil;
     }
 
     // allow space for message + padding any incomplete block. PKCS7 padding will always add at least one byte.
     size_t ciphertextBufferSize = dataToEncrypt.length + kCCBlockSizeAES128;
 
-    // message format is (iv || ciphertext)
-    NSMutableData *encryptedMessage = [NSMutableData dataWithLength:iv.length + ciphertextBufferSize];
-    
-    // write the iv
-    [encryptedMessage replaceBytesInRange:NSMakeRange(0, iv.length) withBytes:iv.bytes];
-    
-    // cipher text follows iv
-    char *ciphertextBuffer = encryptedMessage.mutableBytes + iv.length;
+    NSMutableData *ciphertextData = [[NSMutableData alloc] initWithLength:ciphertextBufferSize];
 
     size_t bytesEncrypted = 0;
-
     CCCryptorStatus cryptStatus = CCCrypt(kCCEncrypt,
         kCCAlgorithmAES,
         kCCOptionPKCS7Padding,
@@ -109,27 +135,26 @@ NS_ASSUME_NONNULL_BEGIN
         iv.bytes,
         dataToEncrypt.bytes,
         dataToEncrypt.length,
-        ciphertextBuffer,
+        ciphertextData.mutableBytes,
         ciphertextBufferSize,
         &bytesEncrypted);
 
     if (cryptStatus != kCCSuccess) {
-        DDLogError(@"Encryption failed with status: %d", cryptStatus);
+        OWSFailDebug(@"Encryption failed with status: %d", cryptStatus);
         return nil;
     }
 
-    return [encryptedMessage subdataWithRange:NSMakeRange(0, iv.length + bytesEncrypted)];
+    // message format is (iv || ciphertext)
+    NSMutableData *encryptedMessage = [NSMutableData new];
+    [encryptedMessage appendData:iv];
+    [encryptedMessage appendData:[ciphertextData subdataWithRange:NSMakeRange(0, bytesEncrypted)]];
+    return [encryptedMessage copy];
 }
 
-- (NSData *)macForMessage:(NSData *)message withKey:(NSData *)macKey
+- (nullable NSData *)macForMessage:(NSData *)message withKey:(NSData *)macKey
 {
-    NSMutableData *hmac = [NSMutableData dataWithLength:CC_SHA256_DIGEST_LENGTH];
-    
-    CCHmac(kCCHmacAlgSHA256, macKey.bytes, macKey.length, message.bytes, message.length, hmac.mutableBytes);
-
-    return [hmac copy];
+    return [Cryptography computeSHA256HMAC:message withHMACKey:macKey];
 }
-
 
 @end
 

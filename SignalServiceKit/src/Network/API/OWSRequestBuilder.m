@@ -1,11 +1,11 @@
 //
-//  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWSRequestBuilder.h"
-#import "TSRequest.h"
+#import "NSData+OWS.h"
 #import "TSConstants.h"
-#import "NSData+Base64.h"
+#import "TSRequest.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -27,7 +27,7 @@ const NSUInteger kEncodedNameLength = 72;
         urlString = [NSString stringWithFormat:textSecureSetProfileNameAPIFormat, urlEncodedName];
     } else {
         // if name length doesn't match exactly, assume blank name
-        OWSAssert(encryptedPaddedName == nil);
+        OWSAssertDebug(encryptedPaddedName == nil);
         urlString = [NSString stringWithFormat:textSecureSetProfileNameAPIFormat, @""];
     }
     

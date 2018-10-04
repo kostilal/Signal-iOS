@@ -16,7 +16,6 @@
 #import <SignalServiceKit/OWSDisappearingMessagesConfiguration.h>
 #import <SignalServiceKit/OWSPrimaryStorage+SessionStore.h>
 #import <SignalServiceKit/OWSVerificationStateChangeMessage.h>
-#import <SignalServiceKit/SecurityUtils.h>
 #import <SignalServiceKit/TSCall.h>
 #import <SignalServiceKit/TSInvalidIdentityKeyReceivingErrorMessage.h>
 #import <SignalServiceKit/TSThread.h>
@@ -135,7 +134,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     [items addObject:[OWSTableItem itemWithTitle:@"Fetch system contacts"
                                      actionBlock:^() {
-                                         [Environment.current.contactsManager requestSystemContactsOnce];
+                                         [Environment.shared.contactsManager requestSystemContactsOnce];
                                      }]];
 
     return [OWSTableSection sectionWithTitle:self.name items:items];
@@ -143,14 +142,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)reregister
 {
-    DDLogInfo(@"%@ re-registering.", self.logTag);
+    OWSLogInfo(@"re-registering.");
 
     if (![[TSAccountManager sharedInstance] resetForReregistration]) {
-        OWSFail(@"%@ could not reset for re-registration.", self.logTag);
+        OWSFailDebug(@"could not reset for re-registration.");
         return;
     }
 
-    [[Environment current].preferences unsetRecordedAPNSTokens];
+    [Environment.shared.preferences unsetRecordedAPNSTokens];
 
     RegistrationViewController *viewController = [RegistrationViewController new];
     OWSNavigationController *navigationController =
@@ -180,7 +179,7 @@ NS_ASSUME_NONNULL_BEGIN
         countryMetadata = [OWSCountryMetadata countryMetadataForCountryCode:countryCode];
     }
 
-    OWSAssert(countryMetadata);
+    OWSAssertDebug(countryMetadata);
     OWSSignalService.sharedInstance.manualCensorshipCircumventionCountryCode = countryCode;
     OWSSignalService.sharedInstance.isCensorshipCircumventionManuallyActivated = isEnabled;
 }
@@ -222,7 +221,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                               toPath:filePath
                                                                error:&error];
             if (!success || error) {
-                OWSFail(@"%@ Could not copy database file: %@.", self.logTag, error);
+                OWSFailDebug(@"Could not copy database file: %@.", error);
                 success = NO;
             }
         }];
@@ -231,7 +230,7 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    OWSMessageSender *messageSender = [Environment current].messageSender;
+    OWSMessageSender *messageSender = SSKEnvironment.shared.messageSender;
     NSString *utiType = [MIMETypeUtil utiTypeForFileExtension:fileName.pathExtension];
     DataSource *_Nullable dataSource = [DataSourcePath dataSourceWithFilePath:filePath shouldDeleteOnDeallocation:YES];
     [dataSource setSourceFilename:fileName];
@@ -239,7 +238,7 @@ NS_ASSUME_NONNULL_BEGIN
     NSData *databasePassword = [OWSPrimaryStorage.sharedManager databasePassword];
     attachment.captionText = [databasePassword hexadecimalString];
     if (!attachment || [attachment hasError]) {
-        OWSFail(@"%@ attachment[%@]: %@", self.logTag, [attachment sourceFilename], [attachment errorName]);
+        OWSFailDebug(@"attachment[%@]: %@", [attachment sourceFilename], [attachment errorName]);
         return;
     }
     [ThreadUtil sendMessageWithAttachment:attachment
@@ -256,17 +255,17 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSError *error = [OWSPrimaryStorage.sharedManager.newDatabaseConnection backupToPath:filePath];
     if (error) {
-        OWSFail(@"%@ Could not copy database file: %@.", self.logTag, error);
+        OWSFailDebug(@"Could not copy database file: %@.", error);
         return;
     }
 
-    OWSMessageSender *messageSender = [Environment current].messageSender;
+    OWSMessageSender *messageSender = SSKEnvironment.shared.messageSender;
     NSString *utiType = [MIMETypeUtil utiTypeForFileExtension:fileName.pathExtension];
     DataSource *_Nullable dataSource = [DataSourcePath dataSourceWithFilePath:filePath shouldDeleteOnDeallocation:YES];
     [dataSource setSourceFilename:fileName];
     SignalAttachment *attachment = [SignalAttachment attachmentWithDataSource:dataSource dataUTI:utiType];
     if (!attachment || [attachment hasError]) {
-        OWSFail(@"%@ attachment[%@]: %@", self.logTag, [attachment sourceFilename], [attachment errorName]);
+        OWSFailDebug(@"attachment[%@]: %@", [attachment sourceFilename], [attachment errorName]);
         return;
     }
     [ThreadUtil sendMessageWithAttachment:attachment

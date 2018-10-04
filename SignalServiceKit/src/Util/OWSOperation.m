@@ -40,7 +40,7 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
 
 - (void)dealloc
 {
-    DDLogDebug(@"%@ in dealloc", self.logTag);
+    OWSLogDebug(@"in dealloc");
 }
 
 #pragma mark - Subclass Overrides
@@ -48,12 +48,15 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
 // Called one time only
 - (nullable NSError *)checkForPreconditionError
 {
+    // OWSOperation have a notion of failure, which is inferred by the presence of a `failingError`.
+    //
+    // By default, any failing dependency cascades that failure to it's dependent.
+    // If you'd like different behavior, override this method (`checkForPreconditionError`) without calling `super`.
     for (NSOperation *dependency in self.dependencies) {
         if (![dependency isKindOfClass:[OWSOperation class]]) {
-            NSString *errorDescription =
-                [NSString stringWithFormat:@"%@ unknown dependency: %@", self.logTag, dependency.class];
-
-            return OWSErrorMakeAssertionError(errorDescription);
+            // Native operations, like NSOperation and NSBlockOperation have no notion of "failure".
+            // So there's no `failingError` to cascade.
+            continue;
         }
 
         OWSOperation *dependentOperation = (OWSOperation *)dependency;
@@ -71,7 +74,7 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
 // Called every retry, this is where the bulk of the operation's work should go.
 - (void)run
 {
-    OWSFail(@"%@ Abstract method", self.logTag);
+    OWSAbstractMethod();
 }
 
 // Called at most one time.
@@ -100,13 +103,18 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
 // Do not override this method in a subclass instead, override `run`
 - (void)main
 {
-    DDLogDebug(@"%@ started.", self.logTag);
+    OWSLogDebug(@"started.");
     NSError *_Nullable preconditionError = [self checkForPreconditionError];
     if (preconditionError) {
         [self failOperationWithError:preconditionError];
         return;
     }
 
+    if (self.isCancelled) {
+        [self reportCancelled];
+        return;
+    }
+    
     [self run];
 }
 
@@ -115,7 +123,7 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
 // These methods are not intended to be subclassed
 - (void)reportSuccess
 {
-    DDLogDebug(@"%@ succeeded.", self.logTag);
+    OWSLogDebug(@"succeeded.");
     [self didSucceed];
     [self markAsComplete];
 }
@@ -123,15 +131,14 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
 // These methods are not intended to be subclassed
 - (void)reportCancelled
 {
-    DDLogDebug(@"%@ cancelled.", self.logTag);
+    OWSLogDebug(@"cancelled.");
     [self didCancel];
     [self markAsComplete];
 }
 
 - (void)reportError:(NSError *)error
 {
-    DDLogDebug(@"%@ reportError: %@, fatal?: %d, retryable?: %d, remainingRetries: %lu",
-        self.logTag,
+    OWSLogDebug(@"reportError: %@, fatal?: %d, retryable?: %d, remainingRetries: %lu",
         error,
         error.isFatal,
         error.isRetryable,
@@ -165,7 +172,7 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
 
 - (void)failOperationWithError:(NSError *)error
 {
-    DDLogDebug(@"%@ failed terminally.", self.logTag);
+    OWSLogDebug(@"failed terminally.");
     self.failingError = error;
 
     [self didFailWithError:error];
@@ -199,7 +206,7 @@ NSString *const OWSOperationKeyIsFinished = @"isFinished";
     // Ensure we call the success or failure handler exactly once.
     @synchronized(self)
     {
-        OWSAssert(self.operationState != OWSOperationStateFinished);
+        OWSAssertDebug(self.operationState != OWSOperationStateFinished);
 
         self.operationState = OWSOperationStateFinished;
     }

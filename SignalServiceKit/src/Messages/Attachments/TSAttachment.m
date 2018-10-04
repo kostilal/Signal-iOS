@@ -5,6 +5,7 @@
 #import "TSAttachment.h"
 #import "MIMETypeUtil.h"
 #import "NSString+SSK.h"
+#import "iOSVersions.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -30,18 +31,18 @@ NSUInteger const TSAttachmentSchemaVersion = 4;
                      contentType:(NSString *)contentType
                   sourceFilename:(nullable NSString *)sourceFilename
 {
-    OWSAssert(serverId > 0);
-    OWSAssert(encryptionKey.length > 0);
+    OWSAssertDebug(serverId > 0);
+    OWSAssertDebug(encryptionKey.length > 0);
     if (byteCount <= 0) {
         // This will fail with legacy iOS clients which don't upload attachment size.
-        DDLogWarn(@"%@ Missing byteCount for attachment with serverId: %lld", self.logTag, serverId);
+        OWSLogWarn(@"Missing byteCount for attachment with serverId: %lld", serverId);
     }
     if (contentType.length < 1) {
-        DDLogWarn(@"%@ incoming attachment has invalid content type", self.logTag);
+        OWSLogWarn(@"incoming attachment has invalid content type");
 
         contentType = OWSMimeTypeApplicationOctetStream;
     }
-    OWSAssert(contentType.length > 0);
+    OWSAssertDebug(contentType.length > 0);
 
     self = [super init];
     if (!self) {
@@ -66,17 +67,17 @@ NSUInteger const TSAttachmentSchemaVersion = 4;
                      sourceFilename:(nullable NSString *)sourceFilename
 {
     if (contentType.length < 1) {
-        DDLogWarn(@"%@ outgoing attachment has invalid content type", self.logTag);
+        OWSLogWarn(@"outgoing attachment has invalid content type");
 
         contentType = OWSMimeTypeApplicationOctetStream;
     }
-    OWSAssert(contentType.length > 0);
+    OWSAssertDebug(contentType.length > 0);
 
     self = [super init];
     if (!self) {
         return self;
     }
-    DDLogVerbose(@"%@ init attachment with uniqueId: %@", self.logTag, self.uniqueId);
+    OWSLogVerbose(@"init attachment with uniqueId: %@", self.uniqueId);
 
     _contentType = contentType;
     _byteCount = byteCount;
@@ -91,13 +92,13 @@ NSUInteger const TSAttachmentSchemaVersion = 4;
 // that represent downloaded incoming attachments.
 - (instancetype)initWithPointer:(TSAttachment *)pointer
 {
-    OWSAssert(pointer.serverId > 0);
-    OWSAssert(pointer.encryptionKey.length > 0);
+    OWSAssertDebug(pointer.serverId > 0);
+    OWSAssertDebug(pointer.encryptionKey.length > 0);
     if (pointer.byteCount <= 0) {
         // This will fail with legacy iOS clients which don't upload attachment size.
-        DDLogWarn(@"%@ Missing pointer.byteCount for attachment with serverId: %lld", self.logTag, pointer.serverId);
+        OWSLogWarn(@"Missing pointer.byteCount for attachment with serverId: %lld", pointer.serverId);
     }
-    OWSAssert(pointer.contentType.length > 0);
+    OWSAssertDebug(pointer.contentType.length > 0);
 
     // Once saved, this AttachmentStream will replace the AttachmentPointer in the attachments collection.
     self = [super initWithUniqueId:pointer.uniqueId];
@@ -111,7 +112,7 @@ NSUInteger const TSAttachmentSchemaVersion = 4;
     _sourceFilename = pointer.sourceFilename;
     NSString *contentType = pointer.contentType;
     if (contentType.length < 1) {
-        DDLogWarn(@"%@ incoming attachment has invalid content type", self.logTag);
+        OWSLogWarn(@"incoming attachment has invalid content type");
 
         contentType = OWSMimeTypeApplicationOctetStream;
     }
@@ -137,11 +138,11 @@ NSUInteger const TSAttachmentSchemaVersion = 4;
     if (!_sourceFilename) {
         // renamed _filename to _sourceFilename
         _sourceFilename = [coder decodeObjectForKey:@"filename"];
-        OWSAssert(!_sourceFilename || [_sourceFilename isKindOfClass:[NSString class]]);
+        OWSAssertDebug(!_sourceFilename || [_sourceFilename isKindOfClass:[NSString class]]);
     }
 
     if (_contentType.length < 1) {
-        DDLogWarn(@"%@ legacy attachment has invalid content type", self.logTag);
+        OWSLogWarn(@"legacy attachment has invalid content type");
 
         _contentType = OWSMimeTypeApplicationOctetStream;
     }

@@ -33,6 +33,7 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 @class TSAttachmentPointer;
 @class TSAttachmentStream;
 @class TSInteraction;
+@class TSThread;
 @class YapDatabaseReadTransaction;
 
 // This is a ViewModel for cells in the conversation view.
@@ -42,9 +43,10 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 //
 // Critically, this class implements ConversationViewLayoutItem
 // and does caching of the cell's size.
-@interface ConversationViewItem : NSObject <ConversationViewLayoutItem, OWSAudioPlayerDelegate>
+@protocol ConversationViewItem <NSObject, ConversationViewLayoutItem, OWSAudioPlayerDelegate>
 
 @property (nonatomic, readonly) TSInteraction *interaction;
+
 @property (nonatomic, readonly, nullable) OWSQuotedReplyModel *quotedReply;
 
 @property (nonatomic, readonly) BOOL isGroupThread;
@@ -67,14 +69,6 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 
 @property (nonatomic, nullable) OWSUnreadIndicator *unreadIndicator;
 
-@property (nonatomic, readonly) ConversationStyle *conversationStyle;
-
-- (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithInteraction:(TSInteraction *)interaction
-                      isGroupThread:(BOOL)isGroupThread
-                        transaction:(YapDatabaseReadTransaction *)transaction
-                  conversationStyle:(ConversationStyle *)conversationStyle;
-
 - (ConversationViewCell *)dequeueCellForCollectionView:(UICollectionView *)collectionView
                                              indexPath:(NSIndexPath *)indexPath;
 
@@ -87,27 +81,31 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 @property (nonatomic, weak) OWSAudioMessageView *lastAudioMessageView;
 
 @property (nonatomic, readonly) CGFloat audioDurationSeconds;
-
-- (CGFloat)audioProgressSeconds;
+@property (nonatomic, readonly) CGFloat audioProgressSeconds;
 
 #pragma mark - View State Caching
 
 // These methods only apply to text & attachment messages.
-- (OWSMessageCellType)messageCellType;
-- (nullable DisplayableText *)displayableBodyText;
-- (nullable TSAttachmentStream *)attachmentStream;
-- (nullable TSAttachmentPointer *)attachmentPointer;
-- (CGSize)mediaSize;
+@property (nonatomic, readonly) OWSMessageCellType messageCellType;
+@property (nonatomic, readonly, nullable) DisplayableText *displayableBodyText;
+@property (nonatomic, readonly, nullable) TSAttachmentStream *attachmentStream;
+@property (nonatomic, readonly, nullable) TSAttachmentPointer *attachmentPointer;
+@property (nonatomic, readonly) CGSize mediaSize;
 
-- (nullable DisplayableText *)displayableQuotedText;
-- (nullable NSString *)quotedAttachmentMimetype;
-- (nullable NSString *)quotedRecipientId;
+@property (nonatomic, readonly, nullable) DisplayableText *displayableQuotedText;
+@property (nonatomic, readonly, nullable) NSString *quotedAttachmentMimetype;
+@property (nonatomic, readonly, nullable) NSString *quotedRecipientId;
 
 // We don't want to try to load the media for this item (if any)
 // if a load has previously failed.
 @property (nonatomic) BOOL didCellMediaFailToLoad;
 
 @property (nonatomic, readonly, nullable) ContactShareViewModel *contactShare;
+
+@property (nonatomic, readonly, nullable) NSString *systemMessageText;
+
+// NOTE: This property is only set for incoming messages.
+@property (nonatomic, readonly, nullable) NSString *authorConversationColorName;
 
 #pragma mark - MessageActions
 
@@ -120,6 +118,19 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 - (void)shareTextAction;
 - (void)saveMediaAction;
 - (void)deleteAction;
+
+- (BOOL)canSaveMedia;
+
+@end
+
+@interface ConversationInteractionViewItem
+    : NSObject <ConversationViewItem, ConversationViewLayoutItem, OWSAudioPlayerDelegate>
+
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithInteraction:(TSInteraction *)interaction
+                      isGroupThread:(BOOL)isGroupThread
+                        transaction:(YapDatabaseReadTransaction *)transaction
+                  conversationStyle:(ConversationStyle *)conversationStyle;
 
 @end
 

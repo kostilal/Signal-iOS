@@ -11,7 +11,7 @@ class DebugUICalling: DebugUIPage {
     // MARK: Dependencies
 
     var messageSender: MessageSender {
-        return Environment.current().messageSender
+        return SSKEnvironment.shared.messageSender
     }
 
     // MARK: Overrides 
@@ -22,7 +22,7 @@ class DebugUICalling: DebugUIPage {
 
     override func section(thread aThread: TSThread?) -> OWSTableSection? {
         guard let thread = aThread as? TSContactThread else {
-            owsFail("Calling is only valid for contact thread, got thread: \(String(describing: aThread))")
+            owsFailDebug("Calling is only valid for contact thread, got thread: \(String(describing: aThread))")
             return nil
         }
 
@@ -31,26 +31,43 @@ class DebugUICalling: DebugUIPage {
                 guard let strongSelf = self else { return }
 
                 let kFakeCallId = UInt64(12345)
-                let hangupMessage = OWSCallHangupMessage(callId: kFakeCallId)
+                var hangupMessage: SSKProtoCallMessageHangup
+                do {
+                    let hangupBuilder = SSKProtoCallMessageHangup.SSKProtoCallMessageHangupBuilder()
+                    hangupBuilder.setId(kFakeCallId)
+                    hangupMessage = try hangupBuilder.build()
+                } catch {
+                    owsFailDebug("could not build proto")
+                    return
+                }
                 let callMessage = OWSOutgoingCallMessage(thread: thread, hangupMessage: hangupMessage)
 
                 strongSelf.messageSender.sendPromise(message: callMessage).then {
-                    Logger.debug("\(strongSelf.logTag) Successfully sent hangup call message to \(thread.contactIdentifier())")
+                    Logger.debug("Successfully sent hangup call message to \(thread.contactIdentifier())")
                 }.catch { error in
-                    Logger.error("\(strongSelf.logTag) failed to send hangup call message to \(thread.contactIdentifier()) with error: \(error)")
+                    Logger.error("failed to send hangup call message to \(thread.contactIdentifier()) with error: \(error)")
                 }
             },
             OWSTableItem(title: "Send 'busy' for old call") { [weak self] in
                 guard let strongSelf = self else { return }
 
                 let kFakeCallId = UInt64(12345)
-                let busyMessage = OWSCallBusyMessage(callId: kFakeCallId)
+                var busyMessage: SSKProtoCallMessageBusy
+                do {
+                    let busyBuilder = SSKProtoCallMessageBusy.SSKProtoCallMessageBusyBuilder()
+                    busyBuilder.setId(kFakeCallId)
+                    busyMessage = try busyBuilder.build()
+                } catch {
+                    owsFailDebug("Couldn't build proto")
+                    return
+                }
+
                 let callMessage = OWSOutgoingCallMessage(thread: thread, busyMessage: busyMessage)
 
                 strongSelf.messageSender.sendPromise(message: callMessage).then {
-                    Logger.debug("\(strongSelf.logTag) Successfully sent busy call message to \(thread.contactIdentifier())")
+                    Logger.debug("Successfully sent busy call message to \(thread.contactIdentifier())")
                 }.catch { error in
-                    Logger.error("\(strongSelf.logTag) failed to send busy call message to \(thread.contactIdentifier()) with error: \(error)")
+                    Logger.error("failed to send busy call message to \(thread.contactIdentifier()) with error: \(error)")
                 }
             }
         ]

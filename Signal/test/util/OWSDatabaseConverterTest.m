@@ -14,6 +14,13 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@interface YapDatabase (OWSDatabaseConverterTest)
+
+- (void)flushInternalQueue;
+- (void)flushCheckpointQueue;
+
+@end
+
 @interface OWSStorage (OWSDatabaseConverterTest)
 
 + (YapDatabaseDeserializer)logOnFailureDeserializer;
@@ -59,11 +66,11 @@ NS_ASSUME_NONNULL_BEGIN
         databaseKeySpec:(NSData *_Nullable)databaseKeySpec
           databaseBlock:(void (^_Nonnull)(YapDatabase *))databaseBlock
 {
-    OWSAssert(databaseFilePath.length > 0);
-    OWSAssert(databasePassword.length > 0 || databaseKeySpec.length > 0);
-    OWSAssert(databaseBlock);
+    OWSAssertDebug(databaseFilePath.length > 0);
+    OWSAssertDebug(databasePassword.length > 0 || databaseKeySpec.length > 0);
+    OWSAssertDebug(databaseBlock);
 
-    DDLogVerbose(@"openYapDatabase: %@", databaseFilePath);
+    OWSLogVerbose(@"openYapDatabase: %@", databaseFilePath);
     [DDLog flushLog];
 
     __weak YapDatabase *_Nullable weakDatabase = nil;
@@ -74,7 +81,7 @@ NS_ASSUME_NONNULL_BEGIN
         YapDatabaseOptions *options = [[YapDatabaseOptions alloc] init];
         options.corruptAction = YapDatabaseCorruptAction_Fail;
         if (databasePassword) {
-            DDLogInfo(@"%@ Using password.", self.logTag);
+            OWSLogInfo(@"Using password.");
             options.cipherKeyBlock = ^{
                 return databasePassword;
             };
@@ -82,30 +89,30 @@ NS_ASSUME_NONNULL_BEGIN
         options.enableMultiProcessSupport = YES;
 
         if (databaseSalt) {
-            DDLogInfo(@"%@ Using salt & unencrypted header.", self.logTag);
+            OWSLogInfo(@"Using salt & unencrypted header.");
             options.cipherSaltBlock = ^{
                 return databaseSalt;
             };
             options.cipherUnencryptedHeaderLength = kSqliteHeaderLength;
         } else if (databaseKeySpec) {
-            DDLogInfo(@"%@ Using key spec & unencrypted header.", self.logTag);
+            OWSLogInfo(@"Using key spec & unencrypted header.");
             options.cipherKeySpecBlock = ^{
                 return databaseKeySpec;
             };
             options.cipherUnencryptedHeaderLength = kSqliteHeaderLength;
         }
 
-        OWSAssert(options.cipherDefaultkdfIterNumber == 0);
-        OWSAssert(options.kdfIterNumber == 0);
-        OWSAssert(options.cipherPageSize == 0);
-        OWSAssert(options.pragmaPageSize == 0);
-        OWSAssert(options.pragmaJournalSizeLimit == 0);
+        OWSAssertDebug(options.cipherDefaultkdfIterNumber == 0);
+        OWSAssertDebug(options.kdfIterNumber == 0);
+        OWSAssertDebug(options.cipherPageSize == 0);
+        OWSAssertDebug(options.pragmaPageSize == 0);
+        OWSAssertDebug(options.pragmaJournalSizeLimit == 0);
 
         YapDatabase *database = [[YapDatabase alloc] initWithPath:databaseFilePath
                                                        serializer:nil
                                                      deserializer:[OWSStorage logOnFailureDeserializer]
                                                           options:options];
-        OWSAssert(database);
+        OWSAssertDebug(database);
 
         weakDatabase = database;
         snapshotQueue = database->snapshotQueue;
@@ -156,7 +163,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     // Verify that the database is indeed closed.
     YapDatabase *_Nullable strongDatabase = weakDatabase;
-    OWSAssert(!strongDatabase);
+    OWSAssertDebug(!strongDatabase);
 }
 
 - (void)createTestDatabase:(NSString *)databaseFilePath
@@ -164,10 +171,10 @@ NS_ASSUME_NONNULL_BEGIN
               databaseSalt:(NSData *_Nullable)databaseSalt
            databaseKeySpec:(NSData *_Nullable)databaseKeySpec
 {
-    OWSAssert(databaseFilePath.length > 0);
-    OWSAssert(databasePassword.length > 0 || databaseKeySpec.length > 0);
+    OWSAssertDebug(databaseFilePath.length > 0);
+    OWSAssertDebug(databasePassword.length > 0 || databaseKeySpec.length > 0);
 
-    OWSAssert(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
+    OWSAssertDebug(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
 
     [self openYapDatabase:databaseFilePath
          databasePassword:databasePassword
@@ -182,13 +189,13 @@ NS_ASSUME_NONNULL_BEGIN
                 [dbConnection flushTransactionsWithCompletionQueue:dispatch_get_main_queue() completionBlock:nil];
             }];
 
-    OWSAssert([[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
+    OWSAssertDebug([[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
 
     NSError *_Nullable error = nil;
     NSDictionary *fileAttributes =
         [[NSFileManager defaultManager] attributesOfItemAtPath:databaseFilePath error:&error];
-    OWSAssert(fileAttributes && !error);
-    DDLogVerbose(@"%@ test database file size: %@", self.logTag, fileAttributes[NSFileSize]);
+    OWSAssertDebug(fileAttributes && !error);
+    OWSLogVerbose(@"test database file size: %@", fileAttributes[NSFileSize]);
 }
 
 - (BOOL)verifyTestDatabase:(NSString *)databaseFilePath
@@ -196,10 +203,10 @@ NS_ASSUME_NONNULL_BEGIN
               databaseSalt:(NSData *_Nullable)databaseSalt
            databaseKeySpec:(NSData *_Nullable)databaseKeySpec
 {
-    OWSAssert(databaseFilePath.length > 0);
-    OWSAssert(databasePassword.length > 0 || databaseKeySpec.length > 0);
+    OWSAssertDebug(databaseFilePath.length > 0);
+    OWSAssertDebug(databasePassword.length > 0 || databaseKeySpec.length > 0);
 
-    OWSAssert([[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
+    OWSAssertDebug([[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
 
     __block BOOL isValid = NO;
     [self openYapDatabase:databaseFilePath
@@ -212,7 +219,7 @@ NS_ASSUME_NONNULL_BEGIN
                 isValid = [@(YES) isEqual:value];
             }];
 
-    OWSAssert([[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
+    OWSAssertDebug([[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
 
     return isValid;
 }
@@ -226,7 +233,7 @@ NS_ASSUME_NONNULL_BEGIN
 {
     NSString *databaseFilePath = [OWSFileSystem temporaryFilePathWithFileExtension:@"sqlite"];
 
-    DDLogInfo(@"%@ databaseFilePath: %@", self.logTag, databaseFilePath);
+    OWSLogInfo(@"databaseFilePath: %@", databaseFilePath);
     [DDLog flushLog];
 
     return databaseFilePath;
@@ -238,7 +245,7 @@ NS_ASSUME_NONNULL_BEGIN
                          databaseSalt:(NSData *_Nullable)databaseSalt
                       databaseKeySpec:(NSData *_Nullable)databaseKeySpec
 {
-    OWSAssert(databasePassword.length > 0 || databaseKeySpec.length > 0);
+    OWSAssertDebug(databasePassword.length > 0 || databaseKeySpec.length > 0);
 
     NSString *databaseFilePath = [self createTempDatabaseFilePath];
 
@@ -254,7 +261,7 @@ NS_ASSUME_NONNULL_BEGIN
                            databasePassword:databasePassword
                                databaseSalt:databaseSalt
                             databaseKeySpec:databaseKeySpec];
-    OWSAssert(isValid);
+    OWSAssertDebug(isValid);
 
     return databaseFilePath;
 }
@@ -298,8 +305,8 @@ NS_ASSUME_NONNULL_BEGIN
     __block NSData *_Nullable databaseSalt = nil;
     __block NSData *_Nullable databaseKeySpec = nil;
     YapRecordDatabaseSaltBlock recordSaltBlock = ^(NSData *saltData) {
-        OWSAssert(!databaseSalt);
-        OWSAssert(saltData);
+        OWSAssertDebug(!databaseSalt);
+        OWSAssertDebug(saltData);
 
         databaseSalt = saltData;
         databaseKeySpec = [YapDatabaseCryptoUtils deriveDatabaseKeySpecForPassword:databasePassword saltData:saltData];
@@ -312,7 +319,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                  databasePassword:databasePassword
                                                                   recordSaltBlock:recordSaltBlock];
     if (error) {
-        DDLogError(@"%s error: %@", __PRETTY_FUNCTION__, error);
+        OWSLogError(@"error: %@", error);
     }
     XCTAssertNil(error);
     XCTAssertFalse([YapDatabaseCryptoUtils doesDatabaseNeedToBeConverted:databaseFilePath]);
@@ -339,8 +346,8 @@ NS_ASSUME_NONNULL_BEGIN
 
     __block NSData *_Nullable databaseKeySpec = nil;
     YapRecordDatabaseSaltBlock recordSaltBlock = ^(NSData *saltData) {
-        OWSAssert(!databaseSalt);
-        OWSAssert(saltData);
+        OWSAssertDebug(!databaseSalt);
+        OWSAssertDebug(saltData);
         
         databaseSalt = saltData;
         databaseKeySpec = [YapDatabaseCryptoUtils deriveDatabaseKeySpecForPassword:databasePassword saltData:saltData];
@@ -353,7 +360,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                  databasePassword:databasePassword
                                                                   recordSaltBlock:recordSaltBlock];
     if (error) {
-        DDLogError(@"%s error: %@", __PRETTY_FUNCTION__, error);
+        OWSLogError(@"error: %@", error);
     }
     XCTAssertNil(error);
     XCTAssertFalse([YapDatabaseCryptoUtils doesDatabaseNeedToBeConverted:databaseFilePath]);
@@ -382,8 +389,8 @@ NS_ASSUME_NONNULL_BEGIN
 
     __block NSData *_Nullable databaseKeySpec = nil;
     YapRecordDatabaseSaltBlock recordSaltBlock = ^(NSData *saltData) {
-        OWSAssert(!databaseSalt);
-        OWSAssert(saltData);
+        OWSAssertDebug(!databaseSalt);
+        OWSAssertDebug(saltData);
 
         // Simulate a failure to record the new salt, e.g. if KDF returns nil
         return NO;
@@ -431,8 +438,8 @@ NS_ASSUME_NONNULL_BEGIN
     __block NSData *_Nullable databaseSalt = nil;
     __block NSData *_Nullable databaseKeySpec = nil;
     YapRecordDatabaseSaltBlock recordSaltBlock = ^(NSData *saltData) {
-        OWSAssert(!databaseSalt);
-        OWSAssert(saltData);
+        OWSAssertDebug(!databaseSalt);
+        OWSAssertDebug(saltData);
 
         databaseSalt = saltData;
         databaseKeySpec = [YapDatabaseCryptoUtils deriveDatabaseKeySpecForPassword:databasePassword saltData:saltData];
@@ -445,7 +452,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                  databasePassword:databasePassword
                                                                   recordSaltBlock:recordSaltBlock];
     if (error) {
-        DDLogError(@"%s error: %@", __PRETTY_FUNCTION__, error);
+        OWSLogError(@"error: %@", error);
     }
     XCTAssertNil(error);
     XCTAssertFalse([YapDatabaseCryptoUtils doesDatabaseNeedToBeConverted:databaseFilePath]);
@@ -478,9 +485,9 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertFalse([YapDatabaseCryptoUtils doesDatabaseNeedToBeConverted:databaseFilePath]);
 
     YapRecordDatabaseSaltBlock recordSaltBlock = ^(NSData *saltData) {
-        OWSAssert(saltData);
+        OWSAssertDebug(saltData);
 
-        XCTFail(@"%s No conversion should be necessary", __PRETTY_FUNCTION__);
+        XCTFail(@"No conversion should be necessary");
         return NO;
     };
 
@@ -488,7 +495,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                  databasePassword:databasePassword
                                                                   recordSaltBlock:recordSaltBlock];
     if (error) {
-        DDLogError(@"%s error: %@", __PRETTY_FUNCTION__, error);
+        OWSLogError(@"error: %@", error);
     }
     XCTAssertNil(error);
     XCTAssertFalse([YapDatabaseCryptoUtils doesDatabaseNeedToBeConverted:databaseFilePath]);
@@ -511,9 +518,9 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertFalse([YapDatabaseCryptoUtils doesDatabaseNeedToBeConverted:databaseFilePath]);
 
     YapRecordDatabaseSaltBlock recordSaltBlock = ^(NSData *saltData) {
-        OWSAssert(saltData);
+        OWSAssertDebug(saltData);
 
-        XCTFail(@"%s No conversion should be necessary", __PRETTY_FUNCTION__);
+        XCTFail(@"No conversion should be necessary");
         return NO;
     };
 
@@ -521,7 +528,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                  databasePassword:databasePassword
                                                                   recordSaltBlock:recordSaltBlock];
     if (error) {
-        DDLogError(@"%s error: %@", __PRETTY_FUNCTION__, error);
+        OWSLogError(@"error: %@", error);
     }
     XCTAssertNil(error);
     XCTAssertFalse([YapDatabaseCryptoUtils doesDatabaseNeedToBeConverted:databaseFilePath]);
@@ -542,7 +549,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSString *databaseFilePath = [self createTempDatabaseFilePath];
 
-    OWSAssert(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
+    OWSAssertDebug(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
 
     NSData *keyData = [self randomDatabasePassword];
 
@@ -615,7 +622,7 @@ NS_ASSUME_NONNULL_BEGIN
     int log, ckpt;
     rc = sqlite3_wal_checkpoint_v2(db, NULL, SQLITE_CHECKPOINT_FULL, &log, &ckpt);
     XCTAssertTrue(rc == SQLITE_OK);
-    DDLogInfo(@"log = %d, ckpt = %d", log, ckpt);
+    OWSLogInfo(@"log = %d, ckpt = %d", log, ckpt);
 
     rc = sqlite3_close(db);
     XCTAssertTrue(rc == SQLITE_OK);
@@ -632,7 +639,7 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertTrue(rc == SQLITE_OK);
 
     NSString *saltPragma = [NSString stringWithFormat:@"PRAGMA cipher_salt = \"x'%@'\";", salt];
-    DDLogInfo(@"salt pragma = %@", saltPragma);
+    OWSLogInfo(@"salt pragma = %@", saltPragma);
     rc = sqlite3_exec(db, [saltPragma UTF8String], NULL, NULL, NULL);
     XCTAssertTrue(rc == SQLITE_OK);
 
@@ -699,7 +706,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSString *databaseFilePath = [self createTempDatabaseFilePath];
 
-    OWSAssert(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
+    OWSAssertDebug(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
 
     NSData *keyData = [self randomDatabasePassword];
     NSData *databaseSalt = [self randomDatabaseSalt];
@@ -716,7 +723,7 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertTrue(rc == SQLITE_OK);
 
     NSString *saltPragma = [NSString stringWithFormat:@"PRAGMA cipher_salt = \"x'%@'\";", salt];
-    DDLogInfo(@"salt pragma = %@", saltPragma);
+    OWSLogInfo(@"salt pragma = %@", saltPragma);
     rc = sqlite3_exec(db, [saltPragma UTF8String], NULL, NULL, NULL);
     XCTAssertTrue(rc == SQLITE_OK);
 
@@ -761,7 +768,7 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertTrue(rc == SQLITE_OK);
 
     //    NSString *saltPragma = [NSString stringWithFormat:@"PRAGMA cipher_salt = \"x'%@'\";", salt];
-    //    DDLogInfo(@"salt pragma = %@", saltPragma);
+    //    OWSLogInfo(@"salt pragma = %@", saltPragma);
     rc = sqlite3_exec(db, [saltPragma UTF8String], NULL, NULL, NULL);
     XCTAssertTrue(rc == SQLITE_OK);
 
@@ -793,7 +800,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSString *databaseFilePath = [self createTempDatabaseFilePath];
 
-    OWSAssert(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
+    OWSAssertDebug(![[NSFileManager defaultManager] fileExistsAtPath:databaseFilePath]);
 
     NSData *keyData = [self randomDatabasePassword];
     NSData *databaseSalt = [self randomDatabaseSalt];
@@ -810,7 +817,7 @@ NS_ASSUME_NONNULL_BEGIN
     XCTAssertTrue(rc == SQLITE_OK);
 
     NSString *saltPragma = [NSString stringWithFormat:@"PRAGMA cipher_salt = \"x'%@'\";", salt];
-    DDLogInfo(@"salt pragma = %@", saltPragma);
+    OWSLogInfo(@"salt pragma = %@", saltPragma);
     rc = sqlite3_exec(db, [saltPragma UTF8String], NULL, NULL, NULL);
     XCTAssertTrue(rc == SQLITE_OK);
 
@@ -920,12 +927,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)logHeaderOfDatabaseFile:(NSString *)databaseFilePath
                           label:(NSString *)label
 {
-    OWSAssert(databaseFilePath.length > 0);
-    OWSAssert(label.length > 0);
+    OWSAssertDebug(databaseFilePath.length > 0);
+    OWSAssertDebug(label.length > 0);
 
     NSData *headerData =
         [YapDatabaseCryptoUtils readFirstNBytesOfDatabaseFile:databaseFilePath byteCount:kSqliteHeaderLength];
-    OWSAssert(headerData);
+    OWSAssertDebug(headerData);
     NSMutableString *output = [NSMutableString new];
     [output appendFormat:@"Hex: %@, ", headerData.hexadecimalString];
     [output appendString:@"Ascii: "];
@@ -944,7 +951,7 @@ NS_ASSUME_NONNULL_BEGIN
             [output appendString:@"_"];
         }
     }
-    DDLogInfo(@"%@: %@", label, output);
+    OWSLogInfo(@"%@: %@", label, output);
 }
 
 
@@ -984,7 +991,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)storeTestPasswordInKeychain:(NSData *)password
 {
     // legacy password length
-    OWSAssert(password.length == 30);
+    OWSAssertDebug(password.length == 30);
     [OWSStorage storeKeyChainValue:password keychainKey:@"_OWSTestingPassword"];
 }
 
@@ -992,17 +999,17 @@ NS_ASSUME_NONNULL_BEGIN
 {
     NSError *error;
     NSData *password = [OWSStorage tryToLoadKeyChainValue:@"_OWSTestingPassword" errorHandle:&error];
-    OWSAssert(password);
-    OWSAssert(!error);
+    OWSAssertDebug(password);
+    OWSAssertDebug(!error);
     // legacy password length
-    OWSAssert(password.length == 30);
+    OWSAssertDebug(password.length == 30);
 
     return password;
 }
 
 - (void)storeTestSaltInKeychain:(NSData *)salt
 {
-    OWSAssert(salt.length == kSQLCipherSaltLength);
+    OWSAssertDebug(salt.length == kSQLCipherSaltLength);
     [OWSStorage storeKeyChainValue:salt keychainKey:@"_OWSTestingSalt"];
 }
 
@@ -1010,15 +1017,15 @@ NS_ASSUME_NONNULL_BEGIN
 {
     NSError *error;
     NSData *salt = [OWSStorage tryToLoadKeyChainValue:@"_OWSTestingSalt" errorHandle:&error];
-    OWSAssert(salt);
-    OWSAssert(!error);
-    OWSAssert(salt.length == kSQLCipherSaltLength);
+    OWSAssertDebug(salt);
+    OWSAssertDebug(!error);
+    OWSAssertDebug(salt.length == kSQLCipherSaltLength);
     return salt;
 }
 
 - (void)storeTestKeySpecInKeychain:(NSData *)keySpec
 {
-    OWSAssert(keySpec.length == kSQLCipherKeySpecLength);
+    OWSAssertDebug(keySpec.length == kSQLCipherKeySpecLength);
     [OWSStorage storeKeyChainValue:keySpec keychainKey:@"_OWSTestingKeySpec"];
 }
 
@@ -1026,9 +1033,9 @@ NS_ASSUME_NONNULL_BEGIN
 {
     NSError *error;
     NSData *keySpec = [OWSStorage tryToLoadKeyChainValue:@"_OWSTestingKeySpec" errorHandle:&error];
-    OWSAssert(keySpec);
-    OWSAssert(!error);
-    OWSAssert(keySpec.length == kSQLCipherKeySpecLength);
+    OWSAssertDebug(keySpec);
+    OWSAssertDebug(!error);
+    OWSAssertDebug(keySpec.length == kSQLCipherKeySpecLength);
 
     return keySpec;
 }

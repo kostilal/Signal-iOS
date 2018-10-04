@@ -12,12 +12,11 @@
 #import "OWSPrimaryStorage+SessionStore.h"
 #import "OWSPrimaryStorage.h"
 #import "OWSQueues.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import "OWSStorage.h"
+#import "SSKEnvironment.h"
 #import "TSDatabaseView.h"
 #import "TSErrorMessage.h"
 #import "TSYapDatabaseObject.h"
-#import "TextSecureKitEnv.h"
 #import "Threading.h"
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
 #import <YapDatabase/YapDatabaseAutoView.h>
@@ -40,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable instancetype)initWithCoder:(NSCoder *)coder NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithUniqueId:(NSString *_Nullable)uniqueId NS_UNAVAILABLE;
 
-@property (nonatomic, readonly, nullable) SSKEnvelope *envelope;
+@property (nonatomic, readonly, nullable) SSKProtoEnvelope *envelope;
 
 @end
 
@@ -55,7 +54,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithEnvelopeData:(NSData *)envelopeData plaintextData:(NSData *_Nullable)plaintextData
 {
-    OWSAssert(envelopeData);
+    OWSAssertDebug(envelopeData);
 
     self = [super initWithUniqueId:[NSUUID new].UUIDString];
     if (!self) {
@@ -74,13 +73,13 @@ NS_ASSUME_NONNULL_BEGIN
     return [super initWithCoder:coder];
 }
 
-- (nullable SSKEnvelope *)envelope
+- (nullable SSKProtoEnvelope *)envelope
 {
     NSError *error;
-    SSKEnvelope *_Nullable result = [[SSKEnvelope alloc] initWithSerializedData:self.envelopeData error:&error];
+    SSKProtoEnvelope *_Nullable result = [SSKProtoEnvelope parseData:self.envelopeData error:&error];
 
     if (error) {
-        OWSProdLogAndFail(@"%@ paring SSKEnvelope failed with error: %@", self.logTag, error);
+        OWSFailDebug(@"paring SSKProtoEnvelope failed with error: %@", error);
         return nil;
     }
     
@@ -129,7 +128,7 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
     NSMutableArray<OWSMessageContentJob *> *jobs = [NSMutableArray new];
     [self.dbConnection readWithBlock:^(YapDatabaseReadTransaction *_Nonnull transaction) {
         YapDatabaseViewTransaction *viewTransaction = [transaction ext:OWSMessageContentJobFinderExtensionName];
-        OWSAssert(viewTransaction != nil);
+        OWSAssertDebug(viewTransaction != nil);
         [viewTransaction enumerateKeysAndObjectsInGroup:OWSMessageContentJobFinderExtensionGroup
                                              usingBlock:^(NSString *_Nonnull collection,
                                                  NSString *_Nonnull key,
@@ -151,8 +150,8 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
                  plaintextData:(NSData *_Nullable)plaintextData
                    transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(envelopeData);
-    OWSAssert(transaction);
+    OWSAssertDebug(envelopeData);
+    OWSAssertDebug(transaction);
 
     OWSMessageContentJob *job =
         [[OWSMessageContentJob alloc] initWithEnvelopeData:envelopeData plaintextData:plaintextData];
@@ -179,13 +178,13 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
             id object2) {
 
             if (![object1 isKindOfClass:[OWSMessageContentJob class]]) {
-                OWSFail(@"Unexpected object: %@ in collection: %@", [object1 class], collection1);
+                OWSFailDebug(@"Unexpected object: %@ in collection: %@", [object1 class], collection1);
                 return NSOrderedSame;
             }
             OWSMessageContentJob *job1 = (OWSMessageContentJob *)object1;
 
             if (![object2 isKindOfClass:[OWSMessageContentJob class]]) {
-                OWSFail(@"Unexpected object: %@ in collection: %@", [object2 class], collection2);
+                OWSFailDebug(@"Unexpected object: %@ in collection: %@", [object2 class], collection2);
                 return NSOrderedSame;
             }
             OWSMessageContentJob *job2 = (OWSMessageContentJob *)object2;
@@ -199,7 +198,7 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
             NSString *_Nonnull key,
             id _Nonnull object) {
             if (![object isKindOfClass:[OWSMessageContentJob class]]) {
-                OWSFail(@"Unexpected object: %@ in collection: %@", object, collection);
+                OWSFailDebug(@"Unexpected object: %@ in collection: %@", object, collection);
                 return nil;
             }
 
@@ -219,7 +218,7 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
 {
     YapDatabaseView *existingView = [storage registeredExtension:OWSMessageContentJobFinderExtensionName];
     if (existingView) {
-        OWSFail(@"%@ was already initialized.", OWSMessageContentJobFinderExtensionName);
+        OWSFailDebug(@"%@ was already initialized.", OWSMessageContentJobFinderExtensionName);
         // already initialized
         return;
     }
@@ -315,8 +314,8 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
               plaintextData:(NSData *_Nullable)plaintextData
                 transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(envelopeData);
-    OWSAssert(transaction);
+    OWSAssertDebug(envelopeData);
+    OWSAssertDebug(transaction);
 
     // We need to persist the decrypted envelope data ASAP to prevent data loss.
     [self.finder addJobWithEnvelopeData:envelopeData plaintextData:plaintextData transaction:transaction];
@@ -324,7 +323,7 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
 
 - (void)drainQueue
 {
-    OWSAssert(AppReadiness.isAppReady);
+    OWSAssertDebug(AppReadiness.isAppReady);
 
     // Don't process incoming messages in app extensions.
     if (!CurrentAppContext().isMainApp) {
@@ -349,23 +348,23 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
     const NSUInteger kIncomingMessageBatchSize = 32;
 
     NSArray<OWSMessageContentJob *> *batchJobs = [self.finder nextJobsForBatchSize:kIncomingMessageBatchSize];
-    OWSAssert(batchJobs);
+    OWSAssertDebug(batchJobs);
     if (batchJobs.count < 1) {
         self.isDrainingQueue = NO;
-        DDLogVerbose(@"%@ Queue is drained", self.logTag);
+        OWSLogVerbose(@"Queue is drained");
         return;
     }
 
-    OWSBackgroundTask *backgroundTask = [OWSBackgroundTask backgroundTaskWithLabelStr:__PRETTY_FUNCTION__];
+    OWSBackgroundTask *_Nullable backgroundTask = [OWSBackgroundTask backgroundTaskWithLabelStr:__PRETTY_FUNCTION__];
 
     NSArray<OWSMessageContentJob *> *processedJobs = [self processJobs:batchJobs];
 
     [self.finder removeJobsWithIds:processedJobs.uniqueIds];
 
+    OWSAssertDebug(backgroundTask);
     backgroundTask = nil;
 
-    DDLogVerbose(@"%@ completed %lu/%lu jobs. %lu jobs left.",
-        self.logTag,
+    OWSLogVerbose(@"completed %lu/%lu jobs. %lu jobs left.",
         (unsigned long)processedJobs.count,
         (unsigned long)batchJobs.count,
         (unsigned long)[OWSMessageContentJob numberOfKeysInCollection]);
@@ -391,12 +390,12 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
                 YapDatabaseReadWriteTransaction *transaction) {
                 // TODO: Add analytics.
                 TSErrorMessage *errorMessage = [TSErrorMessage corruptedMessageInUnknownThread];
-                [[TextSecureKitEnv sharedEnv].notificationsManager notifyUserForThreadlessErrorMessage:errorMessage
-                                                                                           transaction:transaction];
+                [SSKEnvironment.shared.notificationsManager notifyUserForThreadlessErrorMessage:errorMessage
+                                                                                    transaction:transaction];
             };
 
             @try {
-                SSKEnvelope *_Nullable envelope = job.envelope;
+                SSKProtoEnvelope *_Nullable envelope = job.envelope;
                 if (!envelope) {
                     reportFailure(transaction);
                 } else {
@@ -405,7 +404,7 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
                                               transaction:transaction];
                 }
             } @catch (NSException *exception) {
-                OWSProdLogAndFail(@"%@ Received an invalid envelope: %@", self.logTag, exception.debugDescription);
+                OWSFailDebug(@"Received an invalid envelope: %@", exception.debugDescription);
                 reportFailure(transaction);
             }
             [processedJobs addObject:job];
@@ -504,7 +503,10 @@ NSString *const OWSMessageContentJobFinderExtensionGroup = @"OWSMessageContentJo
               plaintextData:(NSData *_Nullable)plaintextData
                 transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(envelopeData);
+    if (envelopeData.length < 1) {
+        OWSFailDebug(@"Empty envelope.");
+        return;
+    }
     OWSAssert(transaction);
 
     // We need to persist the decrypted envelope data ASAP to prevent data loss.

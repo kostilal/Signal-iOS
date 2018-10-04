@@ -14,16 +14,23 @@ NSString *const OWSWindowManagerCallDidChangeNotification = @"OWSWindowManagerCa
 
 const CGFloat OWSWindowManagerCallBannerHeight(void)
 {
-    if ([UIDevice currentDevice].isIPhoneX) {
-        // On an iPhoneX, the system return-to-call banner has been replaced by a much subtler green
-        // circle behind the system clock. Instead, we mimic the old system call banner as on older devices,
-        // but it has to be taller to fit beneath the notch.
-        // IOS_DEVICE_CONSTANT, we'll want to revisit this when new device dimensions are introduced.
-        return 64;
-    } else {
-
+    if (@available(iOS 11.4, *)) {
         return CurrentAppContext().statusBarHeight + 20;
     }
+
+
+    if (![UIDevice currentDevice].hasIPhoneXNotch) {
+        return CurrentAppContext().statusBarHeight + 20;
+    }
+
+    // Hardcode CallBanner height for iPhone X's on older iOS.
+    //
+    // As of iOS11.4 and iOS12, this no longer seems to be an issue, but previously statusBarHeight returned
+    // something like 20pts (IIRC), meaning our call banner did not extend sufficiently past the iPhone X notch.
+    //
+    // Before noticing that this behavior changed, I actually assumed that notch height was intentionally excluded from
+    // the statusBarHeight, and that this was not a bug, else I'd have taken better notes.
+    return 64;
 }
 
 // Behind everything, especially the root window.
@@ -147,10 +154,10 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (void)setupWithRootWindow:(UIWindow *)rootWindow screenBlockingWindow:(UIWindow *)screenBlockingWindow
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(rootWindow);
-    OWSAssert(!self.rootWindow);
-    OWSAssert(screenBlockingWindow);
-    OWSAssert(!self.screenBlockingWindow);
+    OWSAssertDebug(rootWindow);
+    OWSAssertDebug(!self.rootWindow);
+    OWSAssertDebug(screenBlockingWindow);
+    OWSAssertDebug(!self.screenBlockingWindow);
 
     self.rootWindow = rootWindow;
     self.screenBlockingWindow = screenBlockingWindow;
@@ -177,9 +184,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     CGRect newFrame = self.returnToCallWindow.frame;
     newFrame.size.height = OWSWindowManagerCallBannerHeight();
 
-    DDLogDebug(@"%@ StatusBar changed frames - updating returnToCallWindowFrame: %@",
-        self.logTag,
-        NSStringFromCGRect(newFrame));
+    OWSLogDebug(@"StatusBar changed frames - updating returnToCallWindowFrame: %@", NSStringFromCGRect(newFrame));
     self.returnToCallWindow.frame = newFrame;
 }
 
@@ -191,7 +196,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (UIWindow *)createReturnToCallWindow:(UIWindow *)rootWindow
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(rootWindow);
+    OWSAssertDebug(rootWindow);
 
     // "Return to call" should remain at the top of the screen.
     CGRect windowFrame = UIScreen.mainScreen.bounds;
@@ -234,7 +239,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (UIWindow *)createCallViewWindow:(UIWindow *)rootWindow
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(rootWindow);
+    OWSAssertDebug(rootWindow);
 
     UIWindow *window = [[UIWindow alloc] initWithFrame:rootWindow.bounds];
     window.hidden = YES;
@@ -253,7 +258,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     UINavigationController *navigationController =
         [[UINavigationController alloc] initWithRootViewController:viewController];
     navigationController.navigationBarHidden = YES;
-    OWSAssert(!self.callNavigationController);
+    OWSAssertDebug(!self.callNavigationController);
     self.callNavigationController = navigationController;
 
     window.rootViewController = navigationController;
@@ -279,7 +284,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 
 - (void)showMenuActionsWindow:(UIViewController *)menuActionsViewController
 {
-    OWSAssert(self.menuActionsViewController == nil);
+    OWSAssertDebug(self.menuActionsViewController == nil);
 
     self.menuActionsViewController = menuActionsViewController;
     self.menuActionsWindow.rootViewController = menuActionsViewController;
@@ -313,8 +318,8 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (void)startCall:(UIViewController *)callViewController
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(callViewController);
-    OWSAssert(!self.callViewController);
+    OWSAssertDebug(callViewController);
+    OWSAssertDebug(!self.callViewController);
 
     self.callViewController = callViewController;
 
@@ -329,11 +334,11 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (void)endCall:(UIViewController *)callViewController
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(callViewController);
-    OWSAssert(self.callViewController);
+    OWSAssertDebug(callViewController);
+    OWSAssertDebug(self.callViewController);
 
     if (self.callViewController != callViewController) {
-        DDLogWarn(@"%@ Ignoring end call request from obsolete call view controller.", self.logTag);
+        OWSLogWarn(@"Ignoring end call request from obsolete call view controller.");
         return;
     }
 
@@ -349,8 +354,8 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (void)leaveCallView
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(self.callViewController);
-    OWSAssert(self.shouldShowCallView);
+    OWSAssertDebug(self.callViewController);
+    OWSAssertDebug(self.shouldShowCallView);
 
     self.shouldShowCallView = NO;
 
@@ -360,8 +365,8 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (void)showCallView
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(self.callViewController);
-    OWSAssert(!self.shouldShowCallView);
+    OWSAssertDebug(self.callViewController);
+    OWSAssertDebug(!self.shouldShowCallView);
 
     self.shouldShowCallView = YES;
 
@@ -380,10 +385,10 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
 - (void)ensureWindowState
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(self.rootWindow);
-    OWSAssert(self.returnToCallWindow);
-    OWSAssert(self.callViewWindow);
-    OWSAssert(self.screenBlockingWindow);
+    OWSAssertDebug(self.rootWindow);
+    OWSAssertDebug(self.returnToCallWindow);
+    OWSAssertDebug(self.callViewWindow);
+    OWSAssertDebug(self.screenBlockingWindow);
 
     // To avoid bad frames, we never want to hide the blocking window, so we manipulate
     // its window level to "hide" it behind other windows.  The other windows have fixed
@@ -406,33 +411,31 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
         [self ensureCallViewWindowShown];
         [self ensureMessageActionsWindowHidden];
         [self ensureScreenBlockWindowHidden];
-    } else if (self.callViewController) {
-        // Show Root Window + "Return to Call".
-
-        [self ensureRootWindowShown];
-        [self ensureReturnToCallWindowShown];
-        [self ensureCallViewWindowHidden];
-        [self ensureMessageActionsWindowHidden];
-        [self ensureScreenBlockWindowHidden];
-    } else if (self.menuActionsViewController) {
-        // Show Message Actions
-
-        [self ensureRootWindowShown];
-        [self ensureReturnToCallWindowHidden];
-        [self ensureCallViewWindowHidden];
-        [self ensureMessageActionsWindowShown];
-        [self ensureScreenBlockWindowHidden];
-
-        // Don't hide rootWindow so as not to dismiss keyboard.
-        OWSAssert(!self.rootWindow.isHidden);
     } else {
         // Show Root Window
 
         [self ensureRootWindowShown];
-        [self ensureReturnToCallWindowHidden];
         [self ensureCallViewWindowHidden];
-        [self ensureMessageActionsWindowHidden];
         [self ensureScreenBlockWindowHidden];
+
+        if (self.callViewController) {
+            // Add "Return to Call" banner
+
+            [self ensureReturnToCallWindowShown];
+        } else {
+            [self ensureReturnToCallWindowHidden];
+        }
+
+        if (self.menuActionsViewController) {
+            // Add "Message Actions" action sheet
+
+            [self ensureMessageActionsWindowShown];
+
+            // Don't hide rootWindow so as not to dismiss keyboard.
+            OWSAssertDebug(!self.rootWindow.isHidden);
+        } else {
+            [self ensureMessageActionsWindowHidden];
+        }
     }
 }
 
@@ -441,7 +444,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (self.rootWindow.hidden) {
-        DDLogInfo(@"%@ showing root window.", self.logTag);
+        OWSLogInfo(@"showing root window.");
     }
 
     // By calling makeKeyAndVisible we ensure the rootViewController becomes firt responder.
@@ -455,7 +458,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (!self.rootWindow.hidden) {
-        DDLogInfo(@"%@ hiding root window.", self.logTag);
+        OWSLogInfo(@"hiding root window.");
     }
 
     self.rootWindow.hidden = YES;
@@ -469,7 +472,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
         return;
     }
 
-    DDLogInfo(@"%@ showing 'return to call' window.", self.logTag);
+    OWSLogInfo(@"showing 'return to call' window.");
     self.returnToCallWindow.hidden = NO;
     [self.returnToCallViewController startAnimating];
 }
@@ -482,7 +485,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
         return;
     }
 
-    DDLogInfo(@"%@ hiding 'return to call' window.", self.logTag);
+    OWSLogInfo(@"hiding 'return to call' window.");
     self.returnToCallWindow.hidden = YES;
     [self.returnToCallViewController stopAnimating];
 }
@@ -492,7 +495,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (self.callViewWindow.hidden) {
-        DDLogInfo(@"%@ showing call window.", self.logTag);
+        OWSLogInfo(@"showing call window.");
     }
 
     [self.callViewWindow makeKeyAndVisible];
@@ -503,7 +506,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (!self.callViewWindow.hidden) {
-        DDLogInfo(@"%@ hiding call window.", self.logTag);
+        OWSLogInfo(@"hiding call window.");
     }
 
     self.callViewWindow.hidden = YES;
@@ -514,7 +517,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (self.menuActionsWindow.hidden) {
-        DDLogInfo(@"%@ showing message actions window.", self.logTag);
+        OWSLogInfo(@"showing message actions window.");
     }
 
     // Do not make key, we want the keyboard to stay popped.
@@ -526,7 +529,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (!self.menuActionsWindow.hidden) {
-        DDLogInfo(@"%@ hiding message actions window.", self.logTag);
+        OWSLogInfo(@"hiding message actions window.");
     }
 
     self.menuActionsWindow.hidden = YES;
@@ -537,7 +540,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (self.screenBlockingWindow.windowLevel != UIWindowLevel_ScreenBlocking()) {
-        DDLogInfo(@"%@ showing block window.", self.logTag);
+        OWSLogInfo(@"showing block window.");
     }
 
     self.screenBlockingWindow.windowLevel = UIWindowLevel_ScreenBlocking();
@@ -549,7 +552,7 @@ const UIWindowLevel UIWindowLevel_MessageActions(void)
     OWSAssertIsOnMainThread();
 
     if (self.screenBlockingWindow.windowLevel != UIWindowLevel_Background) {
-        DDLogInfo(@"%@ hiding block window.", self.logTag);
+        OWSLogInfo(@"hiding block window.");
     }
 
     // Never hide the blocking window (that can lead to bad frames).

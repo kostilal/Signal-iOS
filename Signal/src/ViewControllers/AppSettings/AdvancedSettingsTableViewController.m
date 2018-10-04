@@ -99,7 +99,7 @@ NS_ASSUME_NONNULL_BEGIN
         [loggingSection
             addItem:[OWSTableItem actionItemWithText:NSLocalizedString(@"SETTINGS_ADVANCED_SUBMIT_DEBUGLOG", @"")
                                          actionBlock:^{
-                                             DDLogInfo(@"%@ Submitting debug logs", weakSelf.logTag);
+                                             OWSLogInfo(@"Submitting debug logs");
                                              [DDLog flushLog];
                                              [Pastelog submitLogs];
                                          }]];
@@ -182,7 +182,7 @@ NS_ASSUME_NONNULL_BEGIN
     if (OWSSignalService.sharedInstance.isCensorshipCircumventionManuallyActivated) {
         OWSCountryMetadata *manualCensorshipCircumventionCountry =
             [weakSelf ensureManualCensorshipCircumventionCountry];
-        OWSAssert(manualCensorshipCircumventionCountry);
+        OWSAssertDebug(manualCensorshipCircumventionCountry);
         NSString *text = [NSString
             stringWithFormat:NSLocalizedString(@"SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_COUNTRY_FORMAT",
                                  @"Label for the 'manual censorship circumvention' country. Embeds {{the manual "
@@ -195,7 +195,6 @@ NS_ASSUME_NONNULL_BEGIN
     }
     [contents addSection:censorshipSection];
 
-#ifdef THEME_ENABLED
     OWSTableSection *themeSection = [OWSTableSection new];
     themeSection.headerTitle = NSLocalizedString(@"THEME_SECTION", nil);
     [themeSection addItem:[OWSTableItem switchItemWithText:NSLocalizedString(@"SETTINGS_ADVANCED_DARK_THEME",
@@ -204,7 +203,6 @@ NS_ASSUME_NONNULL_BEGIN
                                                     target:weakSelf
                                                   selector:@selector(didToggleThemeSwitch:)]];
     [contents addSection:themeSection];
-#endif
 
     self.contents = contents;
 }
@@ -235,7 +233,7 @@ NS_ASSUME_NONNULL_BEGIN
     if (!countryMetadata) {
         countryCode = @"US";
         countryMetadata = [OWSCountryMetadata countryMetadataForCountryCode:countryCode];
-        OWSAssert(countryMetadata);
+        OWSAssertDebug(countryMetadata);
     }
 
     if (countryMetadata) {
@@ -251,7 +249,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)syncPushTokens
 {
     OWSSyncPushTokensJob *job = [[OWSSyncPushTokensJob alloc] initWithAccountManager:SignalApp.sharedApp.accountManager
-                                                                         preferences:[Environment preferences]];
+                                                                         preferences:Environment.shared.preferences];
     job.uploadOnlyIfStale = NO;
     [job run]
         .then(^{
@@ -267,12 +265,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)didToggleEnableLogSwitch:(UISwitch *)sender
 {
     if (!sender.isOn) {
-        DDLogInfo(@"%@ disabling logging.", self.logTag);
+        OWSLogInfo(@"disabling logging.");
         [[DebugLogger sharedLogger] wipeLogs];
         [[DebugLogger sharedLogger] disableFileLogging];
     } else {
         [[DebugLogger sharedLogger] enableFileLogging];
-        DDLogInfo(@"%@ enabling logging.", self.logTag);
+        OWSLogInfo(@"enabling logging.");
     }
 
     [OWSPreferences setIsLoggingEnabled:sender.isOn];
@@ -287,16 +285,12 @@ NS_ASSUME_NONNULL_BEGIN
     [self updateTableContents];
 }
 
-#ifdef THEME_ENABLED
 - (void)didToggleThemeSwitch:(UISwitch *)sender
 {
     [Theme setIsDarkThemeEnabled:sender.isOn];
 
     [self updateTableContents];
-
-    // TODO: Notify and refresh.
 }
-#endif
 
 @end
 

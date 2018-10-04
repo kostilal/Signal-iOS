@@ -3,7 +3,7 @@
 //
 
 #import "TSGroupThread.h"
-#import "NSData+Base64.h"
+#import "NSData+OWS.h"
 #import "TSAttachmentStream.h"
 #import <SignalServiceKit/TSAccountManager.h>
 #import <YapDatabase/YapDatabaseConnection.h>
@@ -20,11 +20,11 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 - (instancetype)initWithGroupModel:(TSGroupModel *)groupModel
 {
-    OWSAssert(groupModel);
-    OWSAssert(groupModel.groupId.length > 0);
-    OWSAssert(groupModel.groupMemberIds.count > 0);
+    OWSAssertDebug(groupModel);
+    OWSAssertDebug(groupModel.groupId.length > 0);
+    OWSAssertDebug(groupModel.groupMemberIds.count > 0);
     for (NSString *recipientId in groupModel.groupMemberIds) {
-        OWSAssert(recipientId.length > 0);
+        OWSAssertDebug(recipientId.length > 0);
     }
 
     NSString *uniqueIdentifier = [[self class] threadIdFromGroupId:groupModel.groupId];
@@ -40,10 +40,10 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 - (instancetype)initWithGroupId:(NSData *)groupId
 {
-    OWSAssert(groupId.length > 0);
+    OWSAssertDebug(groupId.length > 0);
 
     NSString *localNumber = [TSAccountManager localNumber];
-    OWSAssert(localNumber.length > 0);
+    OWSAssertDebug(localNumber.length > 0);
 
     TSGroupModel *groupModel = [[TSGroupModel alloc] initWithTitle:nil
                                                          memberIds:@[ localNumber ]
@@ -60,7 +60,7 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 + (nullable instancetype)threadWithGroupId:(NSData *)groupId transaction:(YapDatabaseReadTransaction *)transaction
 {
-    OWSAssert(groupId.length > 0);
+    OWSAssertDebug(groupId.length > 0);
 
     return [self fetchObjectWithUniqueID:[self threadIdFromGroupId:groupId] transaction:transaction];
 }
@@ -68,8 +68,8 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 + (instancetype)getOrCreateThreadWithGroupId:(NSData *)groupId
                                  transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(groupId.length > 0);
-    OWSAssert(transaction);
+    OWSAssertDebug(groupId.length > 0);
+    OWSAssertDebug(transaction);
 
     TSGroupThread *thread = [self fetchObjectWithUniqueID:[self threadIdFromGroupId:groupId] transaction:transaction];
     if (!thread) {
@@ -81,7 +81,7 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 + (instancetype)getOrCreateThreadWithGroupId:(NSData *)groupId
 {
-    OWSAssert(groupId.length > 0);
+    OWSAssertDebug(groupId.length > 0);
 
     __block TSGroupThread *thread;
     [[self dbReadWriteConnection] readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
@@ -92,9 +92,9 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 + (instancetype)getOrCreateThreadWithGroupModel:(TSGroupModel *)groupModel
                                     transaction:(YapDatabaseReadWriteTransaction *)transaction {
-    OWSAssert(groupModel);
-    OWSAssert(groupModel.groupId.length > 0);
-    OWSAssert(transaction);
+    OWSAssertDebug(groupModel);
+    OWSAssertDebug(groupModel.groupId.length > 0);
+    OWSAssertDebug(transaction);
 
     TSGroupThread *thread =
         [self fetchObjectWithUniqueID:[self threadIdFromGroupId:groupModel.groupId] transaction:transaction];
@@ -108,8 +108,8 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 + (instancetype)getOrCreateThreadWithGroupModel:(TSGroupModel *)groupModel
 {
-    OWSAssert(groupModel);
-    OWSAssert(groupModel.groupId.length > 0);
+    OWSAssertDebug(groupModel);
+    OWSAssertDebug(groupModel.groupId.length > 0);
 
     __block TSGroupThread *thread;
     [[self dbReadWriteConnection] readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
@@ -120,14 +120,14 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 + (NSString *)threadIdFromGroupId:(NSData *)groupId
 {
-    OWSAssert(groupId.length > 0);
+    OWSAssertDebug(groupId.length > 0);
 
     return [TSGroupThreadPrefix stringByAppendingString:[groupId base64EncodedString]];
 }
 
 + (NSData *)groupIdFromThreadId:(NSString *)threadId
 {
-    OWSAssert(threadId.length > 0);
+    OWSAssertDebug(threadId.length > 0);
 
     return [NSData dataFromBase64String:[threadId substringWithRange:NSMakeRange(1, threadId.length - 1)]];
 }
@@ -151,8 +151,8 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 + (NSArray<TSGroupThread *> *)groupThreadsWithRecipientId:(NSString *)recipientId
                                               transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(recipientId.length > 0);
-    OWSAssert(transaction);
+    OWSAssertDebug(recipientId.length > 0);
+    OWSAssertDebug(transaction);
 
     NSMutableArray<TSGroupThread *> *groupThreads = [NSMutableArray new];
 
@@ -175,8 +175,35 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 
 - (NSString *)name
 {
-    return self.groupModel.groupName ? self.groupModel.groupName : NSLocalizedString(@"NEW_GROUP_DEFAULT_TITLE", @"");
+    // TODO sometimes groupName is set to the empty string. I'm hesitent to change
+    // the semantics here until we have time to thouroughly test the fallout.
+    // Instead, see the `groupNameOrDefault` which is appropriate for use when displaying
+    // text corresponding to a group.
+    return self.groupModel.groupName ?: self.class.defaultGroupName;
 }
+
++ (NSString *)defaultGroupName
+{
+    return NSLocalizedString(@"NEW_GROUP_DEFAULT_TITLE", @"");
+}
+
+- (void)leaveGroupWithSneakyTransaction
+{
+    [self.dbReadWriteConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *_Nonnull transaction) {
+        [self leaveGroupWithTransaction:transaction];
+    }];
+}
+
+- (void)leaveGroupWithTransaction:(YapDatabaseReadWriteTransaction *)transaction
+{
+    NSMutableArray<NSString *> *newGroupMemberIds = [self.groupModel.groupMemberIds mutableCopy];
+    [newGroupMemberIds removeObject:[TSAccountManager localNumber]];
+
+    self.groupModel.groupMemberIds = newGroupMemberIds;
+    [self saveWithTransaction:transaction];
+}
+
+#pragma mark - Avatar
 
 - (void)updateAvatarWithAttachmentStream:(TSAttachmentStream *)attachmentStream
 {
@@ -188,10 +215,10 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
 - (void)updateAvatarWithAttachmentStream:(TSAttachmentStream *)attachmentStream
                              transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(attachmentStream);
-    OWSAssert(transaction);
+    OWSAssertDebug(attachmentStream);
+    OWSAssertDebug(transaction);
 
-    self.groupModel.groupImage = [attachmentStream image];
+    self.groupModel.groupImage = [attachmentStream thumbnailImageSmallSync];
     [self saveWithTransaction:transaction];
 
     [transaction addCompletionQueue:nil
@@ -213,6 +240,13 @@ NSString *const TSGroupThread_NotificationKey_UniqueId = @"TSGroupThread_Notific
     [[NSNotificationCenter defaultCenter] postNotificationName:TSGroupThreadAvatarChangedNotification
                                                         object:self.uniqueId
                                                       userInfo:userInfo];
+}
+
++ (NSString *)defaultConversationColorNameForGroupId:(NSData *)groupId
+{
+    OWSAssertDebug(groupId.length > 0);
+
+    return [self.class stableColorNameForNewConversationWithString:[self threadIdFromGroupId:groupId]];
 }
 
 @end

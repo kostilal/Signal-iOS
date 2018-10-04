@@ -18,28 +18,15 @@
 
 @implementation PhoneNumberUtil
 
-+ (NSObject *)sharedLock
-{
-    static dispatch_once_t onceToken;
-    static NSObject *lock = nil;
-    dispatch_once(&onceToken, ^{
-        lock = [NSObject new];
-    });
-    return lock;
-}
-
 + (PhoneNumberUtil *)sharedThreadLocal
 {
-    @synchronized(self.sharedLock)
-    {
-        NSString *key = PhoneNumberUtil.logTag;
-        PhoneNumberUtil *_Nullable threadLocal = NSThread.currentThread.threadDictionary[key];
-        if (!threadLocal) {
-            threadLocal = [PhoneNumberUtil new];
-            NSThread.currentThread.threadDictionary[key] = threadLocal;
-        }
-        return threadLocal;
+    NSString *key = PhoneNumberUtil.logTag;
+    PhoneNumberUtil *_Nullable threadLocal = NSThread.currentThread.threadDictionary[key];
+    if (!threadLocal) {
+        threadLocal = [PhoneNumberUtil new];
+        NSThread.currentThread.threadDictionary[key] = threadLocal;
     }
+    return threadLocal;
 }
 
 - (instancetype)init {
@@ -65,11 +52,11 @@
     if (!result) {
         result = [self.nbPhoneNumberUtil parse:numberToParse defaultRegion:defaultRegion error:error];
         if (error && *error) {
-            OWSAssert(!result);
+            OWSAssertDebug(!result);
             return nil;
         }
 
-        OWSAssert(result);
+        OWSAssertDebug(result);
 
         if (result) {
             [self.parsedPhoneNumberCache setObject:result forKey:hashKey];
@@ -94,7 +81,7 @@
 
 // country code -> country name
 + (NSString *)countryNameFromCountryCode:(NSString *)countryCode {
-    OWSAssert(countryCode);
+    OWSAssertDebug(countryCode);
 
     NSDictionary *countryCodeComponent = @{NSLocaleCountryCode : countryCode};
     NSString *identifier               = [NSLocale localeIdentifierFromComponents:countryCodeComponent];
@@ -438,7 +425,7 @@
 {
     @synchronized(self)
     {
-        OWSAssert(callingCode.length > 0);
+        OWSAssertDebug(callingCode.length > 0);
 
         NSArray *result = self.countryCodesFromCallingCodeCache[callingCode];
         if (!result) {
@@ -458,7 +445,7 @@
 
 - (NSString *)probableCountryCodeForCallingCode:(NSString *)callingCode
 {
-    OWSAssert(callingCode.length > 0);
+    OWSAssertDebug(callingCode.length > 0);
 
     NSArray<NSString *> *countryCodes = [self countryCodesFromCallingCode:callingCode];
     return (countryCodes.count > 0 ? countryCodes[0] : nil);
@@ -530,9 +517,9 @@
                                  from:(NSString *)source
                                    to:(NSString *)target
                     stickingRightward:(bool)preferHigh {
-    OWSAssert(source != nil);
-    OWSAssert(target != nil);
-    OWSAssert(offset <= source.length);
+    OWSAssertDebug(source != nil);
+    OWSAssertDebug(target != nil);
+    OWSAssertDebug(offset <= source.length);
 
     NSUInteger n = source.length;
     NSUInteger m = target.length;
@@ -598,19 +585,19 @@
     NSError *error;
     NBPhoneNumber *nbPhoneNumber =
         [sharedUtil.nbPhoneNumberUtil getExampleNumberForType:countryCode type:NBEPhoneNumberTypeMOBILE error:&error];
-    OWSAssert(!error);
+    OWSAssertDebug(!error);
     if (!nbPhoneNumber) {
         // For countries that with similar mobile and land lines, use "line or mobile"
         // examples.
         nbPhoneNumber = [sharedUtil.nbPhoneNumberUtil getExampleNumberForType:countryCode
                                                                          type:NBEPhoneNumberTypeFIXED_LINE_OR_MOBILE
                                                                         error:&error];
-        OWSAssert(!error);
+        OWSAssertDebug(!error);
     }
     NSString *result = (nbPhoneNumber
             ? [sharedUtil.nbPhoneNumberUtil format:nbPhoneNumber numberFormat:NBEPhoneNumberFormatE164 error:&error]
             : nil);
-    OWSAssert(!error);
+    OWSAssertDebug(!error);
     return result;
 }
 

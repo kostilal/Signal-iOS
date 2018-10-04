@@ -5,7 +5,7 @@
 #import "TSInfoMessage.h"
 #import "ContactsManagerProtocol.h"
 #import "NSDate+OWS.h"
-#import "TextSecureKitEnv.h"
+#import "SSKEnvironment.h"
 #import <YapDatabase/YapDatabaseConnection.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -97,8 +97,8 @@ NSUInteger TSInfoMessageSchemaVersion = 1;
 
 + (instancetype)userNotRegisteredMessageInThread:(TSThread *)thread recipientId:(NSString *)recipientId
 {
-    OWSAssert(thread);
-    OWSAssert(recipientId);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(recipientId);
 
     return [[self alloc] initWithTimestamp:[NSDate ows_millisecondTimeStamp]
                                   inThread:thread
@@ -120,7 +120,7 @@ NSUInteger TSInfoMessageSchemaVersion = 1;
             return NSLocalizedString(@"UNSUPPORTED_ATTACHMENT", nil);
         case TSInfoMessageUserNotRegistered:
             if (self.unregisteredRecipientId.length > 0) {
-                id<ContactsManagerProtocol> contactsManager = [TextSecureKitEnv sharedEnv].contactsManager;
+                id<ContactsManagerProtocol> contactsManager = SSKEnvironment.shared.contactsManager;
                 NSString *recipientName = [contactsManager displayNameForPhoneIdentifier:self.unregisteredRecipientId];
                 return [NSString stringWithFormat:NSLocalizedString(@"ERROR_UNREGISTERED_USER_FORMAT",
                                                       @"Format string for 'unregistered user' error. Embeds {{the "
@@ -168,14 +168,13 @@ NSUInteger TSInfoMessageSchemaVersion = 1;
               sendReadReceipt:(BOOL)sendReadReceipt
                   transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     if (_read) {
         return;
     }
 
-    DDLogDebug(
-        @"%@ marking as read uniqueId: %@ which has timestamp: %llu", self.logTag, self.uniqueId, self.timestamp);
+    OWSLogDebug(@"marking as read uniqueId: %@ which has timestamp: %llu", self.uniqueId, self.timestamp);
     _read = YES;
     [self saveWithTransaction:transaction];
     [self touchThreadWithTransaction:transaction];

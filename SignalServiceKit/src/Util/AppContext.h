@@ -16,10 +16,13 @@ extern NSString *const OWSApplicationWillResignActiveNotification;
 extern NSString *const OWSApplicationDidBecomeActiveNotification;
 
 typedef void (^BackgroundTaskExpirationHandler)(void);
+typedef void (^AppActiveBlock)(void);
 
 NSString *NSStringForUIApplicationState(UIApplicationState value);
 
 @class OWSAES256Key;
+
+@protocol SSKKeychainStorage;
 
 @protocol AppContext <NSObject>
 
@@ -91,11 +94,25 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 // Should be a NOOP if isMainApp is NO.
 - (void)setNetworkActivityIndicatorVisible:(BOOL)value;
 
+- (void)runNowOrWhenMainAppIsActive:(AppActiveBlock)block;
+
+@property (atomic, readonly) NSDate *appLaunchTime;
+
+- (id<SSKKeychainStorage>)keychainStorage;
+
+- (NSString *)appDocumentDirectoryPath;
+
+- (NSString *)appSharedDataDirectoryPath;
+
 @end
 
 id<AppContext> CurrentAppContext(void);
 void SetCurrentAppContext(id<AppContext> appContext);
 
 void ExitShareExtension(void);
+
+#ifdef DEBUG
+void ClearCurrentAppContextForTests(void);
+#endif
 
 NS_ASSUME_NONNULL_END

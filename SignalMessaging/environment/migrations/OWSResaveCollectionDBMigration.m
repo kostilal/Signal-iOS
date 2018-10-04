@@ -15,14 +15,14 @@ NS_ASSUME_NONNULL_BEGIN
               dbConnection:(YapDatabaseConnection *)dbConnection
                 completion:(OWSDatabaseMigrationCompletion)completion
 {
-    OWSAssert(collection.length > 0);
-    OWSAssert(dbConnection);
-    OWSAssert(completion);
+    OWSAssertDebug(collection.length > 0);
+    OWSAssertDebug(dbConnection);
+    OWSAssertDebug(completion);
 
     NSMutableArray<NSString *> *recordIds = [NSMutableArray new];
     [dbConnection asyncReadWriteWithBlock:^(YapDatabaseReadWriteTransaction *_Nonnull transaction) {
         [recordIds addObjectsFromArray:[transaction allKeysInCollection:collection]];
-        DDLogInfo(@"%@ Migrating %lu records from: %@.", self.logTag, (unsigned long)recordIds.count, collection);
+        OWSLogInfo(@"Migrating %lu records from: %@.", (unsigned long)recordIds.count, collection);
     }
         completionQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)
         completionBlock:^{
@@ -40,12 +40,12 @@ NS_ASSUME_NONNULL_BEGIN
        dbConnection:(YapDatabaseConnection *)dbConnection
          completion:(OWSDatabaseMigrationCompletion)completion
 {
-    OWSAssert(recordIds);
-    OWSAssert(collection.length > 0);
-    OWSAssert(dbConnection);
-    OWSAssert(completion);
+    OWSAssertDebug(recordIds);
+    OWSAssertDebug(collection.length > 0);
+    OWSAssertDebug(dbConnection);
+    OWSAssertDebug(completion);
 
-    DDLogVerbose(@"%@ %s: %lu", self.logTag, __PRETTY_FUNCTION__, (unsigned long)recordIds.count);
+    OWSLogVerbose(@"%lu", (unsigned long)recordIds.count);
 
     if (recordIds.count < 1) {
         completion();

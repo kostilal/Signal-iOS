@@ -76,7 +76,7 @@ NS_ASSUME_NONNULL_BEGIN
             break;
         case OWS2FASettingsMode_SelectPIN:
         case OWS2FASettingsMode_ConfirmPIN:
-            OWSAssert(![OWS2FAManager.sharedManager is2FAEnabled]);
+            OWSAssertDebug(![OWS2FAManager.sharedManager is2FAEnabled]);
             break;
     }
 
@@ -111,7 +111,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)createPinTextfield
 {
-    self.pinTextfield = [UITextField new];
+    self.pinTextfield = [OWSTextField new];
     self.pinTextfield.textColor = [Theme primaryColor];
     self.pinTextfield.font = [UIFont ows_mediumFontWithSize:ScaleFromIPhone5To7Plus(30.f, 36.f)];
     self.pinTextfield.textAlignment = NSTextAlignmentCenter;
@@ -298,21 +298,21 @@ NS_ASSUME_NONNULL_BEGIN
 {
     switch (self.mode) {
         case OWS2FASettingsMode_Status:
-            OWSFail(@"%@ status mode should not have a next button.", self.logTag);
+            OWSFailDebug(@"status mode should not have a next button.");
             return;
         case OWS2FASettingsMode_SelectPIN: {
-            OWSAssert(self.hasValidPin);
+            OWSAssertDebug(self.hasValidPin);
 
             OWS2FASettingsViewController *vc = [OWS2FASettingsViewController new];
             vc.mode = OWS2FASettingsMode_ConfirmPIN;
             vc.candidatePin = self.pinTextfield.text;
-            OWSAssert(self.root2FAViewController);
+            OWSAssertDebug(self.root2FAViewController);
             vc.root2FAViewController = self.root2FAViewController;
             [self.navigationController pushViewController:vc animated:YES];
             break;
         }
         case OWS2FASettingsMode_ConfirmPIN: {
-            OWSAssert(self.hasValidPin);
+            OWSAssertDebug(self.hasValidPin);
 
             if ([self.pinTextfield.text isEqualToString:self.candidatePin]) {
                 [self tryToEnable2FA];
@@ -336,9 +336,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)showEnable2FAWorkUI
 {
-    OWSAssert(![OWS2FAManager.sharedManager is2FAEnabled]);
+    OWSAssertDebug(![OWS2FAManager.sharedManager is2FAEnabled]);
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     OWS2FASettingsViewController *vc = [OWS2FASettingsViewController new];
     vc.mode = OWS2FASettingsMode_SelectPIN;
@@ -348,7 +348,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)tryToDisable2FA
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     __weak OWS2FASettingsViewController *weakSelf = self;
 
@@ -378,9 +378,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)tryToEnable2FA
 {
-    OWSAssert(self.candidatePin.length > 0);
+    OWSAssertDebug(self.candidatePin.length > 0);
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     __weak OWS2FASettingsViewController *weakSelf = self;
 
@@ -414,10 +414,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)showCompleteUI
 {
-    OWSAssert([OWS2FAManager.sharedManager is2FAEnabled]);
-    OWSAssert(self.root2FAViewController);
+    OWSAssertDebug([OWS2FAManager.sharedManager is2FAEnabled]);
+    OWSAssertDebug(self.root2FAViewController);
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     [self.navigationController popToViewController:self.root2FAViewController animated:YES];
 }
@@ -429,7 +429,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)stateDidChange:(NSNotification *)notification
 {
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     if (self.mode == OWS2FASettingsMode_Status) {
         [self createContents];

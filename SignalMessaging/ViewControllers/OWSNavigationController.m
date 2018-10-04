@@ -34,7 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
     [self pushViewController:rootViewController animated:NO];
 
     if (![self.navigationBar isKindOfClass:[OWSNavigationBar class]]) {
-        OWSFail(@"%@ navigationBar was unexpected class: %@", self.logTag, self.navigationBar);
+        OWSFailDebug(@"navigationBar was unexpected class: %@", self.navigationBar);
         return self;
     }
 
@@ -42,7 +42,26 @@ NS_ASSUME_NONNULL_BEGIN
     navbar.navBarLayoutDelegate = self;
     [self updateLayoutForNavbar:navbar];
 
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(themeDidChange:)
+                                                 name:ThemeDidChangeNotification
+                                               object:nil];
+
     return self;
+}
+
+- (void)dealloc
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)themeDidChange:(NSNotification *)notification
+{
+    OWSAssertIsOnMainThread();
+
+    self.navigationBar.barTintColor = [UINavigationBar appearance].barTintColor;
+    self.navigationBar.tintColor = [UINavigationBar appearance].tintColor;
+    self.navigationBar.titleTextAttributes = [UINavigationBar appearance].titleTextAttributes;
 }
 
 - (void)viewDidLoad
@@ -59,7 +78,7 @@ NS_ASSUME_NONNULL_BEGIN
 // if a view has unsaved changes.
 - (BOOL)navigationBar:(UINavigationBar *)navigationBar shouldPopItem:(UINavigationItem *)item
 {
-    OWSAssert(self.interactivePopGestureRecognizer.delegate == self);
+    OWSAssertDebug(self.interactivePopGestureRecognizer.delegate == self);
     UIViewController *topViewController = self.topViewController;
 
     // wasBackButtonClicked is YES if the back button was pressed but not
@@ -91,7 +110,7 @@ NS_ASSUME_NONNULL_BEGIN
 // if a view has unsaved changes.
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
 {
-    OWSAssert(gestureRecognizer == self.interactivePopGestureRecognizer);
+    OWSAssertDebug(gestureRecognizer == self.interactivePopGestureRecognizer);
 
     UIViewController *topViewController = self.topViewController;
     if ([topViewController conformsToProtocol:@protocol(OWSNavigationView)]) {
@@ -127,7 +146,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)updateLayoutForNavbar:(OWSNavigationBar *)navbar
 {
-    DDLogDebug(@"%@ in %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogDebug(@"");
 
     [UIView setAnimationsEnabled:NO];
 

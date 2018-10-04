@@ -8,8 +8,6 @@ import SignalMessaging
 
 class AttachmentPointerView: UIStackView {
 
-    let TAG = "[AttachmentPointerView]"
-
     let isIncoming: Bool
     let attachmentPointer: TSAttachmentPointer
     let conversationStyle: ConversationStyle
@@ -58,15 +56,15 @@ class AttachmentPointerView: UIStackView {
 
     @objc internal func attachmentDownloadProgress(_ notification: Notification) {
         guard let attachmentId = attachmentPointer.uniqueId else {
-            owsFail("Missing attachment id.")
+            owsFailDebug("Missing attachment id.")
             return
         }
         guard let progress = (notification as NSNotification).userInfo?[kAttachmentDownloadProgressKey] as? NSNumber else {
-            owsFail("Attachment download notification missing progress.")
+            owsFailDebug("Attachment download notification missing progress.")
             return
         }
         guard let notificationAttachmentId = (notification as NSNotification).userInfo?[kAttachmentDownloadAttachmentIDKey] as? String else {
-            owsFail("Attachment download notification missing attachment id.")
+            owsFailDebug("Attachment download notification missing attachment id.")
             return
         }
         guard notificationAttachmentId == attachmentId else {
@@ -77,7 +75,7 @@ class AttachmentPointerView: UIStackView {
 
     @available(*, unavailable, message: "use init(call:) constructor instead.")
     required init(coder aDecoder: NSCoder) {
-        fatalError("Unimplemented")
+        notImplemented()
     }
 
     private static var vSpacing: CGFloat = 5

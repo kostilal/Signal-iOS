@@ -126,7 +126,7 @@ typedef NSNumber *OWSTaskId;
 // In that case expirationBlock will not be called.
 - (nullable OWSTaskId)addTaskWithExpirationBlock:(BackgroundTaskExpirationBlock)expirationBlock
 {
-    OWSAssert(expirationBlock);
+    OWSAssertDebug(expirationBlock);
 
     OWSTaskId _Nullable taskId;
 
@@ -150,11 +150,11 @@ typedef NSNumber *OWSTaskId;
 
 - (void)removeTask:(OWSTaskId)taskId
 {
-    OWSAssert(taskId);
+    OWSAssertDebug(taskId);
 
     @synchronized(self)
     {
-        OWSAssert(self.expirationMap[taskId] != nil);
+        OWSAssertDebug(self.expirationMap[taskId] != nil);
 
         [self.expirationMap removeObjectForKey:taskId];
 
@@ -196,11 +196,11 @@ typedef NSNumber *OWSTaskId;
             // Current state is correct.
             return YES;
         } else if (shouldHaveBackgroundTask) {
-            DDLogInfo(@"%@ Starting background task.", self.logTag);
+            OWSLogInfo(@"Starting background task.");
             return [self startBackgroundTask];
         } else {
             // Need to end background task.
-            DDLogInfo(@"%@ Ending background task.", self.logTag);
+            OWSLogInfo(@"Ending background task.");
             UIBackgroundTaskIdentifier backgroundTaskId = self.backgroundTaskId;
             self.backgroundTaskId = UIBackgroundTaskInvalid;
             [CurrentAppContext() endBackgroundTask:backgroundTaskId];
@@ -212,11 +212,11 @@ typedef NSNumber *OWSTaskId;
 // Returns NO if the background task cannot be begun.
 - (BOOL)startBackgroundTask
 {
-    OWSAssert(CurrentAppContext().isMainApp);
+    OWSAssertDebug(CurrentAppContext().isMainApp);
 
     @synchronized(self)
     {
-        OWSAssert(self.backgroundTaskId == UIBackgroundTaskInvalid);
+        OWSAssertDebug(self.backgroundTaskId == UIBackgroundTaskInvalid);
 
         self.backgroundTaskId = [CurrentAppContext() beginBackgroundTaskWithExpirationHandler:^{
             // Supposedly [UIApplication beginBackgroundTaskWithExpirationHandler]'s handler
@@ -225,14 +225,14 @@ typedef NSNumber *OWSTaskId;
             //
             // See:
             // https://developer.apple.com/documentation/uikit/uiapplication/1623031-beginbackgroundtaskwithexpiratio)
-            OWSAssert([NSThread isMainThread]);
+            OWSAssertDebug([NSThread isMainThread]);
 
             [self backgroundTaskExpired];
         }];
 
         // If the background task could not begin, return NO to indicate that.
         if (self.backgroundTaskId == UIBackgroundTaskInvalid) {
-            DDLogError(@"%@ background task could not be started.", self.logTag);
+            OWSLogError(@"background task could not be started.");
 
             return NO;
         }
@@ -304,7 +304,7 @@ typedef NSNumber *OWSTaskId;
 
 + (OWSBackgroundTask *)backgroundTaskWithLabelStr:(const char *)labelStr
 {
-    OWSAssert(labelStr);
+    OWSAssertDebug(labelStr);
 
     NSString *label = [NSString stringWithFormat:@"%s", labelStr];
     return [[OWSBackgroundTask alloc] initWithLabel:label completionBlock:nil];
@@ -314,7 +314,7 @@ typedef NSNumber *OWSTaskId;
                                   completionBlock:(BackgroundTaskCompletionBlock)completionBlock
 {
 
-    OWSAssert(labelStr);
+    OWSAssertDebug(labelStr);
 
     NSString *label = [NSString stringWithFormat:@"%s", labelStr];
     return [[OWSBackgroundTask alloc] initWithLabel:label completionBlock:completionBlock];
@@ -339,7 +339,7 @@ typedef NSNumber *OWSTaskId;
         return self;
     }
 
-    OWSAssert(label.length > 0);
+    OWSAssertDebug(label.length > 0);
 
     _label = label;
     self.completionBlock = completionBlock;
@@ -363,7 +363,7 @@ typedef NSNumber *OWSTaskId;
             if (!strongSelf) {
                 return;
             }
-            DDLogVerbose(@"%@ task expired", strongSelf.logTag);
+            OWSLogVerbose(@"task expired");
 
             // Make a local copy of completionBlock to ensure that it is called
             // exactly once.
@@ -374,7 +374,7 @@ typedef NSNumber *OWSTaskId;
                 if (!strongSelf.taskId) {
                     return;
                 }
-                DDLogInfo(@"%@ %@ background task expired.", strongSelf.logTag, strongSelf.label);
+                OWSLogInfo(@"%@ background task expired.", strongSelf.label);
                 strongSelf.taskId = nil;
 
                 completionBlock = strongSelf.completionBlock;
@@ -389,7 +389,7 @@ typedef NSNumber *OWSTaskId;
 
     // If a background task could not be begun, call the completion block.
     if (!self.taskId) {
-        DDLogError(@"%@ %@ background task could not be started.", self.logTag, self.label);
+        OWSLogError(@"%@ background task could not be started.", self.label);
 
         // Make a local copy of completionBlock to ensure that it is called
         // exactly once.

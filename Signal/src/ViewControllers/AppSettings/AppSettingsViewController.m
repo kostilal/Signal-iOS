@@ -51,7 +51,7 @@
         return self;
     }
 
-    _contactsManager = [Environment current].contactsManager;
+    _contactsManager = Environment.shared.contactsManager;
 
     return self;
 }
@@ -63,7 +63,7 @@
         return self;
     }
 
-    _contactsManager = [Environment current].contactsManager;
+    _contactsManager = Environment.shared.contactsManager;
 
     return self;
 }
@@ -79,7 +79,7 @@
     [super viewDidLoad];
     [self.navigationItem setHidesBackButton:YES];
 
-    OWSAssert([self.navigationController isKindOfClass:[OWSNavigationController class]]);
+    OWSAssertDebug([self.navigationController isKindOfClass:[OWSNavigationController class]]);
 
     self.navigationItem.leftBarButtonItem =
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemStop
@@ -143,7 +143,6 @@
                                  cell.textLabel.text = NSLocalizedString(@"NETWORK_STATUS_HEADER", @"");
                                  cell.selectionStyle = UITableViewCellSelectionStyleNone;
                                  UILabel *accessoryLabel = [UILabel new];
-                                 accessoryLabel.font = [UIFont ows_regularFontWithSize:18.f];
                                  if (TSAccountManager.sharedInstance.isDeregistered) {
                                      accessoryLabel.text = NSLocalizedString(@"NETWORK_STATUS_DEREGISTERED",
                                          @"Error indicating that this device is no longer registered.");
@@ -281,23 +280,17 @@
     cell.contentView.preservesSuperviewLayoutMargins = YES;
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
 
-    const NSUInteger kAvatarSize = 68;
-    // TODO: Replace this icon.
     UIImage *_Nullable localProfileAvatarImage = [OWSProfileManager.sharedManager localProfileAvatarImage];
     UIImage *avatarImage = (localProfileAvatarImage
-            ?: [[UIImage imageNamed:@"profile_avatar_default"]
-                   imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]);
-    OWSAssert(avatarImage);
+            ?: [[[OWSContactAvatarBuilder alloc] initForLocalUserWithDiameter:kLargeAvatarSize] buildDefaultImage]);
+    OWSAssertDebug(avatarImage);
 
     AvatarImageView *avatarView = [[AvatarImageView alloc] initWithImage:avatarImage];
-    if (!localProfileAvatarImage) {
-        avatarView.tintColor = [UIColor colorWithRGBHex:0x888888];
-    }
     [cell.contentView addSubview:avatarView];
     [avatarView autoVCenterInSuperview];
     [avatarView autoPinLeadingToSuperviewMargin];
-    [avatarView autoSetDimension:ALDimensionWidth toSize:kAvatarSize];
-    [avatarView autoSetDimension:ALDimensionHeight toSize:kAvatarSize];
+    [avatarView autoSetDimension:ALDimensionWidth toSize:kLargeAvatarSize];
+    [avatarView autoSetDimension:ALDimensionHeight toSize:kLargeAvatarSize];
 
     if (!localProfileAvatarImage) {
         UIImage *cameraImage = [UIImage imageNamed:@"settings-avatar-camera"];
@@ -343,7 +336,7 @@
     [subtitleLabel autoPinEdgeToSuperviewEdge:ALEdgeBottom];
 
     UIImage *disclosureImage = [UIImage imageNamed:(CurrentAppContext().isRTL ? @"NavBarBack" : @"NavBarBackRTL")];
-    OWSAssert(disclosureImage);
+    OWSAssertDebug(disclosureImage);
     UIImageView *disclosureButton =
         [[UIImageView alloc] initWithImage:[disclosureImage imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]];
     disclosureButton.tintColor = [UIColor colorWithRGBHex:0xcccccc];

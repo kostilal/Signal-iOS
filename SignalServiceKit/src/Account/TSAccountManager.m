@@ -4,19 +4,18 @@
 
 #import "TSAccountManager.h"
 #import "AppContext.h"
-#import "NSData+Base64.h"
 #import "NSData+OWS.h"
 #import "NSNotificationCenter+OWS.h"
 #import "NSURLSessionDataTask+StatusCode.h"
 #import "OWSError.h"
 #import "OWSPrimaryStorage+SessionStore.h"
 #import "OWSRequestFactory.h"
-#import "SecurityUtils.h"
 #import "TSNetworkManager.h"
 #import "TSPreKeyManager.h"
 #import "TSVerifyCodeRequest.h"
 #import "YapDatabaseConnection+OWS.h"
 #import "YapDatabaseTransaction+OWS.h"
+#import <Curve25519Kit/Randomness.h>
 #import <YapDatabase/YapDatabase.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -38,7 +37,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
 
 @interface TSAccountManager ()
 
-@property (nonatomic, readonly) BOOL isRegistered;
+@property (atomic, readonly) BOOL isRegistered;
 
 // This property is exposed publicly for testing purposes only.
 #ifndef DEBUG
@@ -121,13 +120,13 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
             // Cache this once it's true since it's called alot, involves a dbLookup, and once set - it doesn't change.
             _isRegistered = [self storedLocalNumber] != nil;
         }
+        return _isRegistered;
     }
-    return _isRegistered;
 }
 
 - (void)didRegister
 {
-    DDLogInfo(@"%@ didRegister", self.logTag);
+    OWSLogInfo(@"didRegister");
     NSString *phoneNumber = self.phoneNumberAwaitingVerification;
 
     if (!phoneNumber) { 
@@ -221,7 +220,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
 
         if (registrationID == 0) {
             registrationID = (uint32_t)arc4random_uniform(16380) + 1;
-            DDLogWarn(@"%@ Generated a new registrationID: %u", self.logTag, registrationID);
+            OWSLogWarn(@"Generated a new registrationID: %u", registrationID);
 
             [transaction setObject:[NSNumber numberWithUnsignedInteger:registrationID]
                             forKey:TSAccountManager_LocalRegistrationIdKey
@@ -294,8 +293,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
                                                                                 : TSVerificationTransportVoice)];
     [[TSNetworkManager sharedManager] makeRequest:request
         success:^(NSURLSessionDataTask *task, id responseObject) {
-            DDLogInfo(@"%@ Successfully requested verification code request for number: %@ method:%@",
-                self.logTag,
+            OWSLogInfo(@"Successfully requested verification code request for number: %@ method:%@",
                 phoneNumber,
                 isSMS ? @"SMS" : @"Voice");
             successBlock();
@@ -304,7 +302,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
             if (!IsNSErrorNetworkFailure(error)) {
                 OWSProdError([OWSAnalyticsEvents accountsErrorVerificationCodeRequestFailed]);
             }
-            DDLogError(@"%@ Failed to request verification code request with error:%@", self.logTag, error);
+            OWSLogError(@"Failed to request verification code request with error:%@", error);
             failureBlock(error);
         }];
 }
@@ -314,7 +312,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     TSAccountManager *manager = [self sharedInstance];
     NSString *number          = manager.phoneNumberAwaitingVerification;
 
-    OWSAssert(number);
+    OWSAssertDebug(number);
 
     [self registerWithPhoneNumber:number success:successBlock failure:failureBlock smsVerification:YES];
 }
@@ -324,7 +322,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     TSAccountManager *manager = [self sharedInstance];
     NSString *number          = manager.phoneNumberAwaitingVerification;
 
-    OWSAssert(number);
+    OWSAssertDebug(number);
 
     [self registerWithPhoneNumber:number success:successBlock failure:failureBlock smsVerification:NO];
 }
@@ -335,11 +333,11 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     TSRequest *request = [OWSRequestFactory updateAttributesRequestWithManualMessageFetching:YES];
     [self.networkManager makeRequest:request
         success:^(NSURLSessionDataTask *_Nonnull task, id _Nonnull responseObject) {
-            DDLogInfo(@"%@ updated server with account attributes to enableManualFetching", self.logTag);
+            OWSLogInfo(@"updated server with account attributes to enableManualFetching");
             successBlock();
         }
         failure:^(NSURLSessionDataTask *_Nonnull task, NSError *_Nonnull error) {
-            DDLogInfo(@"%@ failed to updat server with account attributes with error: %@", self.logTag, error);
+            OWSLogInfo(@"failed to updat server with account attributes with error: %@", error);
             failureBlock(error);
         }];
 }
@@ -353,9 +351,9 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     NSString *signalingKey = [[self class] generateNewSignalingKeyToken];
     NSString *phoneNumber = self.phoneNumberAwaitingVerification;
 
-    OWSAssert(signalingKey);
-    OWSAssert(authToken);
-    OWSAssert(phoneNumber);
+    OWSAssertDebug(signalingKey);
+    OWSAssertDebug(authToken);
+    OWSAssertDebug(phoneNumber);
 
     TSVerifyCodeRequest *request = [[TSVerifyCodeRequest alloc] initWithVerificationCode:verificationCode
                                                                                forNumber:phoneNumber
@@ -371,15 +369,13 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
             switch (statuscode) {
                 case 200:
                 case 204: {
-                    DDLogInfo(@"%@ Verification code accepted.", self.logTag);
+                    OWSLogInfo(@"Verification code accepted.");
                     [self storeServerAuthToken:authToken signalingKey:signalingKey];
-                    [TSPreKeyManager registerPreKeysWithMode:RefreshPreKeysMode_SignedAndOneTime
-                                                     success:successBlock
-                                                     failure:failureBlock];
+                    [TSPreKeyManager createPreKeysWithSuccess:successBlock failure:failureBlock];
                     break;
                 }
                 default: {
-                    DDLogError(@"%@ Unexpected status while verifying code: %ld", self.logTag, statuscode);
+                    OWSLogError(@"Unexpected status while verifying code: %ld", statuscode);
                     NSError *error = OWSErrorMakeUnableToProcessServerResponseError();
                     failureBlock(error);
                     break;
@@ -390,9 +386,9 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
             if (!IsNSErrorNetworkFailure(error)) {
                 OWSProdError([OWSAnalyticsEvents accountsErrorVerifyAccountRequestFailed]);
             }
-            OWSAssert([error.domain isEqualToString:TSNetworkManagerDomain]);
+            OWSAssertDebug([error.domain isEqualToString:TSNetworkManagerDomain]);
 
-            DDLogWarn(@"%@ Error verifying code: %@", self.logTag, error.debugDescription);
+            OWSLogWarn(@"Error verifying code: %@", error.debugDescription);
 
             switch (error.code) {
                 case 403: {
@@ -414,14 +410,14 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
                 case 423: {
                     NSString *localizedMessage = NSLocalizedString(@"REGISTRATION_VERIFICATION_FAILED_WRONG_PIN",
                         "Error message indicating that registration failed due to a missing or incorrect 2FA PIN.");
-                    DDLogError(@"%@ 2FA PIN required: %ld", self.logTag, (long)error.code);
+                    OWSLogError(@"2FA PIN required: %ld", (long)error.code);
                     NSError *error
                         = OWSErrorWithCodeDescription(OWSErrorCodeRegistrationMissing2FAPIN, localizedMessage);
                     failureBlock(error);
                     break;
                 }
                 default: {
-                    DDLogError(@"%@ verifying code failed with unknown error: %@", self.logTag, error);
+                    OWSLogError(@"verifying code failed with unknown error: %@", error);
                     failureBlock(error);
                     break;
                 }
@@ -432,7 +428,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
 #pragma mark Server keying material
 
 + (NSString *)generateNewAccountAuthenticationToken {
-    NSData *authToken        = [SecurityUtils generateRandomBytes:16];
+    NSData *authToken = [Randomness generateRandomBytes:16];
     NSString *authTokenPrint = [[NSData dataWithData:authToken] hexadecimalString];
     return authTokenPrint;
 }
@@ -441,7 +437,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     /*The signalingKey is 32 bytes of AES material (256bit AES) and 20 bytes of
      * Hmac key material (HmacSHA1) concatenated into a 52 byte slug that is
      * base64 encoded. */
-    NSData *signalingKeyToken        = [SecurityUtils generateRandomBytes:52];
+    NSData *signalingKeyToken = [Randomness generateRandomBytes:52];
     NSString *signalingKeyTokenPrint = [[NSData dataWithData:signalingKeyToken] base64EncodedString];
     return signalingKeyTokenPrint;
 }
@@ -486,7 +482,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     TSRequest *request = [OWSRequestFactory unregisterAccountRequest];
     [[TSNetworkManager sharedManager] makeRequest:request
         success:^(NSURLSessionDataTask *task, id responseObject) {
-            DDLogInfo(@"%@ Successfully unregistered", self.logTag);
+            OWSLogInfo(@"Successfully unregistered");
             success();
 
             // This is called from `[AppSettingsViewController proceedToUnregistration]` whose
@@ -503,7 +499,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
             if (!IsNSErrorNetworkFailure(error)) {
                 OWSProdError([OWSAnalyticsEvents accountsErrorUnregisterAccountRequestFailed]);
             }
-            DDLogError(@"%@ Failed to unregister with error: %@", self.logTag, error);
+            OWSLogError(@"Failed to unregister with error: %@", error);
             failureBlock(error);
         }];
 }
@@ -512,7 +508,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
 {
     OWSAssertIsOnMainThread();
 
-    DDLogVerbose(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogVerbose(@"");
 
     // Any database write by the main app might reflect a deregistration,
     // so clear the cached "is registered" state.  This will significantly
@@ -535,7 +531,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
                                                            defaultValue:NO]);
         }
 
-        OWSAssert(self.cachedIsDeregistered);
+        OWSAssertDebug(self.cachedIsDeregistered);
         return self.cachedIsDeregistered.boolValue;
     }
 }
@@ -547,7 +543,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
             return;
         }
 
-        DDLogWarn(@"%@ isDeregistered: %d", self.logTag, isDeregistered);
+        OWSLogWarn(@"isDeregistered: %d", isDeregistered);
 
         self.cachedIsDeregistered = @(isDeregistered);
     }
@@ -570,7 +566,7 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
     @synchronized(self) {
         NSString *_Nullable localNumber = self.localNumber;
         if (!localNumber) {
-            OWSFail(@"%@ can't re-register without valid local number.", self.logTag);
+            OWSFailDebug(@"can't re-register without valid local number.");
             return NO;
         }
 
@@ -593,11 +589,11 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
 
 - (NSString *)reregisterationPhoneNumber
 {
-    OWSAssert([self isReregistering]);
+    OWSAssertDebug([self isReregistering]);
 
     NSString *_Nullable result = [self.dbConnection stringForKey:TSAccountManager_ReregisteringPhoneNumberKey
                                                     inCollection:TSAccountManager_UserAccountCollection];
-    OWSAssert(result);
+    OWSAssertDebug(result);
     return result;
 }
 

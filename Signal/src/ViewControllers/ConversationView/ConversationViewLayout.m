@@ -10,8 +10,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface ConversationViewLayout ()
 
-@property (nonatomic, readonly) YapDatabaseConnection *uiDatabaseConnection;
-
 @property (nonatomic) CGSize contentSize;
 
 @property (nonatomic, readonly) NSMutableDictionary<NSNumber *, UICollectionViewLayoutAttributes *> *itemAttributesMap;
@@ -31,12 +29,10 @@ NS_ASSUME_NONNULL_BEGIN
 @implementation ConversationViewLayout
 
 - (instancetype)initWithConversationStyle:(ConversationStyle *)conversationStyle
-                     uiDatabaseConnection:(YapDatabaseConnection *)uiDatabaseConnection
 {
     if (self = [super init]) {
         _itemAttributesMap = [NSMutableDictionary new];
         _conversationStyle = conversationStyle;
-        _uiDatabaseConnection = uiDatabaseConnection;
     }
 
     return self;
@@ -78,14 +74,13 @@ NS_ASSUME_NONNULL_BEGIN
 
     id<ConversationViewLayoutDelegate> delegate = self.delegate;
     if (!delegate) {
-        OWSFail(@"%@ Missing delegate", self.logTag);
+        OWSFailDebug(@"Missing delegate");
         [self clearState];
         return;
     }
 
     if (self.collectionView.bounds.size.width <= 0.f || self.collectionView.bounds.size.height <= 0.f) {
-        OWSFail(
-            @"%@ Collection view has invalid size: %@", self.logTag, NSStringFromCGRect(self.collectionView.bounds));
+        OWSFailDebug(@"Collection view has invalid size: %@", NSStringFromCGRect(self.collectionView.bounds));
         [self clearState];
         return;
     }
@@ -96,17 +91,13 @@ NS_ASSUME_NONNULL_BEGIN
     self.hasLayout = YES;
 
     // TODO: Remove this log statement after we've reduced the invalidation churn.
-    DDLogVerbose(@"%@ prepareLayout", self.logTag);
+    OWSLogVerbose(@"prepareLayout");
 
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        [self prepareLayoutWithTransaction:transaction];
-    }];
+    [self prepareLayoutOfItems];
 }
 
-- (void)prepareLayoutWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (void)prepareLayoutOfItems
 {
-    OWSAssert(transaction);
-
     const CGFloat viewWidth = self.conversationStyle.viewWidth;
 
     NSArray<id<ConversationViewLayoutItem>> *layoutItems = self.delegate.layoutItems;
@@ -121,10 +112,10 @@ NS_ASSUME_NONNULL_BEGIN
             y += [layoutItem vSpacingWithPreviousLayoutItem:previousLayoutItem];
         }
 
-        CGSize layoutSize = CGSizeCeil([layoutItem cellSizeWithTransaction:transaction]);
+        CGSize layoutSize = CGSizeCeil([layoutItem cellSize]);
 
         // Ensure cell fits within view.
-        OWSAssert(layoutSize.width <= viewWidth);
+        OWSAssertDebug(layoutSize.width <= viewWidth);
         layoutSize.width = MIN(viewWidth, layoutSize.width);
 
         // All cells are "full width" and are responsible for aligning their own content.

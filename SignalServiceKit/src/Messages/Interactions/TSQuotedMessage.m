@@ -3,7 +3,6 @@
 //
 
 #import "TSQuotedMessage.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import "TSAccountManager.h"
 #import "TSAttachment.h"
 #import "TSAttachmentPointer.h"
@@ -12,6 +11,7 @@
 #import "TSInteraction.h"
 #import "TSOutgoingMessage.h"
 #import "TSThread.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 #import <YapDatabase/YapDatabaseTransaction.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -20,9 +20,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithAttachmentStream:(TSAttachmentStream *)attachmentStream;
 {
-    OWSAssert([attachmentStream isKindOfClass:[TSAttachmentStream class]]);
-    OWSAssert(attachmentStream.uniqueId);
-    OWSAssert(attachmentStream.contentType);
+    OWSAssertDebug([attachmentStream isKindOfClass:[TSAttachmentStream class]]);
+    OWSAssertDebug(attachmentStream.uniqueId);
+    OWSAssertDebug(attachmentStream.contentType);
 
     return [self initWithAttachmentId:attachmentStream.uniqueId
                           contentType:attachmentStream.contentType
@@ -59,10 +59,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithTimestamp:(uint64_t)timestamp
                          authorId:(NSString *)authorId
                              body:(NSString *_Nullable)body
+                       bodySource:(TSQuotedMessageContentSource)bodySource
     receivedQuotedAttachmentInfos:(NSArray<OWSAttachmentInfo *> *)attachmentInfos
 {
-    OWSAssert(timestamp > 0);
-    OWSAssert(authorId.length > 0);
+    OWSAssertDebug(timestamp > 0);
+    OWSAssertDebug(authorId.length > 0);
 
     self = [super init];
     if (!self) {
@@ -72,6 +73,7 @@ NS_ASSUME_NONNULL_BEGIN
     _timestamp = timestamp;
     _authorId = authorId;
     _body = body;
+    _bodySource = bodySource;
     _quotedAttachments = attachmentInfos;
 
     return self;
@@ -82,8 +84,8 @@ NS_ASSUME_NONNULL_BEGIN
                              body:(NSString *_Nullable)body
       quotedAttachmentsForSending:(NSArray<TSAttachmentStream *> *)attachments
 {
-    OWSAssert(timestamp > 0);
-    OWSAssert(authorId.length > 0);
+    OWSAssertDebug(timestamp > 0);
+    OWSAssertDebug(authorId.length > 0);
 
     self = [super init];
     if (!self) {
@@ -93,7 +95,8 @@ NS_ASSUME_NONNULL_BEGIN
     _timestamp = timestamp;
     _authorId = authorId;
     _body = body;
-    
+    _bodySource = TSQuotedMessageContentSourceLocal;
+
     NSMutableArray *attachmentInfos = [NSMutableArray new];
     for (TSAttachmentStream *attachmentStream in attachments) {
         [attachmentInfos addObject:[[OWSAttachmentInfo alloc] initWithAttachmentStream:attachmentStream]];
@@ -103,41 +106,60 @@ NS_ASSUME_NONNULL_BEGIN
     return self;
 }
 
-+ (TSQuotedMessage *_Nullable)quotedMessageForDataMessage:(OWSSignalServiceProtosDataMessage *)dataMessage
++ (TSQuotedMessage *_Nullable)quotedMessageForDataMessage:(SSKProtoDataMessage *)dataMessage
                                                    thread:(TSThread *)thread
                                               transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(dataMessage);
+    OWSAssertDebug(dataMessage);
 
-    if (!dataMessage.hasQuote) {
+    if (!dataMessage.quote) {
         return nil;
     }
 
-    OWSSignalServiceProtosDataMessageQuote *quoteProto = [dataMessage quote];
+    SSKProtoDataMessageQuote *quoteProto = [dataMessage quote];
 
-    if (![quoteProto hasId] || [quoteProto id] == 0) {
-        OWSFail(@"%@ quoted message missing id", self.logTag);
+    if (quoteProto.id == 0) {
+        OWSFailDebug(@"quoted message missing id");
         return nil;
     }
     uint64_t timestamp = [quoteProto id];
 
-    if (![quoteProto hasAuthor] || [quoteProto author].length == 0) {
-        OWSFail(@"%@ quoted message missing author", self.logTag);
+    if (quoteProto.author.length == 0) {
+        OWSFailDebug(@"quoted message missing author");
         return nil;
     }
     // TODO: We could verify that this is a valid e164 value.
     NSString *authorId = [quoteProto author];
 
     NSString *_Nullable body = nil;
-    BOOL hasText = NO;
     BOOL hasAttachment = NO;
-    if ([quoteProto hasText] && [quoteProto text].length > 0) {
-        body = [quoteProto text];
-        hasText = YES;
+    TSQuotedMessageContentSource bodySource = TSQuotedMessageContentSourceUnknown;
+
+    // Prefer to generate the text snippet locally if available.
+    TSMessage *_Nullable localRecord = (TSMessage *)[
+        [TSInteraction interactionsWithTimestamp:quoteProto.id ofClass:TSMessage.class withTransaction:transaction]
+        firstObject];
+
+    if (localRecord) {
+        bodySource = TSQuotedMessageContentSourceLocal;
+
+        NSString *localText = [localRecord bodyTextWithTransaction:transaction];
+        if (localText.length > 0) {
+            body = localText;
+        }
     }
 
+    if (body.length == 0) {
+        if (quoteProto.text.length > 0) {
+            bodySource = TSQuotedMessageContentSourceRemote;
+            body = quoteProto.text;
+        }
+    }
+
+    OWSAssertDebug(bodySource != TSQuotedMessageContentSourceUnknown);
+
     NSMutableArray<OWSAttachmentInfo *> *attachmentInfos = [NSMutableArray new];
-    for (OWSSignalServiceProtosDataMessageQuoteQuotedAttachment *quotedAttachment in quoteProto.attachments) {
+    for (SSKProtoDataMessageQuoteQuotedAttachment *quotedAttachment in quoteProto.attachments) {
         hasAttachment = YES;
         OWSAttachmentInfo *attachmentInfo = [[OWSAttachmentInfo alloc] initWithAttachmentId:nil
                                                                                 contentType:quotedAttachment.contentType
@@ -152,42 +174,44 @@ NS_ASSUME_NONNULL_BEGIN
                                                   transaction:transaction];
 
         if (thumbnailStream) {
-            DDLogDebug(@"%@ Generated local thumbnail for quoted quoted message: %@:%lu",
-                self.logTag,
+            OWSLogDebug(@"Generated local thumbnail for quoted quoted message: %@:%lu",
                 thread.uniqueId,
                 (unsigned long)timestamp);
 
             [thumbnailStream saveWithTransaction:transaction];
 
             attachmentInfo.thumbnailAttachmentStreamId = thumbnailStream.uniqueId;
-        } else if (quotedAttachment.hasThumbnail) {
-            DDLogDebug(@"%@ Saving reference for fetching remote thumbnail for quoted message: %@:%lu",
-                self.logTag,
+        } else if (quotedAttachment.thumbnail) {
+            OWSLogDebug(@"Saving reference for fetching remote thumbnail for quoted message: %@:%lu",
                 thread.uniqueId,
                 (unsigned long)timestamp);
 
-            OWSSignalServiceProtosAttachmentPointer *thumbnailAttachmentProto = quotedAttachment.thumbnail;
-            TSAttachmentPointer *thumbnailPointer =
+            SSKProtoAttachmentPointer *thumbnailAttachmentProto = quotedAttachment.thumbnail;
+            TSAttachmentPointer *_Nullable thumbnailPointer =
                 [TSAttachmentPointer attachmentPointerFromProto:thumbnailAttachmentProto];
-            [thumbnailPointer saveWithTransaction:transaction];
+            if (thumbnailPointer) {
+                [thumbnailPointer saveWithTransaction:transaction];
 
-            attachmentInfo.thumbnailAttachmentPointerId = thumbnailPointer.uniqueId;
+                attachmentInfo.thumbnailAttachmentPointerId = thumbnailPointer.uniqueId;
+            } else {
+                OWSFailDebug(@"Invalid thumbnail attachment.");
+            }
         } else {
-            DDLogDebug(
-                @"%@ No thumbnail for quoted message: %@:%lu", self.logTag, thread.uniqueId, (unsigned long)timestamp);
+            OWSLogDebug(@"No thumbnail for quoted message: %@:%lu", thread.uniqueId, (unsigned long)timestamp);
         }
 
         [attachmentInfos addObject:attachmentInfo];
     }
 
-    if (!hasText && !hasAttachment) {
-        OWSFail(@"%@ quoted message has neither text nor attachment", self.logTag);
+    if (body.length == 0 && !hasAttachment) {
+        OWSFailDebug(@"quoted message has neither text nor attachment");
         return nil;
     }
 
     return [[TSQuotedMessage alloc] initWithTimestamp:timestamp
                                              authorId:authorId
                                                  body:body
+                                           bodySource:bodySource
                         receivedQuotedAttachmentInfos:attachmentInfos];
 }
 
@@ -248,7 +272,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable OWSAttachmentInfo *)firstAttachmentInfo
 {
-    OWSAssert(self.quotedAttachments.count <= 1);
+    OWSAssertDebug(self.quotedAttachments.count <= 1);
     return self.quotedAttachments.firstObject;
 }
 
@@ -282,8 +306,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)setThumbnailAttachmentStream:(TSAttachmentStream *)attachmentStream
 {
-    OWSAssert([attachmentStream isKindOfClass:[TSAttachmentStream class]]);
-    OWSAssert(self.quotedAttachments.count == 1);
+    OWSAssertDebug([attachmentStream isKindOfClass:[TSAttachmentStream class]]);
+    OWSAssertDebug(self.quotedAttachments.count == 1);
 
     OWSAttachmentInfo *firstAttachment = self.firstAttachmentInfo;
     firstAttachment.thumbnailAttachmentStreamId = attachmentStream.uniqueId;
@@ -309,7 +333,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     for (OWSAttachmentInfo *info in self.quotedAttachments) {
 
-        OWSAssert(info.attachmentId);
+        OWSAssertDebug(info.attachmentId);
         TSAttachment *attachment = [TSAttachment fetchObjectWithUniqueID:info.attachmentId transaction:transaction];
         if (![attachment isKindOfClass:[TSAttachmentStream class]]) {
             continue;

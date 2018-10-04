@@ -16,11 +16,11 @@ class ConversationConfigurationSyncOperation: OWSOperation {
     }
 
     private var messageSender: MessageSender {
-        return Environment.current().messageSender
+        return SSKEnvironment.shared.messageSender
     }
 
     private var contactsManager: OWSContactsManager {
-        return Environment.current().contactsManager
+        return Environment.shared.contactsManager
     }
 
     private var profileManager: OWSProfileManager {
@@ -64,9 +64,12 @@ class ConversationConfigurationSyncOperation: OWSOperation {
                                                                                  identityManager: self.identityManager,
                                                                                  profileManager: self.profileManager)
 
-        var dataSource: DataSource? = nil
+        var dataSource: DataSource?
         self.dbConnection.readWrite { transaction in
-            let messageData: Data = syncMessage.buildPlainTextAttachmentData(with: transaction)
+            guard let messageData: Data = syncMessage.buildPlainTextAttachmentData(with: transaction) else {
+                owsFailDebug("could not serialize sync contacts data")
+                return
+            }
             dataSource = DataSourceValue.dataSource(withSyncMessageData: messageData)
         }
 
@@ -85,9 +88,12 @@ class ConversationConfigurationSyncOperation: OWSOperation {
         // What does Android do?
         let syncMessage: OWSSyncGroupsMessage = OWSSyncGroupsMessage()
 
-        var dataSource: DataSource? = nil
+        var dataSource: DataSource?
         self.dbConnection.read { transaction in
-            let messageData: Data = syncMessage.buildPlainTextAttachmentData(with: transaction)
+            guard let messageData: Data = syncMessage.buildPlainTextAttachmentData(with: transaction) else {
+                owsFailDebug("could not serialize sync groups data")
+                return
+            }
             dataSource = DataSourceValue.dataSource(withSyncMessageData: messageData)
         }
 

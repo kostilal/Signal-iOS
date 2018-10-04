@@ -3,14 +3,15 @@
 //
 
 #import "OWSAsserts.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-void SwiftAssertIsOnMainThread(NSString *functionName)
+void SwiftExit(NSString *message, const char *file, const char *function, int line)
 {
-    if (![NSThread isMainThread]) {
-        OWSCFail(@"%@ not on main thread", functionName);
-    }
+    NSString *_file = [NSString stringWithFormat:@"%s", file];
+    NSString *_function = [NSString stringWithFormat:@"%s", function];
+    [OWSSwiftUtils owsFail:message file:_file function:_function line:line];
 }
 
 NS_ASSUME_NONNULL_END

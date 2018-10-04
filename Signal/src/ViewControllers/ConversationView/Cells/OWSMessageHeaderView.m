@@ -40,7 +40,7 @@ const CGFloat OWSMessageHeaderViewDateHeaderVMargin = 23;
 
 - (void)commontInit
 {
-    OWSAssert(!self.titleLabel);
+    OWSAssertDebug(!self.titleLabel);
 
     self.layoutMargins = UIEdgeInsetsZero;
     self.layoutConstraints = @[];
@@ -72,12 +72,12 @@ const CGFloat OWSMessageHeaderViewDateHeaderVMargin = 23;
     [self addSubview:self.stackView];
 }
 
-- (void)loadForDisplayWithViewItem:(ConversationViewItem *)viewItem
+- (void)loadForDisplayWithViewItem:(id<ConversationViewItem>)viewItem
                  conversationStyle:(ConversationStyle *)conversationStyle
 {
-    OWSAssert(viewItem);
-    OWSAssert(conversationStyle);
-    OWSAssert(viewItem.unreadIndicator || viewItem.shouldShowDate);
+    OWSAssertDebug(viewItem);
+    OWSAssertDebug(conversationStyle);
+    OWSAssertDebug(viewItem.unreadIndicator || viewItem.shouldShowDate);
 
     self.titleLabel.textColor = Theme.primaryColor;
     self.subtitleLabel.textColor = Theme.primaryColor;
@@ -100,9 +100,9 @@ const CGFloat OWSMessageHeaderViewDateHeaderVMargin = 23;
     ];
 }
 
-- (CGFloat)strokeThicknessWithViewItem:(ConversationViewItem *)viewItem
+- (CGFloat)strokeThicknessWithViewItem:(id<ConversationViewItem>)viewItem
 {
-    OWSAssert(viewItem);
+    OWSAssertDebug(viewItem);
 
     if (viewItem.unreadIndicator) {
         return 4.f;
@@ -111,20 +111,20 @@ const CGFloat OWSMessageHeaderViewDateHeaderVMargin = 23;
     }
 }
 
-- (UIColor *)strokeColorWithViewItem:(ConversationViewItem *)viewItem
+- (UIColor *)strokeColorWithViewItem:(id<ConversationViewItem>)viewItem
 {
-    OWSAssert(viewItem);
+    OWSAssertDebug(viewItem);
 
     if (viewItem.unreadIndicator) {
-        return (Theme.isDarkThemeEnabled ? UIColor.ows_dark60Color : UIColor.ows_light60Color);
+        return Theme.secondaryColor;
     } else {
-        return (Theme.isDarkThemeEnabled ? UIColor.ows_dark30Color : UIColor.ows_light45Color);
+        return Theme.hairlineColor;
     }
 }
 
-- (void)configureLabelsWithViewItem:(ConversationViewItem *)viewItem
+- (void)configureLabelsWithViewItem:(id<ConversationViewItem>)viewItem
 {
-    OWSAssert(viewItem);
+    OWSAssertDebug(viewItem);
 
     NSDate *date = viewItem.interaction.dateForSorting;
     NSString *dateString = [DateUtil formatDateForConversationDateBreaks:date].localizedUppercaseString;
@@ -158,12 +158,12 @@ const CGFloat OWSMessageHeaderViewDateHeaderVMargin = 23;
     }
 }
 
-- (CGSize)measureWithConversationViewItem:(ConversationViewItem *)viewItem
+- (CGSize)measureWithConversationViewItem:(id<ConversationViewItem>)viewItem
                         conversationStyle:(ConversationStyle *)conversationStyle
 {
-    OWSAssert(viewItem);
-    OWSAssert(conversationStyle);
-    OWSAssert(viewItem.unreadIndicator || viewItem.shouldShowDate);
+    OWSAssertDebug(viewItem);
+    OWSAssertDebug(conversationStyle);
+    OWSAssertDebug(viewItem.unreadIndicator || viewItem.shouldShowDate);
 
     [self configureLabelsWithViewItem:viewItem];
 

@@ -4,8 +4,8 @@
 
 #import "OWSReadReceiptsForSenderMessage.h"
 #import "NSDate+OWS.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import "SignalRecipient.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -28,7 +28,7 @@ NS_ASSUME_NONNULL_BEGIN
                                   expiresInSeconds:0
                                    expireStartedAt:0
                                     isVoiceMessage:NO
-                                  groupMetaMessage:TSGroupMessageUnspecified
+                                  groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil];
     if (!self) {
@@ -54,26 +54,45 @@ NS_ASSUME_NONNULL_BEGIN
     return YES;
 }
 
-- (NSData *)buildPlainTextData:(SignalRecipient *)recipient
+- (nullable NSData *)buildPlainTextData:(SignalRecipient *)recipient
 {
-    OWSAssert(recipient);
+    OWSAssertDebug(recipient);
 
-    OWSSignalServiceProtosContentBuilder *contentBuilder = [OWSSignalServiceProtosContentBuilder new];
-    [contentBuilder setReceiptMessage:[self buildReceiptMessage:recipient.recipientId]];
-    return [[contentBuilder build] data];
+    SSKProtoReceiptMessage *_Nullable receiptMessage = [self buildReceiptMessage:recipient.recipientId];
+    if (!receiptMessage) {
+        OWSFailDebug(@"could not build protobuf.");
+        return nil;
+    }
+
+    SSKProtoContentBuilder *contentBuilder = [SSKProtoContentBuilder new];
+    [contentBuilder setReceiptMessage:receiptMessage];
+
+    NSError *error;
+    NSData *_Nullable contentData = [contentBuilder buildSerializedDataAndReturnError:&error];
+    if (error || !contentData) {
+        OWSFailDebug(@"could not serialize protobuf: %@", error);
+        return nil;
+    }
+    return contentData;
 }
 
-- (OWSSignalServiceProtosReceiptMessage *)buildReceiptMessage:(NSString *)recipientId
+- (nullable SSKProtoReceiptMessage *)buildReceiptMessage:(NSString *)recipientId
 {
-    OWSSignalServiceProtosReceiptMessageBuilder *builder = [OWSSignalServiceProtosReceiptMessageBuilder new];
+    SSKProtoReceiptMessageBuilder *builder = [SSKProtoReceiptMessageBuilder new];
+    [builder setType:SSKProtoReceiptMessageTypeRead];
 
-    [builder setType:OWSSignalServiceProtosReceiptMessageTypeRead];
-    OWSAssert(self.messageTimestamps.count > 0);
+    OWSAssertDebug(self.messageTimestamps.count > 0);
     for (NSNumber *messageTimestamp in self.messageTimestamps) {
         [builder addTimestamp:[messageTimestamp unsignedLongLongValue]];
     }
 
-    return [builder build];
+    NSError *error;
+    SSKProtoReceiptMessage *_Nullable receiptMessage = [builder buildAndReturnError:&error];
+    if (error || !receiptMessage) {
+        OWSFailDebug(@"could not build protobuf: %@", error);
+        return nil;
+    }
+    return receiptMessage;
 }
 
 #pragma mark - TSYapDatabaseObject overrides

@@ -54,14 +54,14 @@ NS_ASSUME_NONNULL_BEGIN
                 if ([subview isKindOfClass:[MTKView class]]) {
                     [subview autoPinEdgesToSuperviewEdges];
                 } else {
-                    OWSFail(@"New subviews added to MTLVideoView. Reconsider this hack.");
+                    OWSFailDebug(@"New subviews added to MTLVideoView. Reconsider this hack.");
                 }
             }
         }
     }
 #elif defined(__arm64__)
     // Canary incase the upstream RTC_SUPPORTS_METAL macro changes semantics
-    OWSFail(@"should only use legacy video view on 32bit systems");
+    OWSFailDebug(@"should only use legacy video view on 32bit systems");
 #endif
 
     // On 32-bit iOS9+ systems, use the legacy EAGL backed view.
@@ -95,26 +95,25 @@ NS_ASSUME_NONNULL_BEGIN
 {
     OWSAssertIsOnMainThread();
     if (remoteVideoSize.height <= 0) {
-        OWSFail(@"Illegal video height: %f", remoteVideoSize.height);
+        OWSFailDebug(@"Illegal video height: %f", remoteVideoSize.height);
         return;
     }
 
     CGFloat aspectRatio = remoteVideoSize.width / remoteVideoSize.height;
 
-    DDLogVerbose(@"%@ Remote video size: width: %f height: %f ratio: %f",
-        self.logTag,
+    OWSLogVerbose(@"Remote video size: width: %f height: %f ratio: %f",
         remoteVideoSize.width,
         remoteVideoSize.height,
         aspectRatio);
 
     UIView *containingView = self.superview;
     if (containingView == nil) {
-        DDLogDebug(@"%@ Cannot layout video view without superview", self.logTag);
+        OWSLogDebug(@"Cannot layout video view without superview");
         return;
     }
 
     if (![self.videoRenderer isKindOfClass:[RTCEAGLVideoView class]]) {
-        OWSFail(@"%@ Unexpected video renderer: %@", self.logTag, self.videoRenderer);
+        OWSFailDebug(@"Unexpected video renderer: %@", self.videoRenderer);
         return;
     }
 

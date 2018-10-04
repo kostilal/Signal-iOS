@@ -7,23 +7,22 @@ import SignalServiceKit
 
 @objc class GroupTableViewCell: UITableViewCell {
 
-    let TAG = "[GroupTableViewCell]"
-
     private let avatarView = AvatarImageView()
     private let nameLabel = UILabel()
     private let subtitleLabel = UILabel()
 
     init() {
-        super.init(style: .default, reuseIdentifier: TAG)
+        super.init(style: .default, reuseIdentifier: GroupTableViewCell.logTag())
 
         // Font config
         nameLabel.font = .ows_dynamicTypeBody
+        nameLabel.textColor = Theme.primaryColor
         subtitleLabel.font = UIFont.ows_regularFont(withSize: 11.0)
-        subtitleLabel.textColor = UIColor.ows_darkGray
+        subtitleLabel.textColor = Theme.secondaryColor
 
         // Layout
 
-        avatarView.autoSetDimension(.width, toSize: CGFloat(kContactCellAvatarSize))
+        avatarView.autoSetDimension(.width, toSize: CGFloat(kStandardAvatarSize))
         avatarView.autoPinToSquareAspectRatio()
 
         let textRows = UIStackView(arrangedSubviews: [nameLabel, subtitleLabel])
@@ -40,11 +39,13 @@ import SignalServiceKit
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     @objc
     public func configure(thread: TSGroupThread, contactsManager: OWSContactsManager) {
+        OWSTableItem.configureCell(self)
+
         if let groupName = thread.groupModel.groupName, !groupName.isEmpty {
             self.nameLabel.text = groupName
         } else {
@@ -57,7 +58,7 @@ import SignalServiceKit
         }.joined(separator: ", ")
         self.subtitleLabel.text = groupMemberNames
 
-        self.avatarView.image = OWSAvatarBuilder.buildImage(thread: thread, diameter: kContactCellAvatarSize, contactsManager: contactsManager)
+        self.avatarView.image = OWSAvatarBuilder.buildImage(thread: thread, diameter: kStandardAvatarSize)
     }
 
 }

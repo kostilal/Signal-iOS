@@ -82,12 +82,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (CGFloat)iconHeight
 {
-    return 48.f;
+    return kStandardAvatarSize;
 }
 
 - (void)createContentsWithConversationStyle:(ConversationStyle *)conversationStyle
 {
-    OWSAssert(conversationStyle);
+    OWSAssertDebug(conversationStyle);
 
     self.axis = UILayoutConstraintAxisHorizontal;
     self.alignment = UIStackViewAlignmentCenter;
@@ -97,9 +97,9 @@ NS_ASSUME_NONNULL_BEGIN
 
     // attachment_file
     UIImage *image = [UIImage imageNamed:@"generic-attachment"];
-    OWSAssert(image);
-    OWSAssert(image.size.width == self.iconWidth);
-    OWSAssert(image.size.height == self.iconHeight);
+    OWSAssertDebug(image);
+    OWSAssertDebug(image.size.width == self.iconWidth);
+    OWSAssertDebug(image.size.height == self.iconHeight);
     UIImageView *imageView = [UIImageView new];
     imageView.image = image;
     [self addArrangedSubview:imageView];
@@ -107,7 +107,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSString *filename = self.attachmentStream.sourceFilename;
     if (!filename) {
-        filename = [[self.attachmentStream filePath] lastPathComponent];
+        filename = [[self.attachmentStream originalFilePath] lastPathComponent];
     }
     NSString *fileExtension = filename.pathExtension;
     if (fileExtension.length < 1) {
@@ -116,7 +116,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     UILabel *fileTypeLabel = [UILabel new];
     fileTypeLabel.text = fileExtension.localizedUppercaseString;
-    fileTypeLabel.textColor = [UIColor ows_light90Color];
+    fileTypeLabel.textColor = [UIColor ows_gray90Color];
     fileTypeLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     fileTypeLabel.font = [UIFont ows_dynamicTypeCaption1Font].ows_mediumWeight;
     fileTypeLabel.adjustsFontSizeToFitWidth = YES;
@@ -149,8 +149,9 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSError *error;
     unsigned long long fileSize =
-        [[NSFileManager defaultManager] attributesOfItemAtPath:[self.attachmentStream filePath] error:&error].fileSize;
-    OWSAssert(!error);
+        [[NSFileManager defaultManager] attributesOfItemAtPath:[self.attachmentStream originalFilePath] error:&error]
+            .fileSize;
+    OWSAssertDebug(!error);
     NSString *bottomText = [OWSFormat formatFileSize:fileSize];
     UILabel *bottomLabel = [UILabel new];
     self.bottomLabel = bottomLabel;

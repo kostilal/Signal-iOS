@@ -7,9 +7,9 @@
 #import "NSString+SSK.h"
 #import "OWSPrimaryStorage.h"
 #import "PhoneNumber.h"
+#import "SSKEnvironment.h"
 #import "SignalRecipient.h"
 #import "TSAccountManager.h"
-#import "TextSecureKitEnv.h"
 
 @import Contacts;
 
@@ -108,11 +108,10 @@ NS_ASSUME_NONNULL_BEGIN
     if (avatarData) {
         NSUInteger hashValue = 0;
         NSData *_Nullable hashData = [Cryptography computeSHA256Digest:avatarData truncatedToBytes:sizeof(hashValue)];
-        if (hashData) {
-            [hashData getBytes:&hashValue length:sizeof(hashValue)];
-        } else {
-            OWSProdLogAndFail(@"%@ could not compute hash for avatar.", self.logTag);
+        if (!hashData) {
+            OWSFailDebug(@"could not compute hash for avatar.");
         }
+        [hashData getBytes:&hashValue length:sizeof(hashValue)];
         _imageHash = hashValue;
     } else {
         _imageHash = 0;
@@ -131,6 +130,7 @@ NS_ASSUME_NONNULL_BEGIN
     CNContact *_Nullable cnContact = [self cnContactWithVCardData:data];
 
     if (!cnContact) {
+        OWSLogError(@"Could not parse vcard data.");
         return nil;
     }
 
@@ -143,7 +143,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                     phoneNumberNameMap:(nullable NSDictionary<NSString *, NSString *> *)
                                                                            phoneNumberNameMap
 {
-    OWSAssert(self.phoneNumberNameMap);
+    OWSAssertDebug(self.phoneNumberNameMap);
 
     NSMutableDictionary<NSString *, PhoneNumber *> *parsedPhoneNumberMap = [NSMutableDictionary new];
     NSMutableArray<PhoneNumber *> *parsedPhoneNumbers = [NSMutableArray new];
@@ -255,11 +255,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSString *)nameForPhoneNumber:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
-    OWSAssert([self.textSecureIdentifiers containsObject:recipientId]);
+    OWSAssertDebug(recipientId.length > 0);
+    OWSAssertDebug([self.textSecureIdentifiers containsObject:recipientId]);
 
     NSString *value = self.phoneNumberNameMap[recipientId];
-    OWSAssert(value);
+    OWSAssertDebug(value);
     if (!value) {
         return NSLocalizedString(@"PHONE_NUMBER_TYPE_UNKNOWN",
             @"Label used when we don't what kind of phone number it is (e.g. mobile/work/home).");
@@ -305,34 +305,34 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (nullable CNContact *)cnContactWithVCardData:(NSData *)data
 {
-    OWSAssert(data);
+    OWSAssertDebug(data);
 
     NSError *error;
     NSArray<CNContact *> *_Nullable contacts = [CNContactVCardSerialization contactsWithData:data error:&error];
     if (!contacts || error) {
-        OWSProdLogAndFail(@"%@ could not parse vcard: %@", self.logTag, error);
+        OWSFailDebug(@"could not parse vcard: %@", error);
         return nil;
     }
     if (contacts.count < 1) {
-        OWSProdLogAndFail(@"%@ empty vcard: %@", self.logTag, error);
+        OWSFailDebug(@"empty vcard: %@", error);
         return nil;
     }
     if (contacts.count > 1) {
-        OWSProdLogAndFail(@"%@ more than one contact in vcard: %@", self.logTag, error);
+        OWSFailDebug(@"more than one contact in vcard: %@", error);
     }
     return contacts.firstObject;
 }
 
 + (CNContact *)mergeCNContact:(CNContact *)oldCNContact newCNContact:(CNContact *)newCNContact
 {
-    OWSAssert(oldCNContact);
-    OWSAssert(newCNContact);
+    OWSAssertDebug(oldCNContact);
+    OWSAssertDebug(newCNContact);
 
     Contact *oldContact = [[Contact alloc] initWithSystemContact:oldCNContact];
 
     CNMutableContact *_Nullable mergedCNContact = [oldCNContact mutableCopy];
     if (!mergedCNContact) {
-        OWSFail(@"%@ in %s mergedCNContact was unexpectedly nil", self.logTag, __PRETTY_FUNCTION__);
+        OWSFailDebug(@"mergedCNContact was unexpectedly nil");
         return [CNContact new];
     }
     

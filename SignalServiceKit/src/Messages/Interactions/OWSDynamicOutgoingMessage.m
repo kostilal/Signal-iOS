@@ -4,7 +4,7 @@
 
 #import "OWSDynamicOutgoingMessage.h"
 #import "NSDate+OWS.h"
-#import "OWSSignalServiceProtos.pb.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -34,7 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
                                   expiresInSeconds:0
                                    expireStartedAt:0
                                     isVoiceMessage:NO
-                                  groupMetaMessage:TSGroupMessageUnspecified
+                                  groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil];
 
@@ -50,10 +50,10 @@ NS_ASSUME_NONNULL_BEGIN
     return NO;
 }
 
-- (NSData *)buildPlainTextData:(SignalRecipient *)recipient
+- (nullable NSData *)buildPlainTextData:(SignalRecipient *)recipient
 {
     NSData *plainTextData = self.block(recipient);
-    OWSAssert(plainTextData);
+    OWSAssertDebug(plainTextData);
     return plainTextData;
 }
 

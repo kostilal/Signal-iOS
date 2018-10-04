@@ -4,7 +4,7 @@
 
 #import "OWSSyncGroupsRequestMessage.h"
 #import "NSDate+OWS.h"
-#import "OWSSignalServiceProtos.pb.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -27,14 +27,14 @@ NS_ASSUME_NONNULL_BEGIN
                                   expiresInSeconds:0
                                    expireStartedAt:0
                                     isVoiceMessage:NO
-                                  groupMetaMessage:TSGroupMessageUnspecified
+                                  groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil];
     if (!self) {
         return self;
     }
 
-    OWSAssert(groupId.length > 0);
+    OWSAssertDebug(groupId.length > 0);
     _groupId = groupId;
 
     return self;
@@ -57,15 +57,21 @@ NS_ASSUME_NONNULL_BEGIN
     return YES;
 }
 
-- (OWSSignalServiceProtosDataMessageBuilder *)dataMessageBuilder
+- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilder
 {
-    OWSSignalServiceProtosGroupContextBuilder *groupContextBuilder = [OWSSignalServiceProtosGroupContextBuilder new];
-    [groupContextBuilder setType:OWSSignalServiceProtosGroupContextTypeRequestInfo];
-    [groupContextBuilder setId:self.groupId];
+    SSKProtoGroupContextBuilder *groupContextBuilder =
+        [[SSKProtoGroupContextBuilder alloc] initWithId:self.groupId type:SSKProtoGroupContextTypeRequestInfo];
 
-    OWSSignalServiceProtosDataMessageBuilder *builder = [OWSSignalServiceProtosDataMessageBuilder new];
+    NSError *error;
+    SSKProtoGroupContext *_Nullable groupContextProto = [groupContextBuilder buildAndReturnError:&error];
+    if (error || !groupContextProto) {
+        OWSFailDebug(@"could not build protobuf: %@", error);
+        return nil;
+    }
+
+    SSKProtoDataMessageBuilder *builder = [SSKProtoDataMessageBuilder new];
     [builder setTimestamp:self.timestamp];
-    [builder setGroupBuilder:groupContextBuilder];
+    [builder setGroup:groupContextProto];
 
     return builder;
 }

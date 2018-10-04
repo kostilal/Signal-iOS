@@ -42,13 +42,13 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
             DebugLogger.shared().enableFileLogging()
         }
 
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
-        _ = AppVersion()
+        _ = AppVersion.sharedInstance()
 
         startupLogging()
 
-        SetRandFunctionSeed()
+        Cryptography.seedRandom()
 
         // We don't need to use DeviceSleepManager in the SAE.
 
@@ -75,27 +75,25 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
         // Don't display load screen immediately, in hopes that we can avoid it altogether.
         after(seconds: 0.5).then { [weak self] () -> Void in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
 
             guard let strongSelf = self else { return }
             guard strongSelf.presentedViewController == nil else {
-                Logger.debug("\(strongSelf.logTag) setup completed quickly, no need to present load view controller.")
+                Logger.debug("setup completed quickly, no need to present load view controller.")
                 return
             }
 
-            Logger.debug("\(strongSelf.logTag) setup is slow - showing loading screen")
+            Logger.debug("setup is slow - showing loading screen")
             strongSelf.showPrimaryViewController(loadViewController)
         }.retainUntilComplete()
 
         // We shouldn't set up our environment until after we've consulted isReadyForAppExtensions.
-        AppSetup.setupEnvironment(callMessageHandlerBlock: {
-            return NoopCallMessageHandler()
-        },
-                                  notificationsProtocolBlock: {
-            return NoopNotificationsManager()
-        },
-                                  migrationCompletion: { [weak self] in
-                                    SwiftAssertIsOnMainThread(#function)
+        AppSetup.setupEnvironment(appSpecificSingletonBlock: {
+            SSKEnvironment.shared.callMessageHandler = NoopCallMessageHandler()
+            SSKEnvironment.shared.notificationsManager = NoopNotificationsManager()
+            },
+            migrationCompletion: { [weak self] in
+                                    AssertIsOnMainThread()
 
                                     guard let strongSelf = self else { return }
 
@@ -126,13 +124,13 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                                                name: .OWSApplicationDidEnterBackground,
                                                object: nil)
 
-        Logger.info("\(self.logTag) \(#function) completed.")
+        Logger.info("completed.")
 
         OWSAnalytics.appLaunchDidBegin()
     }
 
     deinit {
-        Logger.info("\(self.logTag) deinit")
+        Logger.info("deinit")
         NotificationCenter.default.removeObserver(self)
 
         // Share extensions reside in a process that may be reused between usages.
@@ -143,16 +141,16 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
     @objc
     public func applicationDidEnterBackground() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         if OWSScreenLock.shared.isScreenLockEnabled() {
 
-            Logger.info("\(self.logTag) \(#function) dismissing.")
+            Logger.info("dismissing.")
 
             self.dismiss(animated: false) { [weak self] in
-                SwiftAssertIsOnMainThread(#function)
+                AssertIsOnMainThread()
                 guard let strongSelf = self else { return }
                 strongSelf.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
             }
@@ -160,9 +158,9 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     private func activate() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         // We don't need to use "screen protection" in the SAE.
 
@@ -178,7 +176,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
             // Avoid blocking app launch by putting all further possible DB access in async block
             DispatchQueue.global().async { [weak self] in
                 guard let strongSelf = self else { return }
-                Logger.info("\(strongSelf.logTag) running post launch block for registered user: \(TSAccountManager.localNumber)")
+                Logger.info("running post launch block for registered user: \(TSAccountManager.localNumber)")
 
                 // We don't need to use OWSDisappearingMessagesJob in the SAE.
 
@@ -187,7 +185,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                 // We don't need to use OWSFailedAttachmentDownloadsJob in the SAE.
             }
         } else {
-            Logger.info("\(self.logTag) running post launch block for unregistered user.")
+            Logger.info("running post launch block for unregistered user.")
 
             // We don't need to update the app icon badge number in the SAE.
 
@@ -197,11 +195,11 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
         if TSAccountManager.isRegistered() {
             DispatchQueue.main.async { [weak self] in
                 guard let strongSelf = self else { return }
-                Logger.info("\(strongSelf.logTag) running post launch block for registered user: \(TSAccountManager.localNumber)")
+                Logger.info("running post launch block for registered user: \(TSAccountManager.localNumber)")
 
                 // We don't need to use the TSSocketManager in the SAE.
 
-                Environment.current().contactsManager.fetchSystemContactsOnceIfAlreadyAuthorized()
+                Environment.shared.contactsManager.fetchSystemContactsOnceIfAlreadyAuthorized()
 
                 // We don't need to fetch messages in the SAE.
 
@@ -212,9 +210,9 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
     @objc
     func versionMigrationsDidComplete() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         areVersionMigrationsComplete = true
 
@@ -223,16 +221,16 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
     @objc
     func storageIsReady() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         checkIsAppReady()
     }
 
     @objc
     func checkIsAppReady() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard areVersionMigrationsComplete else {
@@ -246,7 +244,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
             return
         }
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         // TODO: Once "app ready" logic is moved into AppSetup, move this line there.
         OWSProfileManager.shared().ensureLocalProfileCached()
@@ -256,7 +254,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
         AppReadiness.setAppIsReady()
 
         if TSAccountManager.isRegistered() {
-            Logger.info("\(self.logTag) localNumber: \(TSAccountManager.localNumber)")
+            Logger.info("localNumber: \(TSAccountManager.localNumber)")
 
             // We don't need to use messageFetcherJob in the SAE.
 
@@ -265,10 +263,10 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
         // We don't need to use DeviceSleepManager in the SAE.
 
-        AppVersion.instance().saeLaunchDidComplete()
+        AppVersion.sharedInstance().saeLaunchDidComplete()
 
-        Environment.current().contactsManager.loadSignalAccountsFromCache()
-        Environment.current().contactsManager.startObserving()
+        Environment.shared.contactsManager.loadSignalAccountsFromCache()
+        Environment.shared.contactsManager.startObserving()
 
         ensureRootViewController()
 
@@ -277,7 +275,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
         OWSProfileManager.shared().ensureLocalProfileCached()
 
-        // We don't need to use OWSOrphanedDataCleaner in the SAE.
+        // We don't need to use OWSOrphanDataCleaner in the SAE.
 
         // We don't need to fetch the local profile in the SAE
 
@@ -286,12 +284,12 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
     @objc
     func registrationStateDidChange() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         if TSAccountManager.isRegistered() {
-            Logger.info("\(self.logTag) localNumber: \(TSAccountManager.localNumber)")
+            Logger.info("localNumber: \(TSAccountManager.localNumber)")
 
             // We don't need to use ExperienceUpgradeFinder in the SAE.
 
@@ -302,9 +300,9 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     private func ensureRootViewController() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         guard AppReadiness.isAppReady() else {
             return
@@ -314,7 +312,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
         }
         hasInitialRootViewController = true
 
-        Logger.info("\(logTag) Presenting initial root view controller")
+        Logger.info("Presenting initial root view controller")
 
         if OWSScreenLock.shared.isScreenLockEnabled() {
             presentScreenLock()
@@ -324,11 +322,11 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     private func presentContentView() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
-        Logger.info("\(logTag) Presenting content view")
+        Logger.info("Presenting content view")
 
         if !TSAccountManager.isRegistered() {
             showNotRegisteredView()
@@ -347,33 +345,33 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     func startupLogging() {
-        Logger.info("\(self.logTag) iOS Version: \(UIDevice.current.systemVersion)}")
+        Logger.info("iOS Version: \(UIDevice.current.systemVersion)}")
 
         let locale = NSLocale.current as NSLocale
         if let localeIdentifier = locale.object(forKey: NSLocale.Key.identifier) as? String,
             localeIdentifier.count > 0 {
-            Logger.info("\(self.logTag) Locale Identifier: \(localeIdentifier)")
+            Logger.info("Locale Identifier: \(localeIdentifier)")
         } else {
-            owsFail("Locale Identifier: Unknown")
+            owsFailDebug("Locale Identifier: Unknown")
         }
         if let countryCode = locale.object(forKey: NSLocale.Key.countryCode) as? String,
             countryCode.count > 0 {
-            Logger.info("\(self.logTag) Country Code: \(countryCode)")
+            Logger.info("Country Code: \(countryCode)")
         } else {
-            owsFail("Country Code: Unknown")
+            owsFailDebug("Country Code: Unknown")
         }
         if let languageCode = locale.object(forKey: NSLocale.Key.languageCode) as? String,
             languageCode.count > 0 {
-            Logger.info("\(self.logTag) Language Code: \(languageCode)")
+            Logger.info("Language Code: \(languageCode)")
         } else {
-            owsFail("Language Code: Unknown")
+            owsFailDebug("Language Code: Unknown")
         }
     }
 
     // MARK: Error Views
 
     private func showNotReadyView() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         let failureTitle = NSLocalizedString("SHARE_EXTENSION_NOT_YET_MIGRATED_TITLE",
                                              comment: "Title indicating that the share extension cannot be used until the main app has been launched at least once.")
@@ -383,7 +381,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     private func showNotRegisteredView() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         let failureTitle = NSLocalizedString("SHARE_EXTENSION_NOT_REGISTERED_TITLE",
                                              comment: "Title indicating that the share extension cannot be used until the user has registered in the main app.")
@@ -393,7 +391,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     private func showErrorView(title: String, message: String) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         let viewController = SAEFailedViewController(delegate: self, title: title, message: message)
         self.showPrimaryViewController(viewController)
@@ -404,11 +402,11 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     override open func viewDidLoad() {
         super.viewDidLoad()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         if isReadyForAppExtensions {
             AppReadiness.runNowOrWhenAppIsReady { [weak self] in
-                SwiftAssertIsOnMainThread(#function)
+                AssertIsOnMainThread()
                 guard let strongSelf = self else { return }
                 strongSelf.activate()
             }
@@ -416,19 +414,19 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     override open func viewWillAppear(_ animated: Bool) {
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         super.viewWillAppear(animated)
     }
 
     override open func viewDidAppear(_ animated: Bool) {
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         super.viewDidAppear(animated)
     }
 
     override open func viewWillDisappear(_ animated: Bool) {
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         super.viewWillDisappear(animated)
 
@@ -436,7 +434,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     override open func viewDidDisappear(_ animated: Bool) {
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         super.viewDidDisappear(animated)
 
@@ -450,9 +448,9 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
     @objc
     func owsApplicationWillEnterForeground() throws {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
 
         // If a user unregisters in the main app, the SAE should shut down
         // immediately.
@@ -474,36 +472,36 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     // MARK: ShareViewDelegate, SAEFailedViewDelegate
 
     public func shareViewWasUnlocked() {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         presentContentView()
     }
 
     public func shareViewWasCompleted() {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         self.dismiss(animated: true) { [weak self] in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = self else { return }
             strongSelf.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
         }
     }
 
     public func shareViewWasCancelled() {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         self.dismiss(animated: true) { [weak self] in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = self else { return }
             strongSelf.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
         }
     }
 
     public func shareViewFailed(error: Error) {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         self.dismiss(animated: true) { [weak self] in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = self else { return }
             strongSelf.extensionContext!.cancelRequest(withError: error)
         }
@@ -519,35 +517,35 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     // animation. Next, when loading completes, the load view will be switched out for the contact
     // picker view.
     private func showPrimaryViewController(_ viewController: UIViewController) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         shareViewNavigationController.setViewControllers([viewController], animated: false)
         if self.presentedViewController == nil {
-            Logger.debug("\(self.logTag) presenting modally: \(viewController)")
+            Logger.debug("presenting modally: \(viewController)")
             self.present(shareViewNavigationController, animated: true)
         } else {
-            Logger.debug("\(self.logTag) modal already presented. swapping modal content for: \(viewController)")
+            Logger.debug("modal already presented. swapping modal content for: \(viewController)")
             assert(self.presentedViewController == shareViewNavigationController)
         }
     }
 
     private func buildAttachmentAndPresentConversationPicker() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         self.buildAttachment().then { [weak self] attachment -> Void in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = self else { return }
 
             strongSelf.progressPoller = nil
             strongSelf.loadViewController = nil
 
             let conversationPicker = SharingThreadPickerViewController(shareViewDelegate: strongSelf)
-            Logger.debug("\(strongSelf.logTag) presentConversationPicker: \(conversationPicker)")
+            Logger.debug("presentConversationPicker: \(conversationPicker)")
             conversationPicker.attachment = attachment
             strongSelf.showPrimaryViewController(conversationPicker)
-            Logger.info("\(strongSelf.logTag) showing picker with attachment: \(attachment)")
+            Logger.info("showing picker with attachment: \(attachment)")
         }.catch {[weak self]  error in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = self else { return }
 
             let alertTitle = NSLocalizedString("SHARE_EXTENSION_UNABLE_TO_BUILD_ATTACHMENT_ALERT_TITLE",
@@ -557,17 +555,17 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                                 buttonTitle: CommonStrings.cancelButton) { _ in
                                     strongSelf.shareViewWasCancelled()
             }
-            owsFail("\(strongSelf.logTag) building attachment failed with error: \(error)")
+            owsFailDebug("building attachment failed with error: \(error)")
         }.retainUntilComplete()
     }
 
     private func presentScreenLock() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         let screenLockUI = SAEScreenLockViewController(shareViewDelegate: self)
-        Logger.debug("\(self.logTag) presentScreenLock: \(screenLockUI)")
+        Logger.debug("presentScreenLock: \(screenLockUI)")
         showPrimaryViewController(screenLockUI)
-        Logger.info("\(self.logTag) showing screen lock")
+        Logger.info("showing screen lock")
     }
 
     private class func itemMatchesSpecificUtiType(itemProvider: NSItemProvider, utiType: String) -> Bool {
@@ -593,7 +591,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     }
 
     private class func utiType(itemProvider: NSItemProvider) -> String? {
-        Logger.info("\(self.logTag) utiTypeForItem: \(itemProvider.registeredTypeIdentifiers)")
+        Logger.info("utiTypeForItem: \(itemProvider.registeredTypeIdentifiers)")
 
         if isUrlItem(itemProvider: itemProvider) {
             return kUTTypeURL as String
@@ -675,7 +673,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
             let error = ShareViewControllerError.assertionError(description: "No item provider in input item attachments")
             return Promise(error: error)
         }
-        Logger.info("\(self.logTag) attachment: \(itemProvider)")
+        Logger.info("attachment: \(itemProvider)")
 
         // We need to be very careful about which UTI type we use.
         //
@@ -690,7 +688,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
             let error = ShareViewControllerError.unsupportedMedia
             return Promise(error: error)
         }
-        Logger.debug("\(logTag) matched utiType: \(srcUtiType)")
+        Logger.debug("matched utiType: \(srcUtiType)")
 
         let (promise, fulfill, reject) = Promise<(itemUrl: URL, utiType: String)>.pending()
 
@@ -714,7 +712,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                 return
             }
 
-            Logger.info("\(strongSelf.logTag) value type: \(type(of: value))")
+            Logger.info("value type: \(type(of: value))")
 
             if let data = value as? Data {
                 // Although we don't support contacts _yet_, when we do we'll want to make
@@ -726,7 +724,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                     if Contact(vCardData: data) != nil {
                         isConvertibleToContactShare = true
                     } else {
-                        Logger.error("\(strongSelf.logTag) could not parse vcard.")
+                        Logger.error("could not parse vcard.")
                         let writeError = ShareViewControllerError.assertionError(description: "Could not parse vcard data.")
                         reject(writeError)
                         return
@@ -742,7 +740,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                 let fileUrl = URL(fileURLWithPath: tempFilePath)
                 fulfill((itemUrl: fileUrl, utiType: srcUtiType))
             } else if let string = value as? String {
-                Logger.debug("\(strongSelf.logTag) string provider: \(string)")
+                Logger.debug("string provider: \(string)")
                 guard let data = string.filterStringForDisplay().data(using: String.Encoding.utf8) else {
                     let writeError = ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))")
                     reject(writeError)
@@ -809,7 +807,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                 }
             }()
 
-            Logger.debug("\(strongSelf.logTag) building DataSource with url: \(url), utiType: \(utiType)")
+            Logger.debug("building DataSource with url: \(url), utiType: \(utiType)")
 
             guard let dataSource = ShareViewController.createDataSource(utiType: utiType, url: url, customFileName: customFileName) else {
                 throw ShareViewControllerError.assertionError(description: "Unable to read attachment data")
@@ -824,7 +822,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
             } else if url.pathExtension.count > 0 {
                 // Determine a more specific utiType based on file extension
                 if let typeExtension = MIMETypeUtil.utiType(forFileExtension: url.pathExtension) {
-                    Logger.debug("\(strongSelf.logTag) utiType based on extension: \(typeExtension)")
+                    Logger.debug("utiType based on extension: \(typeExtension)")
                     specificUTIType = typeExtension
                 }
             }
@@ -843,7 +841,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
                     progressPoller.startPolling()
 
                     guard let loadViewController = strongSelf.loadViewController else {
-                        owsFail("load view controller was unexpectedly nil")
+                        owsFailDebug("load view controller was unexpectedly nil")
                         return promise
                     }
 
@@ -857,10 +855,10 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 
             let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: specificUTIType, imageQuality: .medium)
             if isConvertibleToContactShare {
-                Logger.info("\(strongSelf.logTag) isConvertibleToContactShare")
+                Logger.info("isConvertibleToContactShare")
                 attachment.isConvertibleToContactShare = isConvertibleToContactShare
             } else if isConvertibleToTextMessage {
-                Logger.info("\(strongSelf.logTag) isConvertibleToTextMessage")
+                Logger.info("isConvertibleToTextMessage")
                 attachment.isConvertibleToTextMessage = isConvertibleToTextMessage
             }
             return Promise(value: attachment)
@@ -890,14 +888,14 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
     private func isVideoNeedingRelocation(itemProvider: NSItemProvider, itemUrl: URL) -> Bool {
         let pathExtension = itemUrl.pathExtension
         guard pathExtension.count > 0 else {
-            Logger.verbose("\(self.logTag) in \(#function): item URL has no file extension: \(itemUrl).")
+            Logger.verbose("item URL has no file extension: \(itemUrl).")
             return false
         }
         guard let utiTypeForURL = MIMETypeUtil.utiType(forFileExtension: pathExtension) else {
-            Logger.verbose("\(self.logTag) in \(#function): item has unknown UTI type: \(itemUrl).")
+            Logger.verbose("item has unknown UTI type: \(itemUrl).")
             return false
         }
-        Logger.verbose("\(self.logTag) utiTypeForURL: \(utiTypeForURL)")
+        Logger.verbose("utiTypeForURL: \(utiTypeForURL)")
         guard utiTypeForURL == kUTTypeMPEG4 as String else {
             // Either it's not a video or it was a video which was not auto-converted to mp4.
             // Not affected by the issue.
@@ -911,9 +909,7 @@ open class ShareViewController: UIViewController, ShareViewDelegate, SAEFailedVi
 }
 
 // Exposes a Progress object, whose progress is updated by polling the return of a given block
-private class ProgressPoller {
-
-    let TAG = "[ProgressPoller]"
+private class ProgressPoller: NSObject {
 
     let progress: Progress
     private(set) var timer: Timer?
@@ -935,7 +931,7 @@ private class ProgressPoller {
 
     func startPolling() {
         guard self.timer == nil else {
-            owsFail("already started timer")
+            owsFailDebug("already started timer")
             return
         }
 
@@ -948,7 +944,7 @@ private class ProgressPoller {
             strongSelf.progress.completedUnitCount = completedUnitCount
 
             if completedUnitCount == strongSelf.progressTotalUnitCount {
-                Logger.debug("\(strongSelf.TAG) progress complete")
+                Logger.debug("progress complete")
                 timer.invalidate()
             }
         }

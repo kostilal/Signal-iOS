@@ -7,6 +7,8 @@ import UIKit
 @objc
 public class AvatarImageView: UIImageView {
 
+    private let shadowLayer = CAShapeLayer()
+
     public init() {
         super.init(frame: .zero)
         self.configureView()
@@ -32,14 +34,34 @@ public class AvatarImageView: UIImageView {
 
         self.layer.minificationFilter = kCAFilterTrilinear
         self.layer.magnificationFilter = kCAFilterTrilinear
-        self.layer.borderWidth = 0.5
         self.layer.masksToBounds = true
+
+        self.layer.addSublayer(self.shadowLayer)
+
         self.contentMode = .scaleToFill
     }
 
     override public func layoutSubviews() {
-        self.layer.borderColor = UIColor.black.cgColor.copy(alpha: 0.15)
         self.layer.cornerRadius = self.frame.size.width / 2
+
+        // Inner shadow.
+        // This should usually not be visible; it is used to distinguish
+        // profile pics from the background if they are similar.
+        self.shadowLayer.frame = self.bounds
+        self.shadowLayer.masksToBounds = true
+        let shadowBounds = self.bounds
+        let shadowPath = UIBezierPath(ovalIn: shadowBounds)
+        // This can be any value large enough to cast a sufficiently large shadow.
+        let shadowInset: CGFloat = -3
+        shadowPath.append(UIBezierPath(rect: shadowBounds.insetBy(dx: shadowInset, dy: shadowInset)))
+        // This can be any color since the fill should be clipped.
+        self.shadowLayer.fillColor = UIColor.black.cgColor
+        self.shadowLayer.path = shadowPath.cgPath
+        self.shadowLayer.fillRule = kCAFillRuleEvenOdd
+        self.shadowLayer.shadowColor = (Theme.isDarkThemeEnabled ? UIColor.white : UIColor.black).cgColor
+        self.shadowLayer.shadowRadius = 0.5
+        self.shadowLayer.shadowOpacity = 0.15
+        self.shadowLayer.shadowOffset = .zero
     }
 }
 
@@ -70,7 +92,7 @@ public class ConversationAvatarImageView: AvatarImageView {
             self.recipientId = nil
             self.groupThreadId = groupThread.uniqueId
         default:
-            owsFail("in \(#function) unexpected thread type: \(thread)")
+            owsFailDebug("unexpected thread type: \(thread)")
             self.recipientId = nil
             self.groupThreadId = nil
         }
@@ -92,11 +114,11 @@ public class ConversationAvatarImageView: AvatarImageView {
     }
 
     required public init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     @objc func handleSignalAccountsChanged(notification: Notification) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         // PERF: It would be nice if we could do this only if *this* user's SignalAccount changed,
         // but currently this is only a course grained notification.
@@ -105,16 +127,16 @@ public class ConversationAvatarImageView: AvatarImageView {
     }
 
     @objc func handleOtherUsersProfileChanged(notification: Notification) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         guard let changedRecipientId = notification.userInfo?[kNSNotificationKey_ProfileRecipientId] as? String else {
-            owsFail("\(logTag) in \(#function) recipientId was unexpectedly nil")
+            owsFailDebug("recipientId was unexpectedly nil")
             return
         }
 
         guard let recipientId = self.recipientId else {
             // shouldn't call this for group threads
-            owsFail("\(logTag) in \(#function) contactId was unexpectedly nil")
+            owsFailDebug("contactId was unexpectedly nil")
             return
         }
 
@@ -127,16 +149,16 @@ public class ConversationAvatarImageView: AvatarImageView {
     }
 
     @objc func handleGroupAvatarChanged(notification: Notification) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         guard let changedGroupThreadId = notification.userInfo?[TSGroupThread_NotificationKey_UniqueId] as? String else {
-            owsFail("\(logTag) in \(#function) groupThreadId was unexpectedly nil")
+            owsFailDebug("groupThreadId was unexpectedly nil")
             return
         }
 
         guard let groupThreadId = self.groupThreadId else {
             // shouldn't call this for contact threads
-            owsFail("\(logTag) in \(#function) groupThreadId was unexpectedly nil")
+            owsFailDebug("groupThreadId was unexpectedly nil")
             return
         }
 
@@ -151,8 +173,8 @@ public class ConversationAvatarImageView: AvatarImageView {
     }
 
     public func updateImage() {
-        Logger.debug("\(self.logTag) in \(#function) updateImage")
+        Logger.debug("updateImage")
 
-        self.image = OWSAvatarBuilder.buildImage(thread: thread, diameter: diameter, contactsManager: contactsManager)
+        self.image = OWSAvatarBuilder.buildImage(thread: thread, diameter: diameter)
     }
 }

@@ -19,7 +19,7 @@ enum PushNotificationRequestResult: String {
 
 class FailingTSAccountManager: TSAccountManager {
     override public init(networkManager: TSNetworkManager, primaryStorage: OWSPrimaryStorage) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         super.init(networkManager: networkManager, primaryStorage: primaryStorage)
 
@@ -56,7 +56,7 @@ class VerifyingTSAccountManager: FailingTSAccountManager {
 class TokenObtainingTSAccountManager: VerifyingTSAccountManager {
 }
 
-class AccountManagerTest: XCTestCase {
+class AccountManagerTest: SignalBaseTest {
 
     let tsAccountManager = FailingTSAccountManager(networkManager: TSNetworkManager.shared(), primaryStorage: OWSPrimaryStorage.shared())
     var preferences = OWSPreferences()
@@ -103,9 +103,6 @@ class AccountManagerTest: XCTestCase {
     }
 
     func testSuccessfulRegistration() {
-        Environment.clearCurrentForTests()
-        Environment.setCurrent(Release.releaseEnvironment())
-
         let tsAccountManager = TokenObtainingTSAccountManager(networkManager: TSNetworkManager.shared(), primaryStorage: OWSPrimaryStorage.shared())
 
         let accountManager = AccountManager(textSecureAccountManager: tsAccountManager, preferences: self.preferences)

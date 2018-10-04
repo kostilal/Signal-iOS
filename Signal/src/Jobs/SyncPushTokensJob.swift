@@ -7,7 +7,6 @@ import SignalServiceKit
 
 @objc(OWSSyncPushTokensJob)
 class SyncPushTokensJob: NSObject {
-    let TAG = "[SyncPushTokensJob]"
 
     @objc public static let PushTokensDidChange = Notification.Name("PushTokensDidChange")
 
@@ -32,7 +31,7 @@ class SyncPushTokensJob: NSObject {
     }
 
     func run() -> Promise<Void> {
-        Logger.info("\(TAG) Starting.")
+        Logger.info("Starting.")
 
         let runPromise: Promise<Void> = DispatchQueue.main.promise {
             // HACK: no-op dispatch to work around a bug in PromiseKit/Swift which won't compile
@@ -42,36 +41,36 @@ class SyncPushTokensJob: NSObject {
         }.then {
             return self.pushRegistrationManager.requestPushTokens()
         }.then { (pushToken: String, voipToken: String) in
-            Logger.info("\(self.TAG) finished: requesting push tokens")
+            Logger.info("finished: requesting push tokens")
             var shouldUploadTokens = false
 
             if self.preferences.getPushToken() != pushToken || self.preferences.getVoipToken() != voipToken {
-                Logger.debug("\(self.TAG) Push tokens changed.")
+                Logger.debug("Push tokens changed.")
                 shouldUploadTokens = true
             } else if !self.uploadOnlyIfStale {
-                Logger.debug("\(self.TAG) Forced uploading, even though tokens didn't change.")
+                Logger.debug("Forced uploading, even though tokens didn't change.")
                 shouldUploadTokens = true
             }
 
-            if AppVersion.instance().lastAppVersion != AppVersion.instance().currentAppVersion {
-                Logger.info("\(self.TAG) Uploading due to fresh install or app upgrade.")
+            if AppVersion.sharedInstance().lastAppVersion != AppVersion.sharedInstance().currentAppVersion {
+                Logger.info("Uploading due to fresh install or app upgrade.")
                 shouldUploadTokens = true
             }
 
             guard shouldUploadTokens else {
-                Logger.info("\(self.TAG) No reason to upload pushToken: \(pushToken), voipToken: \(voipToken)")
+                Logger.info("No reason to upload pushToken: \(pushToken), voipToken: \(voipToken)")
                 return Promise(value: ())
             }
 
-            Logger.warn("\(self.TAG) uploading tokens to account servers. pushToken: \(pushToken), voipToken: \(voipToken)")
+            Logger.warn("uploading tokens to account servers. pushToken: \(pushToken), voipToken: \(voipToken)")
             return self.accountManager.updatePushTokens(pushToken: pushToken, voipToken: voipToken).then {
-                Logger.info("\(self.TAG) successfully updated push tokens on server")
+                Logger.info("successfully updated push tokens on server")
                 return self.recordPushTokensLocally(pushToken: pushToken, voipToken: voipToken)
             }
         }.then {
-            Logger.info("\(self.TAG) completed successfully.")
+            Logger.info("completed successfully.")
         }.catch { error in
-            Logger.error("\(self.TAG) in \(#function): Failed with error: \(error).")
+            Logger.error("Failed with error: \(error).")
         }
 
         runPromise.retainUntilComplete()
@@ -79,7 +78,7 @@ class SyncPushTokensJob: NSObject {
         return runPromise
     }
 
-    // MARK - objc wrappers, since objc can't use swift parameterized types
+    // MARK: - objc wrappers, since objc can't use swift parameterized types
 
     @objc class func run(accountManager: AccountManager, preferences: OWSPreferences) -> AnyPromise {
         let promise: Promise<Void> = self.run(accountManager: accountManager, preferences: preferences)
@@ -92,18 +91,18 @@ class SyncPushTokensJob: NSObject {
     }
 
     private func recordPushTokensLocally(pushToken: String, voipToken: String) -> Promise<Void> {
-        Logger.warn("\(TAG) Recording push tokens locally. pushToken: \(pushToken), voipToken: \(voipToken)")
+        Logger.warn("Recording push tokens locally. pushToken: \(pushToken), voipToken: \(voipToken)")
 
         var didTokensChange = false
 
         if (pushToken != self.preferences.getPushToken()) {
-            Logger.info("\(TAG) Recording new plain push token")
+            Logger.info("Recording new plain push token")
             self.preferences.setPushToken(pushToken)
             didTokensChange = true
         }
 
         if (voipToken != self.preferences.getVoipToken()) {
-            Logger.info("\(TAG) Recording new voip token")
+            Logger.info("Recording new voip token")
             self.preferences.setVoipToken(voipToken)
             didTokensChange = true
         }

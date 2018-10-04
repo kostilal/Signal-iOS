@@ -1,3 +1,7 @@
+//
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//
+
 #import "FunctionalUtil.h"
 
 @interface FUBadArgument : NSException
@@ -14,12 +18,12 @@
 }
 @end
 
-#define tskit_require(expr)                                                                              \
-    if (!(expr)) {                                                                                       \
-        NSString *reason =                                                                               \
-            [NSString stringWithFormat:@"require %@ (in %s at line %d)", (@ #expr), __FILE__, __LINE__]; \
-        DDLogError(@"%@", reason);                                                                       \
-        [FUBadArgument raise:reason];                                                                      \
+#define tskit_require(expr)                                                                                            \
+    if (!(expr)) {                                                                                                     \
+        NSString *reason =                                                                                             \
+            [NSString stringWithFormat:@"require %@ (in %s at line %d)", (@ #expr), __FILE__, __LINE__];               \
+        OWSLogError(@"%@", reason);                                                                                    \
+        [FUBadArgument raise:reason];                                                                                  \
     };
 
 
@@ -71,27 +75,7 @@
     }
     return r;
 }
-- (double)sumDouble {
-    double s = 0.0;
-    for (NSNumber *e in self) {
-        s += [e doubleValue];
-    }
-    return s;
-}
-- (NSUInteger)sumNSUInteger {
-    NSUInteger s = 0;
-    for (NSNumber *e in self) {
-        s += [e unsignedIntegerValue];
-    }
-    return s;
-}
-- (NSInteger)sumNSInteger {
-    NSInteger s = 0;
-    for (NSNumber *e in self) {
-        s += [e integerValue];
-    }
-    return s;
-}
+
 - (NSDictionary *)keyedBy:(id (^)(id value))keySelector {
     tskit_require(keySelector != nil);
 

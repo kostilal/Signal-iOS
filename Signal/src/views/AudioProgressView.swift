@@ -48,7 +48,7 @@ import SignalServiceKit
 
     @available(*, unavailable, message:"use other constructor instead.")
     @objc public required init?(coder aDecoder: NSCoder) {
-        fatalError("\(#function) is unimplemented.")
+        notImplemented()
     }
 
     public required init() {
@@ -62,7 +62,7 @@ import SignalServiceKit
     }
 
     internal func updateSubviews() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         self.horizontalBarLayer.frame = self.bounds
         self.progressLayer.frame = self.bounds
@@ -71,7 +71,7 @@ import SignalServiceKit
     }
 
     internal func updateContent() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         // Prevent the shape layer from animating changes.
         CATransaction.begin()

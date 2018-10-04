@@ -12,11 +12,11 @@
 #import <SignalMessaging/OWSPreferences.h>
 #import <SignalMessaging/OWSSounds.h>
 #import <SignalServiceKit/NSString+SSK.h>
+#import <SignalServiceKit/SSKEnvironment.h>
 #import <SignalServiceKit/TSCall.h>
 #import <SignalServiceKit/TSContactThread.h>
 #import <SignalServiceKit/TSErrorMessage.h>
 #import <SignalServiceKit/TSIncomingMessage.h>
-#import <SignalServiceKit/TextSecureKitEnv.h>
 #import <SignalServiceKit/Threading.h>
 #import <YapDatabase/YapDatabaseTransaction.h>
 
@@ -57,7 +57,7 @@
  */
 - (void)presentIncomingCall:(SignalCall *)call callerName:(NSString *)callerName
 {
-    DDLogDebug(@"%@ incoming call from: %@", self.logTag, call.remotePhoneNumber);
+    OWSLogDebug(@"incoming call from: %@", call.remotePhoneNumber);
 
     UILocalNotification *notification = [UILocalNotification new];
     notification.category = PushManagerCategoriesIncomingCall;
@@ -90,7 +90,7 @@
 - (void)presentMissedCall:(SignalCall *)call callerName:(NSString *)callerName
 {
     TSContactThread *thread = [TSContactThread getOrCreateThreadWithContactId:call.remotePhoneNumber];
-    OWSAssert(thread != nil);
+    OWSAssertDebug(thread != nil);
 
     UILocalNotification *notification = [UILocalNotification new];
     notification.category = PushManagerCategoriesMissedCall;
@@ -128,7 +128,7 @@
 - (void)presentMissedCallBecauseOfNewIdentity:(SignalCall *)call callerName:(NSString *)callerName
 {
     TSContactThread *thread = [TSContactThread getOrCreateThreadWithContactId:call.remotePhoneNumber];
-    OWSAssert(thread != nil);
+    OWSAssertDebug(thread != nil);
 
     UILocalNotification *notification = [UILocalNotification new];
     // Use category which allows call back
@@ -165,7 +165,7 @@
 - (void)presentMissedCallBecauseOfNoLongerVerifiedIdentity:(SignalCall *)call callerName:(NSString *)callerName
 {
     TSContactThread *thread = [TSContactThread getOrCreateThreadWithContactId:call.remotePhoneNumber];
-    OWSAssert(thread != nil);
+    OWSAssertDebug(thread != nil);
 
     UILocalNotification *notification = [UILocalNotification new];
     // Use category which does not allow call back
@@ -205,11 +205,10 @@
                            thread:(TSThread *)thread
                       transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(message);
+    OWSAssertDebug(message);
 
     if (!thread) {
-        OWSProdLogAndFail(
-            @"%@ unexpected notification not associated with a thread: %@.", self.logTag, [message class]);
+        OWSFailDebug(@"unexpected notification not associated with a thread: %@.", [message class]);
         [self notifyUserForThreadlessErrorMessage:message transaction:transaction];
         return;
     }
@@ -249,7 +248,7 @@
 
                    [[PushManager sharedManager] presentNotification:notification checkForCancel:NO];
                } else {
-                   if (shouldPlaySound && [Environment.preferences soundInForeground]) {
+                   if (shouldPlaySound && [Environment.shared.preferences soundInForeground]) {
                        OWSSound sound = [OWSSounds notificationSoundForThread:thread];
                        SystemSoundID soundId = [OWSSounds systemSoundIDForSound:sound quiet:YES];
                        // Vibrate, respect silent switch, respect "Alert" volume, not media volume.
@@ -262,7 +261,7 @@
 - (void)notifyUserForThreadlessErrorMessage:(TSErrorMessage *)message
                                 transaction:(YapDatabaseReadWriteTransaction *)transaction;
 {
-    OWSAssert(message);
+    OWSAssertDebug(message);
 
     NSString *messageText = [message previewTextWithTransaction:transaction];
 
@@ -283,7 +282,7 @@
 
                    [[PushManager sharedManager] presentNotification:notification checkForCancel:NO];
                } else {
-                   if (shouldPlaySound && [Environment.preferences soundInForeground]) {
+                   if (shouldPlaySound && [Environment.shared.preferences soundInForeground]) {
                        OWSSound sound = [OWSSounds globalNotificationSound];
                        SystemSoundID soundId = [OWSSounds systemSoundIDForSound:sound quiet:YES];
                        // Vibrate, respect silent switch, respect "Alert" volume, not media volume.
@@ -298,9 +297,9 @@
                      contactsManager:(id<ContactsManagerProtocol>)contactsManager
                          transaction:(YapDatabaseReadTransaction *)transaction
 {
-    OWSAssert(message);
-    OWSAssert(thread);
-    OWSAssert(contactsManager);
+    OWSAssertDebug(message);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(contactsManager);
 
     // While batch processing, some of the necessary changes have not been commited.
     NSString *rawMessageText = [message previewTextWithTransaction:transaction];
@@ -383,14 +382,14 @@
                     notification.alertBody = NSLocalizedString(@"APN_Message", nil);
                     break;
                 default:
-                    DDLogWarn(@"unknown notification preview type: %lu", (unsigned long)self.notificationPreviewType);
+                    OWSLogWarn(@"unknown notification preview type: %lu", (unsigned long)self.notificationPreviewType);
                     notification.alertBody = NSLocalizedString(@"APN_Message", nil);
                     break;
             }
 
             [[PushManager sharedManager] presentNotification:notification checkForCancel:YES];
         } else {
-            if (shouldPlaySound && [Environment.preferences soundInForeground]) {
+            if (shouldPlaySound && [Environment.shared.preferences soundInForeground]) {
                 OWSSound sound = [OWSSounds notificationSoundForThread:thread];
                 SystemSoundID soundId = [OWSSounds systemSoundIDForSound:sound quiet:YES];
                 // Vibrate, respect silent switch, respect "Alert" volume, not media volume.
@@ -430,7 +429,7 @@
 
             return YES;
         } else {
-            DDLogDebug(@"Skipping sound for notification");
+            OWSLogDebug(@"Skipping sound for notification");
             return NO;
         }
     }
@@ -440,7 +439,7 @@
 
 - (NotificationType)notificationPreviewType
 {
-    OWSPreferences *prefs = [Environment current].preferences;
+    OWSPreferences *prefs = Environment.shared.preferences;
     return prefs.notificationPreviewType;
 }
 
@@ -450,7 +449,7 @@
 
     DispatchMainThreadSafe(^{
         if (UIApplication.sharedApplication.applicationState == UIApplicationStateActive) {
-            DDLogWarn(@"%@ skipping notification; app is in foreground and active.", self.logTag);
+            OWSLogWarn(@"skipping notification; app is in foreground and active.");
             return;
         }
 
@@ -461,7 +460,7 @@
         }
 
         [[UIApplication sharedApplication] scheduleLocalNotification:notification];
-        DDLogDebug(@"%@ presenting notification with identifier: %@", self.logTag, identifier);
+        OWSLogDebug(@"presenting notification with identifier: %@", identifier);
 
         self.currentNotifications[identifier] = notification;
     });
@@ -472,8 +471,7 @@
     DispatchMainThreadSafe(^{
         UILocalNotification *notification = self.currentNotifications[identifier];
         if (!notification) {
-            DDLogWarn(
-                @"%@ Couldn't cancel notification because none was found with identifier: %@", self.logTag, identifier);
+            OWSLogWarn(@"Couldn't cancel notification because none was found with identifier: %@", identifier);
             return;
         }
         [self.currentNotifications removeObjectForKey:identifier];

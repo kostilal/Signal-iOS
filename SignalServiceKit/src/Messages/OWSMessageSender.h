@@ -10,7 +10,6 @@ extern const NSUInteger kOversizeTextMessageSizeThreshold;
 
 @class OWSBlockingManager;
 @class OWSPrimaryStorage;
-@class OWSUploadingService;
 @class TSInvalidIdentityKeySendingErrorMessage;
 @class TSNetworkManager;
 @class TSOutgoingMessage;
@@ -34,21 +33,11 @@ typedef void (^RetryableFailureHandler)(NSError *_Nonnull error);
 #pragma mark -
 
 NS_SWIFT_NAME(MessageSender)
-@interface OWSMessageSender : NSObject {
-
-@protected
-
-    // For subclassing in tests
-    OWSUploadingService *_uploadingService;
-}
+@interface OWSMessageSender : NSObject
 
 - (instancetype)init NS_UNAVAILABLE;
 
-- (instancetype)initWithNetworkManager:(TSNetworkManager *)networkManager
-                        primaryStorage:(OWSPrimaryStorage *)primaryStorage
-                       contactsManager:(id<ContactsManagerProtocol>)contactsManager;
-
-- (void)setBlockingManager:(OWSBlockingManager *)blockingManager;
+- (instancetype)initWithPrimaryStorage:(OWSPrimaryStorage *)primaryStorage NS_DESIGNATED_INITIALIZER;
 
 /**
  * Send and resend text messages or resend messages with existing attachments.

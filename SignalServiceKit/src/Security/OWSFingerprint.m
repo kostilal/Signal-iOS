@@ -3,11 +3,11 @@
 //
 
 #import "OWSFingerprint.h"
-#import "NSData+Base64.h"
+#import "NSData+OWS.h"
 #import "OWSError.h"
-#import "OWSFingerprintProtos.pb.h"
 #import <AxolotlKit/NSData+keyVersionByte.h>
 #import <CommonCrypto/CommonDigest.h>
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 #import <UIKit/UIImage.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -26,6 +26,8 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
 
 @end
 
+#pragma mark -
+
 @implementation OWSFingerprint
 
 - (instancetype)initWithMyStableId:(NSString *)myStableId
@@ -35,8 +37,8 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
                          theirName:(NSString *)theirName
                     hashIterations:(uint32_t)hashIterations
 {
-    OWSAssert(theirIdentityKeyWithoutKeyType.length == 32);
-    OWSAssert(myIdentityKeyWithoutKeyType.length == 32);
+    OWSAssertDebug(theirIdentityKeyWithoutKeyType.length == 32);
+    OWSAssertDebug(myIdentityKeyWithoutKeyType.length == 32);
 
     self = [super init];
     if (!self) {
@@ -88,23 +90,22 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
 
 - (BOOL)matchesLogicalFingerprintsData:(NSData *)data error:(NSError **)error
 {
-    OWSFingerprintProtosLogicalFingerprints *logicalFingerprints;
-    @try {
-        logicalFingerprints = [OWSFingerprintProtosLogicalFingerprints parseFromData:data];
-    } @catch (NSException *exception) {
-        if ([exception.name isEqualToString:@"InvalidProtocolBuffer"]) {
-            NSString *description = NSLocalizedString(@"PRIVACY_VERIFICATION_FAILURE_INVALID_QRCODE", @"alert body");
-            *error = OWSErrorWithCodeDescription(OWSErrorCodePrivacyVerificationFailure, description);
-            return NO;
-        } else {
-            // Sync log in case we bail.
-            DDLogError(@"%@ parsing QRCode data failed with error: %@", self.logTag, exception);
-            @throw exception;
-        }
+    OWSAssertDebug(data.length > 0);
+    OWSAssertDebug(error);
+
+    *error = nil;
+    FingerprintProtoLogicalFingerprints *_Nullable logicalFingerprints;
+    logicalFingerprints = [FingerprintProtoLogicalFingerprints parseData:data error:error];
+    if (!logicalFingerprints || *error) {
+        OWSFailDebug(@"fingerprint failure: %@", *error);
+
+        NSString *description = NSLocalizedString(@"PRIVACY_VERIFICATION_FAILURE_INVALID_QRCODE", @"alert body");
+        *error = OWSErrorWithCodeDescription(OWSErrorCodePrivacyVerificationFailure, description);
+        return NO;
     }
 
     if (logicalFingerprints.version < OWSFingerprintScannableFormatVersion) {
-        DDLogWarn(@"%@ Verification failed. They're running an old version.", self.logTag);
+        OWSLogWarn(@"Verification failed. They're running an old version.");
         NSString *description
             = NSLocalizedString(@"PRIVACY_VERIFICATION_FAILED_WITH_OLD_REMOTE_VERSION", @"alert body");
         *error = OWSErrorWithCodeDescription(OWSErrorCodePrivacyVerificationFailure, description);
@@ -112,18 +113,18 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
     }
 
     if (logicalFingerprints.version > OWSFingerprintScannableFormatVersion) {
-        DDLogWarn(@"%@ Verification failed. We're running an old version.", self.logTag);
+        OWSLogWarn(@"Verification failed. We're running an old version.");
         NSString *description = NSLocalizedString(@"PRIVACY_VERIFICATION_FAILED_WITH_OLD_LOCAL_VERSION", @"alert body");
         *error = OWSErrorWithCodeDescription(OWSErrorCodePrivacyVerificationFailure, description);
         return NO;
     }
 
     // Their local is *our* remote.
-    OWSFingerprintProtosLogicalFingerprint *localFingerprint = logicalFingerprints.remoteFingerprint;
-    OWSFingerprintProtosLogicalFingerprint *remoteFingerprint = logicalFingerprints.localFingerprint;
+    FingerprintProtoLogicalFingerprint *localFingerprint = logicalFingerprints.remoteFingerprint;
+    FingerprintProtoLogicalFingerprint *remoteFingerprint = logicalFingerprints.localFingerprint;
 
     if (![remoteFingerprint.identityData isEqual:[self scannableData:self.theirFingerprintData]]) {
-        DDLogWarn(@"%@ Verification failed. We have the wrong fingerprint for them", self.logTag);
+        OWSLogWarn(@"Verification failed. We have the wrong fingerprint for them");
         NSString *descriptionFormat = NSLocalizedString(@"PRIVACY_VERIFICATION_FAILED_I_HAVE_WRONG_KEY_FOR_THEM",
             @"Alert body when verifying with {{contact name}}");
         NSString *description = [NSString stringWithFormat:descriptionFormat, self.theirName];
@@ -132,7 +133,7 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
     }
 
     if (![localFingerprint.identityData isEqual:[self scannableData:self.myFingerprintData]]) {
-        DDLogWarn(@"%@ Verification failed. They have the wrong fingerprint for us", self.logTag);
+        OWSLogWarn(@"Verification failed. They have the wrong fingerprint for us");
         NSString *descriptionFormat = NSLocalizedString(@"PRIVACY_VERIFICATION_FAILED_THEY_HAVE_WRONG_KEY_FOR_ME",
             @"Alert body when verifying with {{contact name}}");
         NSString *description = [NSString stringWithFormat:descriptionFormat, self.theirName];
@@ -140,7 +141,7 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
         return NO;
     }
 
-    DDLogWarn(@"%@ Verification Succeeded.", self.logTag);
+    OWSLogWarn(@"Verification Succeeded.");
     return YES;
 }
 
@@ -205,20 +206,28 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
  */
 - (NSData *)dataForStableId:(NSData *)stableIdData publicKey:(NSData *)publicKey
 {
-    OWSAssert(stableIdData);
-    OWSAssert(publicKey);
+    OWSAssertDebug(stableIdData);
+    OWSAssertDebug(publicKey);
 
     NSData *versionData = [self dataFromShort:OWSFingerprintHashingVersion];
-    NSMutableData *hash = [NSMutableData dataWithData:versionData];
+    NSMutableData *hash = [versionData mutableCopy];
     [hash appendData:publicKey];
     [hash appendData:stableIdData];
 
-    uint8_t digest[CC_SHA512_DIGEST_LENGTH];
+    NSMutableData *_Nullable digestData = [[NSMutableData alloc] initWithLength:CC_SHA512_DIGEST_LENGTH];
+    if (!digestData) {
+        @throw [NSException exceptionWithName:NSGenericException reason:@"Couldn't allocate buffer." userInfo:nil];
+    }
     for (int i = 0; i < self.hashIterations; i++) {
         [hash appendData:publicKey];
-        CC_SHA512(hash.bytes, (unsigned int)hash.length, digest);
+
+        if (hash.length >= UINT32_MAX) {
+            @throw [NSException exceptionWithName:@"Oversize Data" reason:@"Oversize hash." userInfo:nil];
+        }
+
+        CC_SHA512(hash.bytes, (uint32_t)hash.length, digestData.mutableBytes);
         // TODO get rid of this loop-allocation
-        hash = [NSMutableData dataWithBytes:digest length:CC_SHA512_DIGEST_LENGTH];
+        hash = [digestData mutableCopy];
     }
 
     return [hash copy];
@@ -227,7 +236,7 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
 
 - (NSString *)stringForFingerprintData:(NSData *)data
 {
-    OWSAssert(data);
+    OWSAssertDebug(data);
 
     return [NSString stringWithFormat:@"%@%@%@%@%@%@",
                      [self encodedChunkFromData:data offset:0],
@@ -240,7 +249,7 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
 
 - (NSString *)encodedChunkFromData:(NSData *)data offset:(uint)offset
 {
-    OWSAssert(data);
+    OWSAssertDebug(data);
 
     uint8_t fiveBytes[5];
     [data getBytes:fiveBytes range:NSMakeRange(offset, 5)];
@@ -267,27 +276,40 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
 
 - (nullable UIImage *)image
 {
-    OWSFingerprintProtosLogicalFingerprintsBuilder *logicalFingerprintsBuilder =
-        [OWSFingerprintProtosLogicalFingerprintsBuilder new];
-
-    logicalFingerprintsBuilder.version = OWSFingerprintScannableFormatVersion;
-
-    OWSFingerprintProtosLogicalFingerprintBuilder *remoteFingerprintBuilder =
-        [OWSFingerprintProtosLogicalFingerprintBuilder new];
-
+    FingerprintProtoLogicalFingerprintBuilder *remoteFingerprintBuilder =
+        [FingerprintProtoLogicalFingerprintBuilder new];
     remoteFingerprintBuilder.identityData = [self scannableData:self.theirFingerprintData];
-    logicalFingerprintsBuilder.remoteFingerprint = [remoteFingerprintBuilder build];
+    NSError *error;
+    FingerprintProtoLogicalFingerprint *_Nullable remoteFingerprint =
+        [remoteFingerprintBuilder buildAndReturnError:&error];
+    if (!remoteFingerprint || error) {
+        OWSFailDebug(@"could not build proto: %@", error);
+        return nil;
+    }
 
-    OWSFingerprintProtosLogicalFingerprintBuilder *localFingerprintBuilder =
-        [OWSFingerprintProtosLogicalFingerprintBuilder new];
-
+    FingerprintProtoLogicalFingerprintBuilder *localFingerprintBuilder =
+        [FingerprintProtoLogicalFingerprintBuilder new];
     localFingerprintBuilder.identityData = [self scannableData:self.myFingerprintData];
-    logicalFingerprintsBuilder.localFingerprint = [localFingerprintBuilder build];
+    FingerprintProtoLogicalFingerprint *_Nullable localFingerprint =
+        [localFingerprintBuilder buildAndReturnError:&error];
+    if (!localFingerprint || error) {
+        OWSFailDebug(@"could not build proto: %@", error);
+        return nil;
+    }
+
+    FingerprintProtoLogicalFingerprintsBuilder *logicalFingerprintsBuilder =
+        [[FingerprintProtoLogicalFingerprintsBuilder alloc] initWithVersion:OWSFingerprintScannableFormatVersion
+                                                           localFingerprint:localFingerprint
+                                                          remoteFingerprint:remoteFingerprint];
 
     // Build ByteMode QR (Latin-1 encodable data)
-    NSData *fingerprintData = [logicalFingerprintsBuilder build].data;
+    NSData *_Nullable fingerprintData = [logicalFingerprintsBuilder buildSerializedDataAndReturnError:&error];
+    if (!fingerprintData || error) {
+        OWSFailDebug(@"could not serialize proto: %@", error);
+        return nil;
+    }
 
-    DDLogDebug(@"%@ Building fingerprint with data: %@", self.logTag, fingerprintData);
+    OWSLogDebug(@"Building fingerprint with data: %@", fingerprintData);
 
     CIFilter *filter = [CIFilter filterWithName:@"CIQRCodeGenerator"];
     [filter setDefaults];
@@ -295,7 +317,7 @@ static uint32_t const OWSFingerprintDefaultHashIterations = 5200;
 
     CIImage *ciImage = [filter outputImage];
     if (!ciImage) {
-        DDLogError(@"%@ Failed to create QR image from fingerprint text: %@", self.logTag, self.text);
+        OWSLogError(@"Failed to create QR image from fingerprint text: %@", self.text);
         return nil;
     }
 

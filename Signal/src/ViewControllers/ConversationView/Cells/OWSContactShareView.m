@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
         _contactShare = contactShare;
         _isIncoming = isIncoming;
         _conversationStyle = conversationStyle;
-        _contactsManager = [Environment current].contactsManager;
+        _contactsManager = Environment.shared.contactsManager;
     }
 
     return self;
@@ -77,7 +77,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (CGFloat)iconSize
 {
-    return 48.f;
+    return kStandardAvatarSize;
 }
 
 - (CGFloat)iconSize
@@ -139,7 +139,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     UIImage *disclosureImage =
         [UIImage imageNamed:(CurrentAppContext().isRTL ? @"small_chevron_left" : @"small_chevron_right")];
-    OWSAssert(disclosureImage);
+    OWSAssertDebug(disclosureImage);
     UIImageView *disclosureImageView = [UIImageView new];
     disclosureImageView.image = [disclosureImage imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     disclosureImageView.tintColor = textColor;

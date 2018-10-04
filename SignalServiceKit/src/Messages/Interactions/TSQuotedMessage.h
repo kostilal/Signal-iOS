@@ -7,7 +7,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class OWSSignalServiceProtosDataMessage;
+@class SSKProtoDataMessage;
 @class TSAttachment;
 @class TSAttachmentStream;
 @class TSQuotedMessage;
@@ -41,10 +41,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+typedef NS_ENUM(NSUInteger, TSQuotedMessageContentSource) {
+    TSQuotedMessageContentSourceUnknown,
+    TSQuotedMessageContentSourceLocal,
+    TSQuotedMessageContentSourceRemote
+};
+
 @interface TSQuotedMessage : MTLModel
 
 @property (nonatomic, readonly) uint64_t timestamp;
 @property (nonatomic, readonly) NSString *authorId;
+@property (nonatomic, readonly) TSQuotedMessageContentSource bodySource;
 
 // This property should be set IFF we are quoting a text message
 // or attachment with caption.
@@ -80,6 +87,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithTimestamp:(uint64_t)timestamp
                          authorId:(NSString *)authorId
                              body:(NSString *_Nullable)body
+                       bodySource:(TSQuotedMessageContentSource)bodySource
     receivedQuotedAttachmentInfos:(NSArray<OWSAttachmentInfo *> *)attachmentInfos;
 
 // used when sending quoted messages
@@ -89,7 +97,7 @@ NS_ASSUME_NONNULL_BEGIN
       quotedAttachmentsForSending:(NSArray<TSAttachment *> *)attachments;
 
 
-+ (nullable instancetype)quotedMessageForDataMessage:(OWSSignalServiceProtosDataMessage *)dataMessage
++ (nullable instancetype)quotedMessageForDataMessage:(SSKProtoDataMessage *)dataMessage
                                               thread:(TSThread *)thread
                                          transaction:(YapDatabaseReadWriteTransaction *)transaction;
 

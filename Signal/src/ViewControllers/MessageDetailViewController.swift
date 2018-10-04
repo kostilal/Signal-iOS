@@ -47,12 +47,12 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
     @available(*, unavailable, message:"use other constructor instead.")
     required init?(coder aDecoder: NSCoder) {
-        fatalError("\(#function) is unimplemented.")
+        notImplemented()
     }
 
     @objc
     required init(viewItem: ConversationViewItem, message: TSMessage, thread: TSThread, mode: MessageMetadataViewMode) {
-        self.contactsManager = Environment.current().contactsManager
+        self.contactsManager = Environment.shared.contactsManager
         self.viewItem = viewItem
         self.message = message
         self.mode = mode
@@ -89,7 +89,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
     }
 
     override public func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         super.viewWillTransition(to: size, with: coordinator)
 
@@ -130,13 +130,18 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
     // MARK: - Create Views
 
     private func createViews() {
-        view.backgroundColor = UIColor.white
+        view.backgroundColor = Theme.backgroundColor
 
         let scrollView = UIScrollView()
         self.scrollView = scrollView
         view.addSubview(scrollView)
         scrollView.autoPinWidthToSuperview(withMargin: 0)
-        scrollView.autoPin(toTopLayoutGuideOf: self, withInset: 0)
+
+        if scrollView.applyInsetsFix() {
+            scrollView.autoPin(toTopLayoutGuideOf: self, withInset: 0)
+        } else {
+            scrollView.autoPinEdge(toSuperviewEdge: .top)
+        }
 
         let contentView = UIView.container()
         self.contentView = contentView
@@ -160,8 +165,6 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
                 UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
             ]
         } else {
-            scrollView.applyInsetsFix()
-
             scrollView.autoPinEdge(toSuperviewEdge: .bottom)
         }
 
@@ -178,7 +181,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
     private func updateContent() {
         guard let contentView = contentView else {
-            owsFail("\(logTag) Missing contentView")
+            owsFailDebug("Missing contentView")
             return
         }
 
@@ -188,7 +191,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
         }
 
         var rows = [UIView]()
-        let contactsManager = Environment.current().contactsManager!
+        let contactsManager = Environment.shared.contactsManager!
 
         // Content
         rows += contentRows()
@@ -222,8 +225,8 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
                 // TODO: It'd be nice to inset these dividers from the edge of the screen.
                 let addDivider = {
                     let divider = UIView()
-                    divider.backgroundColor = UIColor(white: 0.9, alpha: 1.0)
-                    divider.autoSetDimension(.height, toSize: 0.5)
+                    divider.backgroundColor = Theme.hairlineColor
+                    divider.autoSetDimension(.height, toSize: CGHairlineWidth())
                     groupRows.append(divider)
                 }
 
@@ -231,7 +234,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
                 for recipientId in messageRecipientIds {
                     guard let recipientState = outgoingMessage.recipientState(forRecipientId: recipientId) else {
-                        owsFail("\(self.logTag) no message status for recipient: \(recipientId).")
+                        owsFailDebug("no message status for recipient: \(recipientId).")
                         continue
                     }
 
@@ -281,9 +284,12 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
             }
         }
 
-        rows.append(valueRow(name: NSLocalizedString("MESSAGE_METADATA_VIEW_SENT_DATE_TIME",
-                                                     comment: "Label for the 'sent date & time' field of the 'message metadata' view."),
-                             value: DateUtil.formatPastTimestampRelativeToNow(message.timestamp)))
+        let sentRow = valueRow(name: NSLocalizedString("MESSAGE_METADATA_VIEW_SENT_DATE_TIME",
+                                                       comment: "Label for the 'sent date & time' field of the 'message metadata' view."),
+                               value: DateUtil.formatPastTimestampRelativeToNow(message.timestamp))
+        sentRow.isUserInteractionEnabled = true
+        sentRow.addGestureRecognizer(UILongPressGestureRecognizer(target: self, action: #selector(didLongPressSent)))
+        rows.append(sentRow)
 
         if message as? TSIncomingMessage != nil {
             rows.append(valueRow(name: NSLocalizedString("MESSAGE_METADATA_VIEW_RECEIVED_DATE_TIME",
@@ -320,7 +326,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
         guard viewItem.hasBodyText else {
                 return nil
         }
-        guard let displayableText = viewItem.displayableBodyText() else {
+        guard let displayableText = viewItem.displayableBodyText else {
                 return nil
         }
         let messageBody = displayableText.fullText
@@ -364,7 +370,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
         if rows.isEmpty {
             // Neither attachment nor body.
-            owsFail("\(self.logTag) Message has neither attachment nor body.")
+            owsFailDebug("Message has neither attachment nor body.")
             rows.append(valueRow(name: NSLocalizedString("MESSAGE_METADATA_VIEW_NO_ATTACHMENT_OR_BODY",
                                                          comment: "Label for messages without a body or attachment in the 'message metadata' view."),
                                  value: ""))
@@ -383,7 +389,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
         }
 
         guard let attachment = TSAttachment.fetch(uniqueId: attachmentId, transaction: transaction) else {
-            Logger.warn("\(logTag) Missing attachment. Was it deleted?")
+            Logger.warn("Missing attachment. Was it deleted?")
             return nil
         }
 
@@ -394,7 +400,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
         var rows = [UIView]()
 
         guard let attachment = self.attachment else {
-            Logger.warn("\(logTag) Missing attachment. Was it deleted?")
+            Logger.warn("Missing attachment. Was it deleted?")
             return rows
         }
 
@@ -458,7 +464,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
     private func nameLabel(text: String) -> UILabel {
         let label = UILabel()
-        label.textColor = UIColor.black
+        label.textColor = Theme.primaryColor
         label.font = UIFont.ows_mediumFont(withSize: 14)
         label.text = text
         label.setContentHuggingHorizontalHigh()
@@ -467,7 +473,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
     private func valueLabel(text: String) -> UILabel {
         let label = UILabel()
-        label.textColor = UIColor.black
+        label.textColor = Theme.primaryColor
         label.font = UIFont.ows_regularFont(withSize: 14)
         label.text = text
         label.setContentHuggingHorizontalLow()
@@ -488,7 +494,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
         if subtitle.count > 0 {
             let subtitleLabel = self.valueLabel(text: subtitle)
-            subtitleLabel.textColor = UIColor.ows_darkGray
+            subtitleLabel.textColor = Theme.secondaryColor
             row.addSubview(subtitleLabel)
             subtitleLabel.autoPinTrailingToSuperviewMargin()
             subtitleLabel.autoPinLeading(toTrailingEdgeOf: nameLabel, offset: 10)
@@ -507,7 +513,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
     @objc func shareButtonPressed() {
         guard let attachmentStream = attachmentStream else {
-            Logger.error("\(logTag) Share button should only be shown with attachment, but no attachment found.")
+            Logger.error("Share button should only be shown with attachment, but no attachment found.")
             return
         }
         AttachmentSharing.showShareUI(forAttachment: attachmentStream)
@@ -518,15 +524,15 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
     // This method should be called after self.databaseConnection.beginLongLivedReadTransaction().
     private func updateDBConnectionAndMessageToLatest() {
 
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         self.uiDatabaseConnection.read { transaction in
             guard let uniqueId = self.message.uniqueId else {
-                Logger.error("\(self.logTag) Message is missing uniqueId.")
+                Logger.error("Message is missing uniqueId.")
                 return
             }
             guard let newMessage = TSInteraction.fetch(uniqueId: uniqueId, transaction: transaction) as? TSMessage else {
-                Logger.error("\(self.logTag) Couldn't reload message.")
+                Logger.error("Couldn't reload message.")
                 return
             }
             self.message = newMessage
@@ -535,7 +541,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
     }
 
     @objc internal func yapDatabaseModified(notification: NSNotification) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         guard !wasDeleted else {
             // Item was deleted. Don't bother re-rendering, it will fail and we'll soon be dismissed.
@@ -545,13 +551,13 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
         let notifications = self.uiDatabaseConnection.beginLongLivedReadTransaction()
 
         guard let uniqueId = self.message.uniqueId else {
-            Logger.error("\(self.logTag) Message is missing uniqueId.")
+            Logger.error("Message is missing uniqueId.")
             return
         }
         guard self.uiDatabaseConnection.hasChange(forKey: uniqueId,
                                                  inCollection: TSInteraction.collection(),
                                                  in: notifications) else {
-                                                    Logger.debug("\(logTag) No relevant changes.")
+                                                    Logger.debug("No relevant changes.")
                                                     return
         }
 
@@ -635,7 +641,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
     func didTapContactShare(_ viewItem: ConversationViewItem) {
         guard let contactShare = viewItem.contactShare else {
-            owsFail("\(logTag) missing contact.")
+            owsFailDebug("missing contact.")
             return
         }
         let contactViewController = ContactViewController(contactShare: contactShare)
@@ -657,21 +663,21 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
     var audioAttachmentPlayer: OWSAudioPlayer?
 
     func didTapAudioViewItem(_ viewItem: ConversationViewItem, attachmentStream: TSAttachmentStream) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        guard let mediaURL = attachmentStream.mediaURL() else {
-            owsFail("\(logTag) in \(#function) mediaURL was unexpectedly nil for attachment: \(attachmentStream)")
+        guard let mediaURL = attachmentStream.originalMediaURL else {
+            owsFailDebug("mediaURL was unexpectedly nil for attachment: \(attachmentStream)")
             return
         }
 
         guard FileManager.default.fileExists(atPath: mediaURL.path) else {
-            owsFail("\(logTag) in \(#function) audio file missing at path: \(mediaURL)")
+            owsFailDebug("audio file missing at path: \(mediaURL)")
             return
         }
 
         if let audioAttachmentPlayer = self.audioAttachmentPlayer {
             // Is this player associated with this media adapter?
-            if (audioAttachmentPlayer.owner as? ConversationViewItem == viewItem) {
+            if audioAttachmentPlayer.owner === viewItem {
                 // Tap to pause & unpause.
                 audioAttachmentPlayer.togglePlayState()
                 return
@@ -690,7 +696,7 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
 
     func didTapTruncatedTextMessage(_ conversationItem: ConversationViewItem) {
         guard let navigationController = self.navigationController else {
-            owsFail("\(logTag) in \(#function) navigationController was unexpectedly nil")
+            owsFailDebug("navigationController was unexpectedly nil")
             return
         }
 
@@ -714,14 +720,22 @@ class MessageDetailViewController: OWSViewController, MediaGalleryDataSourceDele
         // no - op
     }
 
+    @objc func didLongPressSent(sender: UIGestureRecognizer) {
+        guard sender.state == .began else {
+            return
+        }
+        let messageTimestamp = "\(message.timestamp)"
+        UIPasteboard.general.string = messageTimestamp
+    }
+
     // MediaGalleryDataSourceDelegate
 
     func mediaGalleryDataSource(_ mediaGalleryDataSource: MediaGalleryDataSource, willDelete items: [MediaGalleryItem], initiatedBy: MediaGalleryDataSourceDelegate) {
-        Logger.info("\(self.logTag) in \(#function)")
+        Logger.info("")
 
         guard (items.map({ $0.message }) == [self.message]) else {
             // Should only be one message we can delete when viewing message details
-            owsFail("\(logTag) in \(#function) Unexpectedly informed of irrelevant message deletion")
+            owsFailDebug("Unexpectedly informed of irrelevant message deletion")
             return
         }
 

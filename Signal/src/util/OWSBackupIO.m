@@ -53,7 +53,7 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 {
     NSString *filePath = [self generateTempFilePath];
     if (![OWSFileSystem ensureFileExists:filePath]) {
-        OWSProdLogAndFail(@"%@ could not create temp file.", self.logTag);
+        OWSFailDebug(@"could not create temp file.");
         return nil;
     }
     return filePath;
@@ -63,7 +63,7 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 
 - (nullable OWSBackupEncryptedItem *)encryptFileAsTempFile:(NSString *)srcFilePath
 {
-    OWSAssert(srcFilePath.length > 0);
+    OWSAssertDebug(srcFilePath.length > 0);
 
     NSData *encryptionKey = [Randomness generateRandomBytes:(int)kOWSBackupKeyLength];
 
@@ -72,15 +72,15 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 
 - (nullable OWSBackupEncryptedItem *)encryptFileAsTempFile:(NSString *)srcFilePath encryptionKey:(NSData *)encryptionKey
 {
-    OWSAssert(srcFilePath.length > 0);
-    OWSAssert(encryptionKey.length > 0);
+    OWSAssertDebug(srcFilePath.length > 0);
+    OWSAssertDebug(encryptionKey.length > 0);
 
     @autoreleasepool {
 
         // TODO: Encrypt the file without loading it into memory.
         NSData *_Nullable srcData = [NSData dataWithContentsOfFile:srcFilePath];
         if (srcData.length < 1) {
-            OWSProdLogAndFail(@"%@ could not load file into memory for encryption.", self.logTag);
+            OWSFailDebug(@"could not load file into memory for encryption.");
             return nil;
         }
         return [self encryptDataAsTempFile:srcData encryptionKey:encryptionKey];
@@ -89,7 +89,7 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 
 - (nullable OWSBackupEncryptedItem *)encryptDataAsTempFile:(NSData *)srcData
 {
-    OWSAssert(srcData);
+    OWSAssertDebug(srcData);
 
     NSData *encryptionKey = [Randomness generateRandomBytes:(int)kOWSBackupKeyLength];
 
@@ -99,8 +99,8 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 - (nullable OWSBackupEncryptedItem *)encryptDataAsTempFile:(NSData *)unencryptedData
                                              encryptionKey:(NSData *)encryptionKey
 {
-    OWSAssert(unencryptedData);
-    OWSAssert(encryptionKey.length > 0);
+    OWSAssertDebug(unencryptedData);
+    OWSAssertDebug(encryptionKey.length > 0);
 
     @autoreleasepool {
 
@@ -114,7 +114,7 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
         NSError *error;
         BOOL success = [encryptedData writeToFile:dstFilePath options:NSDataWritingAtomic error:&error];
         if (!success || error) {
-            OWSProdLogAndFail(@"%@ error writing encrypted data: %@", self.logTag, error);
+            OWSFailDebug(@"error writing encrypted data: %@", error);
             return nil;
         }
         [OWSFileSystem protectFileOrFolderAtPath:dstFilePath];
@@ -131,8 +131,8 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
               dstFilePath:(NSString *)dstFilePath
             encryptionKey:(NSData *)encryptionKey
 {
-    OWSAssert(srcFilePath.length > 0);
-    OWSAssert(encryptionKey.length > 0);
+    OWSAssertDebug(srcFilePath.length > 0);
+    OWSAssertDebug(encryptionKey.length > 0);
 
     @autoreleasepool {
 
@@ -146,7 +146,7 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
         NSError *error;
         BOOL success = [data writeToFile:dstFilePath options:NSDataWritingAtomic error:&error];
         if (!success || error) {
-            OWSProdLogAndFail(@"%@ error writing decrypted data: %@", self.logTag, error);
+            OWSFailDebug(@"error writing decrypted data: %@", error);
             return NO;
         }
         [OWSFileSystem protectFileOrFolderAtPath:dstFilePath];
@@ -157,19 +157,19 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 
 - (nullable NSData *)decryptFileAsData:(NSString *)srcFilePath encryptionKey:(NSData *)encryptionKey
 {
-    OWSAssert(srcFilePath.length > 0);
-    OWSAssert(encryptionKey.length > 0);
+    OWSAssertDebug(srcFilePath.length > 0);
+    OWSAssertDebug(encryptionKey.length > 0);
 
     @autoreleasepool {
 
         if (![NSFileManager.defaultManager fileExistsAtPath:srcFilePath]) {
-            DDLogError(@"%@ missing downloaded file.", self.logTag);
+            OWSLogError(@"missing downloaded file.");
             return nil;
         }
 
         NSData *_Nullable srcData = [NSData dataWithContentsOfFile:srcFilePath];
         if (srcData.length < 1) {
-            OWSProdLogAndFail(@"%@ could not load file into memory for decryption.", self.logTag);
+            OWSFailDebug(@"could not load file into memory for decryption.");
             return nil;
         }
 
@@ -180,8 +180,8 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 
 - (nullable NSData *)decryptDataAsData:(NSData *)encryptedData encryptionKey:(NSData *)encryptionKey
 {
-    OWSAssert(encryptedData);
-    OWSAssert(encryptionKey.length > 0);
+    OWSAssertDebug(encryptedData);
+    OWSAssertDebug(encryptionKey.length > 0);
 
     @autoreleasepool {
 
@@ -196,34 +196,32 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 
 - (nullable NSData *)compressData:(NSData *)srcData
 {
-    OWSAssert(srcData);
+    OWSAssertDebug(srcData);
 
     @autoreleasepool {
 
         if (!srcData) {
-            OWSProdLogAndFail(@"%@ missing unencrypted data.", self.logTag);
+            OWSFailDebug(@"missing unencrypted data.");
             return nil;
         }
 
         size_t srcLength = [srcData length];
-        const uint8_t *srcBuffer = (const uint8_t *)[srcData bytes];
-        if (!srcBuffer) {
-            return nil;
-        }
+
         // This assumes that dst will always be smaller than src.
         //
         // We slightly pad the buffer size to account for the worst case.
         size_t dstBufferLength = srcLength + 64 * 1024;
-        uint8_t *dstBuffer = malloc(sizeof(uint8_t) * dstBufferLength);
-        if (!dstBuffer) {
+        NSMutableData *dstBufferData = [NSMutableData dataWithLength:dstBufferLength];
+        if (!dstBufferData) {
+            OWSFailDebug(@"Failed to allocate buffer.");
             return nil;
         }
-        size_t dstLength = compression_encode_buffer(
-            dstBuffer, dstBufferLength, srcBuffer, srcLength, NULL, SignalCompressionAlgorithm);
-        NSData *compressedData = [NSData dataWithBytesNoCopy:dstBuffer length:dstLength freeWhenDone:YES];
 
-        DDLogVerbose(@"%@ compressed %zd -> %zd = %0.2f",
-            self.logTag,
+        size_t dstLength = compression_encode_buffer(
+            dstBufferData.mutableBytes, dstBufferLength, srcData.bytes, srcLength, NULL, SignalCompressionAlgorithm);
+        NSData *compressedData = [dstBufferData subdataWithRange:NSMakeRange(0, dstLength)];
+
+        OWSLogVerbose(@"compressed %zd -> %zd = %0.2f",
             srcLength,
             dstLength,
             (srcLength > 0 ? (dstLength / (CGFloat)srcLength) : 0));
@@ -234,32 +232,30 @@ static const compression_algorithm SignalCompressionAlgorithm = COMPRESSION_LZMA
 
 - (nullable NSData *)decompressData:(NSData *)srcData uncompressedDataLength:(NSUInteger)uncompressedDataLength
 {
-    OWSAssert(srcData);
+    OWSAssertDebug(srcData);
 
     @autoreleasepool {
 
         if (!srcData) {
-            OWSProdLogAndFail(@"%@ missing unencrypted data.", self.logTag);
+            OWSFailDebug(@"missing unencrypted data.");
             return nil;
         }
 
         size_t srcLength = [srcData length];
-        const uint8_t *srcBuffer = (const uint8_t *)[srcData bytes];
-        if (!srcBuffer) {
-            return nil;
-        }
+
         // We pad the buffer to be defensive.
         size_t dstBufferLength = uncompressedDataLength + 1024;
-        uint8_t *dstBuffer = malloc(sizeof(uint8_t) * dstBufferLength);
-        if (!dstBuffer) {
+        NSMutableData *dstBufferData = [NSMutableData dataWithLength:dstBufferLength];
+        if (!dstBufferData) {
+            OWSFailDebug(@"Failed to allocate buffer.");
             return nil;
         }
+
         size_t dstLength = compression_decode_buffer(
-            dstBuffer, dstBufferLength, srcBuffer, srcLength, NULL, SignalCompressionAlgorithm);
-        NSData *decompressedData = [NSData dataWithBytesNoCopy:dstBuffer length:dstLength freeWhenDone:YES];
-        OWSAssert(decompressedData.length == uncompressedDataLength);
-        DDLogVerbose(@"%@ decompressed %zd -> %zd = %0.2f",
-            self.logTag,
+            dstBufferData.mutableBytes, dstBufferLength, srcData.bytes, srcLength, NULL, SignalCompressionAlgorithm);
+        NSData *decompressedData = [dstBufferData subdataWithRange:NSMakeRange(0, dstLength)];
+        OWSAssertDebug(decompressedData.length == uncompressedDataLength);
+        OWSLogVerbose(@"decompressed %zd -> %zd = %0.2f",
             srcLength,
             dstLength,
             (dstLength > 0 ? (srcLength / (CGFloat)dstLength) : 0));

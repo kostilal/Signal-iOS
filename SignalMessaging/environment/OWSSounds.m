@@ -34,13 +34,13 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
         return self;
     }
 
-    DDLogDebug(@"%@ creating system sound for %@", self.logTag, url.lastPathComponent);
+    OWSLogDebug(@"creating system sound for %@", url.lastPathComponent);
     _soundURL = url;
 
     SystemSoundID newSoundID;
     OSStatus status = AudioServicesCreateSystemSoundID((__bridge CFURLRef _Nonnull)(url), &newSoundID);
-    OWSAssert(status == kAudioServicesNoError);
-    OWSAssert(newSoundID);
+    OWSAssertDebug(status == kAudioServicesNoError);
+    OWSAssertDebug(newSoundID);
     _soundID = newSoundID;
 
     return self;
@@ -48,9 +48,9 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
 
 - (void)dealloc
 {
-    DDLogDebug(@"%@ in dealloc disposing sound: %@", self.logTag, _soundURL.lastPathComponent);
+    OWSLogDebug(@"in dealloc disposing sound: %@", _soundURL.lastPathComponent);
     OSStatus status = AudioServicesDisposeSystemSoundID(_soundID);
-    OWSAssert(status == kAudioServicesNoError);
+    OWSAssertDebug(status == kAudioServicesNoError);
 }
 
 @end
@@ -91,7 +91,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
         return self;
     }
 
-    OWSAssert(primaryStorage);
+    OWSAssertDebug(primaryStorage);
 
     _dbConnection = primaryStorage.newDatabaseConnection;
 
@@ -130,7 +130,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
     // TODO: Should we localize these sound names?
     switch (sound) {
         case OWSSound_Default:
-            OWSFail(@"%@ invalid argument.", self.logTag);
+            OWSFailDebug(@"invalid argument.");
             return @"";
 
         // Notification Sounds
@@ -192,7 +192,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
 {
     switch (sound) {
         case OWSSound_Default:
-            OWSFail(@"%@ invalid argument.", self.logTag);
+            OWSFailDebug(@"invalid argument.");
             return @"";
 
             // Notification Sounds
@@ -253,7 +253,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
     }
     NSURL *_Nullable url = [[NSBundle mainBundle] URLForResource:filename.stringByDeletingPathExtension
                                                    withExtension:filename.pathExtension];
-    OWSAssert(url);
+    OWSAssertDebug(url);
     return url;
 }
 
@@ -268,7 +268,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
     OWSSystemSound *_Nullable cachedSound = (OWSSystemSound *)[self.cachedSystemSounds getWithKey:cacheKey];
 
     if (cachedSound) {
-        OWSAssert([cachedSound isKindOfClass:[OWSSystemSound class]]);
+        OWSAssertDebug([cachedSound isKindOfClass:[OWSSystemSound class]]);
         return cachedSound.soundID;
     }
 
@@ -314,9 +314,9 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
 
 - (void)setGlobalNotificationSound:(OWSSound)sound transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
-    DDLogInfo(@"%@ Setting global notification sound to: %@", self.logTag, [[self class] displayNameForSound:sound]);
+    OWSLogInfo(@"Setting global notification sound to: %@", [[self class] displayNameForSound:sound]);
 
     // Fallback push notifications play a sound specified by the server, but we don't want to store this configuration
     // on the server. Instead, we create a file with the same name as the default to be played when receiving
@@ -328,7 +328,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
     NSString *kDefaultNotificationSoundFilename = @"NewMessage.aifc";
     NSString *defaultSoundPath = [dirPath stringByAppendingPathComponent:kDefaultNotificationSoundFilename];
 
-    DDLogDebug(@"%@ writing new default sound to %@", self.logTag, defaultSoundPath);
+    OWSLogDebug(@"writing new default sound to %@", defaultSoundPath);
 
     NSURL *_Nullable soundURL = [OWSSounds soundURLForSound:sound quiet:NO];
 
@@ -336,7 +336,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
         if (soundURL) {
             return [NSData dataWithContentsOfURL:soundURL];
         } else {
-            OWSAssert(sound == OWSSound_None);
+            OWSAssertDebug(sound == OWSSound_None);
             return [NSData new];
         }
     }();
@@ -350,8 +350,7 @@ NSString *const kOWSSoundsStorageGlobalNotificationKey = @"kOWSSoundsStorageGlob
     [OWSFileSystem protectFileOrFolderAtPath:defaultSoundPath fileProtectionType:NSFileProtectionNone];
 
     if (!success) {
-        OWSProdLogAndFail(
-            @"%@ Unable to write new default sound data from: %@ to :%@", self.logTag, soundURL, defaultSoundPath);
+        OWSFailDebug(@"Unable to write new default sound data from: %@ to :%@", soundURL, defaultSoundPath);
         return;
     }
 

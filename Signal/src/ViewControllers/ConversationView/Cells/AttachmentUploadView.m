@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
     self = [super init];
 
     if (self) {
-        OWSAssert(attachment);
+        OWSAssertDebug(attachment);
 
         self.attachment = attachment;
         self.attachmentStateCallback = attachmentStateCallback;
@@ -142,7 +142,7 @@ NS_ASSUME_NONNULL_BEGIN
             self.lastProgress = (CGFloat)progress;
             self.isAttachmentReady = self.attachment.isUploaded;
         } else {
-            OWSFail(@"%@ Invalid attachment progress.", self.logTag);
+            OWSFailDebug(@"Invalid attachment progress.");
             self.isAttachmentReady = YES;
         }
     }

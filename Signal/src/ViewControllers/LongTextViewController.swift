@@ -15,13 +15,13 @@ public class LongTextViewController: OWSViewController {
 
     let messageBody: String
 
-    var messageTextView: UITextView?
+    var messageTextView: UITextView!
 
     // MARK: Initializers
 
     @available(*, unavailable, message:"use other constructor instead.")
     public required init?(coder aDecoder: NSCoder) {
-        fatalError("\(#function) is unimplemented.")
+        notImplemented()
     }
 
     @objc
@@ -37,7 +37,7 @@ public class LongTextViewController: OWSViewController {
         guard viewItem.hasBodyText else {
             return ""
         }
-        guard let displayableText = viewItem.displayableBodyText() else {
+        guard let displayableText = viewItem.displayableBodyText else {
             return ""
         }
         let messageBody = displayableText.fullText
@@ -53,17 +53,19 @@ public class LongTextViewController: OWSViewController {
                                                       comment: "Title for the 'long text message' view.")
 
         createViews()
+
+        self.messageTextView.contentOffset = CGPoint(x: 0, y: self.messageTextView.contentInset.top)
     }
 
     // MARK: - Create Views
 
     private func createViews() {
-        view.backgroundColor = UIColor.white
+        view.backgroundColor = Theme.backgroundColor
 
-        let messageTextView = UITextView()
+        let messageTextView = OWSTextView()
         self.messageTextView = messageTextView
         messageTextView.font = UIFont.ows_dynamicTypeBody
-        messageTextView.backgroundColor = UIColor.white
+        messageTextView.backgroundColor = Theme.backgroundColor
         messageTextView.isOpaque = true
         messageTextView.isEditable = false
         messageTextView.isSelectable = true
@@ -71,18 +73,29 @@ public class LongTextViewController: OWSViewController {
         messageTextView.showsHorizontalScrollIndicator = false
         messageTextView.showsVerticalScrollIndicator = true
         messageTextView.isUserInteractionEnabled = true
-        messageTextView.textColor = UIColor.black
+        messageTextView.textColor = Theme.primaryColor
+        messageTextView.dataDetectorTypes = kOWSAllowedDataDetectorTypes
         messageTextView.text = messageBody
 
+        // RADAR #18669
+        // https://github.com/lionheart/openradar-mirror/issues/18669
+        //
+        // UITextView’s linkTextAttributes property has type [String : Any]! but should be [NSAttributedStringKey : Any]! in Swift 4.
+        let linkTextAttributes: [String: Any] = [
+            NSAttributedStringKey.foregroundColor.rawValue: Theme.primaryColor,
+            NSAttributedStringKey.underlineColor.rawValue: Theme.primaryColor,
+            NSAttributedStringKey.underlineStyle.rawValue: NSUnderlineStyle.styleSingle.rawValue
+        ]
+        messageTextView.linkTextAttributes = linkTextAttributes
+
         view.addSubview(messageTextView)
-        messageTextView.autoPinEdge(toSuperviewEdge: .leading)
-        messageTextView.autoPinEdge(toSuperviewEdge: .trailing)
-        messageTextView.textContainerInset = UIEdgeInsets(top: 0, left: view.layoutMargins.left, bottom: 0, right: view.layoutMargins.right)
-        messageTextView.autoPin(toTopLayoutGuideOf: self, withInset: 0)
+        messageTextView.autoPinEdge(toSuperviewEdge: .top)
+        messageTextView.autoPinEdge(toSuperviewMargin: .leading)
+        messageTextView.autoPinEdge(toSuperviewMargin: .trailing)
 
         let footer = UIToolbar()
         view.addSubview(footer)
-        footer.autoPinWidthToSuperview(withMargin: 0)
+        footer.autoPinWidthToSuperview()
         footer.autoPinEdge(.top, to: .bottom, of: messageTextView)
         footer.autoPin(toBottomLayoutGuideOf: self, withInset: 0)
 

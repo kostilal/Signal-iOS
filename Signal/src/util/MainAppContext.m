@@ -8,12 +8,15 @@
 #import <SignalMessaging/OWSProfileManager.h>
 #import <SignalMessaging/SignalMessaging-Swift.h>
 #import <SignalServiceKit/OWSIdentityManager.h>
+#import <SignalServiceKit/Threading.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface MainAppContext ()
 
 @property (atomic) UIApplicationState reportedApplicationState;
+
+@property (nonatomic, nullable) NSMutableArray<AppActiveBlock> *appActiveBlocks;
 
 @end
 
@@ -22,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 @implementation MainAppContext
 
 @synthesize mainWindow = _mainWindow;
+@synthesize appLaunchTime = _appLaunchTime;
 
 - (instancetype)init
 {
@@ -32,6 +36,8 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     self.reportedApplicationState = UIApplicationStateInactive;
+
+    _appLaunchTime = [NSDate new];
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(applicationWillEnterForeground:)
@@ -54,6 +60,10 @@ NS_ASSUME_NONNULL_BEGIN
                                                  name:UIApplicationWillTerminateNotification
                                                object:nil];
 
+    // We can't use OWSSingletonAssert() since it uses the app context.
+
+    self.appActiveBlocks = [NSMutableArray new];
+
     return self;
 }
 
@@ -70,7 +80,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     self.reportedApplicationState = UIApplicationStateInactive;
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     [NSNotificationCenter.defaultCenter postNotificationName:OWSApplicationWillEnterForegroundNotification object:nil];
 }
@@ -81,7 +91,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     self.reportedApplicationState = UIApplicationStateBackground;
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
     [DDLog flushLog];
 
     [NSNotificationCenter.defaultCenter postNotificationName:OWSApplicationDidEnterBackgroundNotification object:nil];
@@ -93,7 +103,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     self.reportedApplicationState = UIApplicationStateInactive;
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
     [DDLog flushLog];
 
     [NSNotificationCenter.defaultCenter postNotificationName:OWSApplicationWillResignActiveNotification object:nil];
@@ -105,16 +115,18 @@ NS_ASSUME_NONNULL_BEGIN
 
     self.reportedApplicationState = UIApplicationStateActive;
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     [NSNotificationCenter.defaultCenter postNotificationName:OWSApplicationDidBecomeActiveNotification object:nil];
+
+    [self runAppActiveBlocks];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification
 {
     OWSAssertIsOnMainThread();
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
     [DDLog flushLog];
 }
 
@@ -176,14 +188,14 @@ NS_ASSUME_NONNULL_BEGIN
 {
     if (UIApplication.sharedApplication.isIdleTimerDisabled != shouldBeBlocking) {
         if (shouldBeBlocking) {
-            NSMutableString *logString = [NSMutableString
-                stringWithFormat:@"%@ Blocking sleep because of: %@", self.logTag, blockingObjects.firstObject];
+            NSMutableString *logString =
+                [NSMutableString stringWithFormat:@"Blocking sleep because of: %@", blockingObjects.firstObject];
             if (blockingObjects.count > 1) {
                 [logString appendString:[NSString stringWithFormat:@"(and %lu others)", blockingObjects.count - 1]];
             }
-            DDLogInfo(@"%@", logString);
+            OWSLogInfo(@"%@", logString);
         } else {
-            DDLogInfo(@"%@ Unblocking Sleep.", self.logTag);
+            OWSLogInfo(@"Unblocking Sleep.");
         }
     }
     UIApplication.sharedApplication.idleTimerDisabled = shouldBeBlocking;
@@ -210,11 +222,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)doMultiDeviceUpdateWithProfileKey:(OWSAES256Key *)profileKey
 {
-    OWSAssert(profileKey);
+    OWSAssertDebug(profileKey);
 
     [MultiDeviceProfileKeyUpdateJob runWithProfileKey:profileKey
                                       identityManager:OWSIdentityManager.sharedManager
-                                        messageSender:Environment.current.messageSender
+                                        messageSender:SSKEnvironment.shared.messageSender
                                        profileManager:OWSProfileManager.sharedManager];
 }
 
@@ -226,6 +238,69 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setNetworkActivityIndicatorVisible:(BOOL)value
 {
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:value];
+}
+
+#pragma mark -
+
+- (void)runNowOrWhenMainAppIsActive:(AppActiveBlock)block
+{
+    OWSAssertDebug(block);
+
+    DispatchMainThreadSafe(^{
+        if (self.isMainAppAndActive) {
+            // App active blocks typically will be used to safely access the
+            // shared data container, so use a background task to protect this
+            // work.
+            OWSBackgroundTask *_Nullable backgroundTask =
+                [OWSBackgroundTask backgroundTaskWithLabelStr:__PRETTY_FUNCTION__];
+            block();
+            OWSAssertDebug(backgroundTask);
+            backgroundTask = nil;
+            return;
+        }
+
+        [self.appActiveBlocks addObject:block];
+    });
+}
+
+- (void)runAppActiveBlocks
+{
+    OWSAssertIsOnMainThread();
+    OWSAssertDebug(self.isMainAppAndActive);
+
+    // App active blocks typically will be used to safely access the
+    // shared data container, so use a background task to protect this
+    // work.
+    OWSBackgroundTask *_Nullable backgroundTask = [OWSBackgroundTask backgroundTaskWithLabelStr:__PRETTY_FUNCTION__];
+
+    NSArray<AppActiveBlock> *appActiveBlocks = [self.appActiveBlocks copy];
+    [self.appActiveBlocks removeAllObjects];
+    for (AppActiveBlock block in appActiveBlocks) {
+        block();
+    }
+
+    OWSAssertDebug(backgroundTask);
+    backgroundTask = nil;
+}
+
+- (id<SSKKeychainStorage>)keychainStorage
+{
+    return [SSKDefaultKeychainStorage shared];
+}
+
+- (NSString *)appDocumentDirectoryPath
+{
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSURL *documentDirectoryURL =
+        [[fileManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] lastObject];
+    return [documentDirectoryURL path];
+}
+
+- (NSString *)appSharedDataDirectoryPath
+{
+    NSURL *groupContainerDirectoryURL =
+        [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:SignalApplicationGroup];
+    return [groupContainerDirectoryURL path];
 }
 
 @end

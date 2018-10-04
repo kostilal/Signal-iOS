@@ -7,14 +7,14 @@
 #import "ContactsManagerProtocol.h"
 #import "Cryptography.h"
 #import "MIMETypeUtil.h"
+#import "NSData+OWS.h"
 #import "NSData+keyVersionByte.h"
 #import "OWSBlockingManager.h"
 #import "OWSDisappearingMessagesConfiguration.h"
 #import "OWSRecipientIdentity.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import "SignalAccount.h"
 #import "TSContactThread.h"
-#import <ProtocolBuffers/CodedOutputStream.h>
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -27,23 +27,25 @@ NS_ASSUME_NONNULL_BEGIN
      conversationColorName:(NSString *)conversationColorName
 disappearingMessagesConfiguration:(nullable OWSDisappearingMessagesConfiguration *)disappearingMessagesConfiguration
 {
-    OWSAssert(signalAccount);
-    OWSAssert(signalAccount.contact);
-    OWSAssert(contactsManager);
+    OWSAssertDebug(signalAccount);
+    OWSAssertDebug(signalAccount.contact);
+    OWSAssertDebug(contactsManager);
 
-    OWSSignalServiceProtosContactDetailsBuilder *contactBuilder = [OWSSignalServiceProtosContactDetailsBuilder new];
+    SSKProtoContactDetailsBuilder *contactBuilder = [SSKProtoContactDetailsBuilder new];
     [contactBuilder setName:signalAccount.contact.fullName];
     [contactBuilder setNumber:signalAccount.recipientId];
-#ifdef CONVERSATION_COLORS_ENABLED
     [contactBuilder setColor:conversationColorName];
-#endif
 
     if (recipientIdentity != nil) {
-        OWSSignalServiceProtosVerifiedBuilder *verifiedBuilder = [OWSSignalServiceProtosVerifiedBuilder new];
-        verifiedBuilder.destination = recipientIdentity.recipientId;
-        verifiedBuilder.identityKey = [recipientIdentity.identityKey prependKeyType];
-        verifiedBuilder.state = OWSVerificationStateToProtoState(recipientIdentity.verificationState);
-        contactBuilder.verifiedBuilder = verifiedBuilder;
+        SSKProtoVerified *_Nullable verified = BuildVerifiedProtoWithRecipientId(recipientIdentity.recipientId,
+            [recipientIdentity.identityKey prependKeyType],
+            recipientIdentity.verificationState,
+            0);
+        if (!verified) {
+            OWSLogError(@"could not build protobuf.");
+            return;
+        }
+        contactBuilder.verified = verified;
     }
 
     UIImage *_Nullable rawAvatar = [contactsManager avatarImageForCNContactId:signalAccount.contact.cnContactId];
@@ -51,17 +53,23 @@ disappearingMessagesConfiguration:(nullable OWSDisappearingMessagesConfiguration
     if (rawAvatar) {
         avatarPng = UIImagePNGRepresentation(rawAvatar);
         if (avatarPng) {
-            OWSSignalServiceProtosContactDetailsAvatarBuilder *avatarBuilder =
-                [OWSSignalServiceProtosContactDetailsAvatarBuilder new];
-
+            SSKProtoContactDetailsAvatarBuilder *avatarBuilder =
+                [SSKProtoContactDetailsAvatarBuilder new];
             [avatarBuilder setContentType:OWSMimeTypeImagePng];
             [avatarBuilder setLength:(uint32_t)avatarPng.length];
-            [contactBuilder setAvatarBuilder:avatarBuilder];
+
+            NSError *error;
+            SSKProtoContactDetailsAvatar *_Nullable avatar = [avatarBuilder buildAndReturnError:&error];
+            if (error || !avatar) {
+                OWSLogError(@"could not build protobuf: %@", error);
+                return;
+            }
+            [contactBuilder setAvatar:avatar];
         }
     }
 
     if (profileKeyData) {
-        OWSAssert(profileKeyData.length == kAES256_KeyByteLength);
+        OWSAssertDebug(profileKeyData.length == kAES256_KeyByteLength);
         [contactBuilder setProfileKey:profileKeyData];
     }
 
@@ -78,14 +86,19 @@ disappearingMessagesConfiguration:(nullable OWSDisappearingMessagesConfiguration
         [contactBuilder setBlocked:YES];
     }
 
-    NSData *contactData = [[contactBuilder build] data];
+    NSError *error;
+    NSData *_Nullable contactData = [contactBuilder buildSerializedDataAndReturnError:&error];
+    if (error || !contactData) {
+        OWSFailDebug(@"could not serialize protobuf: %@", error);
+        return;
+    }
 
     uint32_t contactDataLength = (uint32_t)contactData.length;
-    [self.delegateStream writeRawVarint32:contactDataLength];
-    [self.delegateStream writeRawData:contactData];
+    [self writeVariableLengthUInt32:contactDataLength];
+    [self writeData:contactData];
 
     if (avatarPng) {
-        [self.delegateStream writeRawData:avatarPng];
+        [self writeData:avatarPng];
     }
 }
 

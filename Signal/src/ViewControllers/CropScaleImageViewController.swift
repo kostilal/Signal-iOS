@@ -27,8 +27,6 @@ import SignalMessaging
 //   appropriate cropping.
 @objc class CropScaleImageViewController: OWSViewController {
 
-    let TAG = "[CropScaleImageViewController]"
-
     // MARK: Properties
 
     let srcImage: UIImage
@@ -77,7 +75,7 @@ import SignalMessaging
 
     @available(*, unavailable, message:"use other constructor instead.")
     required init?(coder aDecoder: NSCoder) {
-        fatalError("\(#function) is unimplemented.")
+        notImplemented()
     }
 
     @objc required init(srcImage: UIImage, successCompletion : @escaping (UIImage) -> Void) {
@@ -141,14 +139,14 @@ import SignalMessaging
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor.white
-
         createViews()
     }
 
     // MARK: - Create Views
 
     private func createViews() {
+
+        view.backgroundColor = UIColor.black
 
         let contentView = UIView()
         contentView.backgroundColor = UIColor.black
@@ -501,7 +499,7 @@ import SignalMessaging
 
         let scaledImage = UIGraphicsGetImageFromCurrentImageContext()
         if scaledImage == nil {
-            owsFail("\(TAG) could not generate dst image.")
+            owsFailDebug("could not generate dst image.")
         }
         UIGraphicsEndImageContext()
         return scaledImage

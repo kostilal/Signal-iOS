@@ -25,20 +25,20 @@ class AddContactShareToExistingContactViewController: ContactsPicker, ContactsPi
     }
 
     required public init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     @objc required public init(allowsMultipleSelection: Bool, subtitleCellType: SubtitleCellValue) {
-        fatalError("init(allowsMultipleSelection:subtitleCellType:) has not been implemented")
+        notImplemented()
     }
 
     // MARK: - ContactsPickerDelegate
 
     func contactsPicker(_: ContactsPicker, contactFetchDidFail error: NSError) {
-        owsFail("\(logTag) in \(#function) with error: \(error)")
+        owsFailDebug("with error: \(error)")
 
         guard let navigationController = self.navigationController else {
-            owsFail("\(logTag) in \(#function) navigationController was unexpectedly nil")
+            owsFailDebug("navigationController was unexpectedly nil")
             return
         }
 
@@ -46,9 +46,9 @@ class AddContactShareToExistingContactViewController: ContactsPicker, ContactsPi
     }
 
     func contactsPickerDidCancel(_: ContactsPicker) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
         guard let navigationController = self.navigationController else {
-            owsFail("\(logTag) in \(#function) navigationController was unexpectedly nil")
+            owsFailDebug("navigationController was unexpectedly nil")
             return
         }
 
@@ -56,22 +56,22 @@ class AddContactShareToExistingContactViewController: ContactsPicker, ContactsPi
     }
 
     func contactsPicker(_: ContactsPicker, didSelectContact oldContact: Contact) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
-        let contactsManager = Environment.current().contactsManager
+        let contactsManager = Environment.shared.contactsManager
         guard let oldCNContact = contactsManager?.cnContact(withId: oldContact.cnContactId) else {
-            owsFail("\(logTag) could not load old CNContact.")
+            owsFailDebug("could not load old CNContact.")
             return
         }
         guard let newCNContact = OWSContacts.systemContact(for: self.contactShare.dbRecord, imageData: self.contactShare.avatarImageData) else {
-            owsFail("\(logTag) could not load new CNContact.")
+            owsFailDebug("could not load new CNContact.")
             return
         }
         merge(oldCNContact: oldCNContact, newCNContact: newCNContact)
     }
 
     func merge(oldCNContact: CNContact, newCNContact: CNContact) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         let mergedCNContact: CNContact = Contact.merge(cnContact: oldCNContact, newCNContact: newCNContact)
 
@@ -91,11 +91,11 @@ class AddContactShareToExistingContactViewController: ContactsPicker, ContactsPi
     }
 
     func contactsPicker(_: ContactsPicker, didSelectMultipleContacts contacts: [Contact]) {
-        Logger.debug("\(self.logTag) in \(#function)")
-        owsFail("\(logTag) only supports single contact select")
+        Logger.debug("")
+        owsFailDebug("only supports single contact select")
 
         guard let navigationController = self.navigationController else {
-            owsFail("\(logTag) in \(#function) navigationController was unexpectedly nil")
+            owsFailDebug("navigationController was unexpectedly nil")
             return
         }
 
@@ -109,10 +109,10 @@ class AddContactShareToExistingContactViewController: ContactsPicker, ContactsPi
     // MARK: - CNContactViewControllerDelegate
 
     public func contactViewController(_ viewController: CNContactViewController, didCompleteWith contact: CNContact?) {
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         guard let navigationController = self.navigationController else {
-            owsFail("\(logTag) in \(#function) navigationController was unexpectedly nil")
+            owsFailDebug("navigationController was unexpectedly nil")
             return
         }
 
@@ -129,7 +129,7 @@ class AddContactShareToExistingContactViewController: ContactsPicker, ContactsPi
         // Note this happens for *cancel* and for *done*. Unfortunately, I don't know of a way to detect the difference
         // between the two, since both just call this method.
         guard let myIndex = navigationController.viewControllers.index(of: self) else {
-            owsFail("\(logTag) in \(#function) myIndex was unexpectedly nil")
+            owsFailDebug("myIndex was unexpectedly nil")
             navigationController.popViewController(animated: true)
             navigationController.popViewController(animated: true)
             return

@@ -4,11 +4,11 @@
 
 #import "OWSGroupsOutputStream.h"
 #import "MIMETypeUtil.h"
+#import "OWSBlockingManager.h"
 #import "OWSDisappearingMessagesConfiguration.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import "TSGroupModel.h"
 #import "TSGroupThread.h"
-#import <ProtocolBuffers/CodedOutputStream.h>
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -16,29 +16,38 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)writeGroup:(TSGroupThread *)groupThread transaction:(YapDatabaseReadTransaction *)transaction
 {
-    OWSAssert(groupThread);
-    OWSAssert(transaction);
+    OWSAssertDebug(groupThread);
+    OWSAssertDebug(transaction);
 
     TSGroupModel *group = groupThread.groupModel;
-    OWSAssert(group);
+    OWSAssertDebug(group);
 
-    OWSSignalServiceProtosGroupDetailsBuilder *groupBuilder = [OWSSignalServiceProtosGroupDetailsBuilder new];
+    SSKProtoGroupDetailsBuilder *groupBuilder = [SSKProtoGroupDetailsBuilder new];
     [groupBuilder setId:group.groupId];
     [groupBuilder setName:group.groupName];
-    [groupBuilder setMembersArray:group.groupMemberIds];
-#ifdef CONVERSATION_COLORS_ENABLED
+    [groupBuilder setMembers:group.groupMemberIds];
     [groupBuilder setColor:groupThread.conversationColorName];
-#endif
+
+    if ([OWSBlockingManager.sharedManager isGroupIdBlocked:group.groupId]) {
+        [groupBuilder setBlocked:YES];
+    }
 
     NSData *avatarPng;
     if (group.groupImage) {
-        OWSSignalServiceProtosGroupDetailsAvatarBuilder *avatarBuilder =
-            [OWSSignalServiceProtosGroupDetailsAvatarBuilder new];
+        SSKProtoGroupDetailsAvatarBuilder *avatarBuilder =
+            [SSKProtoGroupDetailsAvatarBuilder new];
 
         [avatarBuilder setContentType:OWSMimeTypeImagePng];
         avatarPng = UIImagePNGRepresentation(group.groupImage);
         [avatarBuilder setLength:(uint32_t)avatarPng.length];
-        [groupBuilder setAvatarBuilder:avatarBuilder];
+
+        NSError *error;
+        SSKProtoGroupDetailsAvatar *_Nullable avatarProto = [avatarBuilder buildAndReturnError:&error];
+        if (error || !avatarProto) {
+            OWSFailDebug(@"could not build protobuf: %@", error);
+        } else {
+            [groupBuilder setAvatar:avatarProto];
+        }
     }
 
     OWSDisappearingMessagesConfiguration *_Nullable disappearingMessagesConfiguration =
@@ -53,14 +62,20 @@ NS_ASSUME_NONNULL_BEGIN
         [groupBuilder setExpireTimer:0];
     }
 
-    NSData *groupData = [[groupBuilder build] data];
+    NSError *error;
+    NSData *_Nullable groupData = [groupBuilder buildSerializedDataAndReturnError:&error];
+    if (error || !groupData) {
+        OWSFailDebug(@"could not serialize protobuf: %@", error);
+        return;
+    }
+
     uint32_t groupDataLength = (uint32_t)groupData.length;
 
-    [self.delegateStream writeRawVarint32:groupDataLength];
-    [self.delegateStream writeRawData:groupData];
+    [self writeVariableLengthUInt32:groupDataLength];
+    [self writeData:groupData];
 
     if (avatarPng) {
-        [self.delegateStream writeRawData:avatarPng];
+        [self writeData:avatarPng];
     }
 }
 

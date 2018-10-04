@@ -22,6 +22,7 @@
 #import <SignalMessaging/OWSProfileManager.h>
 #import <SignalMessaging/OWSSounds.h>
 #import <SignalMessaging/OWSUserProfile.h>
+#import <SignalMessaging/SignalMessaging-Swift.h>
 #import <SignalMessaging/UIUtil.h>
 #import <SignalServiceKit/NSDate+OWS.h>
 #import <SignalServiceKit/OWSDisappearingConfigurationUpdateInfoMessage.h>
@@ -41,7 +42,8 @@ const CGFloat kIconViewLength = 24;
 
 @interface OWSConversationSettingsViewController () <ContactEditingDelegate,
     ContactsViewHelperDelegate,
-    ColorPickerDelegate>
+    ColorPickerDelegate,
+    OWSSheetViewControllerDelegate>
 
 @property (nonatomic) TSThread *thread;
 @property (nonatomic) YapDatabaseConnection *uiDatabaseConnection;
@@ -57,6 +59,7 @@ const CGFloat kIconViewLength = 24;
 @property (nonatomic, readonly) ContactsViewHelper *contactsViewHelper;
 @property (nonatomic, readonly) UIImageView *avatarView;
 @property (nonatomic, readonly) UILabel *disappearingMessagesDurationLabel;
+@property (nonatomic) OWSColorPicker *colorPicker;
 
 @end
 
@@ -103,8 +106,8 @@ const CGFloat kIconViewLength = 24;
 - (void)commonInit
 {
     _accountManager = [TSAccountManager sharedInstance];
-    _contactsManager = [Environment current].contactsManager;
-    _messageSender = [Environment current].messageSender;
+    _contactsManager = Environment.shared.contactsManager;
+    _messageSender = SSKEnvironment.shared.messageSender;
     _blockingManager = [OWSBlockingManager sharedManager];
     _contactsViewHelper = [[ContactsViewHelper alloc] initWithDelegate:self];
 
@@ -153,7 +156,7 @@ const CGFloat kIconViewLength = 24;
 
 - (void)configureWithThread:(TSThread *)thread uiDatabaseConnection:(YapDatabaseConnection *)uiDatabaseConnection
 {
-    OWSAssert(thread);
+    OWSAssertDebug(thread);
     self.thread = thread;
     self.uiDatabaseConnection = uiDatabaseConnection;
 
@@ -170,7 +173,7 @@ const CGFloat kIconViewLength = 24;
 
 - (void)updateEditButton
 {
-    OWSAssert(self.thread);
+    OWSAssertDebug(self.thread);
 
     if ([self.thread isKindOfClass:[TSContactThread class]] && self.contactsManager.supportsContactEditing
         && self.hasExistingContact) {
@@ -184,7 +187,7 @@ const CGFloat kIconViewLength = 24;
 
 - (BOOL)hasExistingContact
 {
-    OWSAssert([self.thread isKindOfClass:[TSContactThread class]]);
+    OWSAssertDebug([self.thread isKindOfClass:[TSContactThread class]]);
     TSContactThread *contactThread = (TSContactThread *)self.thread;
     NSString *recipientId = contactThread.contactIdentifier;
     return [self.contactsManager hasSignalAccountForRecipientId:recipientId];
@@ -196,7 +199,7 @@ const CGFloat kIconViewLength = 24;
 {
     [self updateTableContents];
 
-    DDLogDebug(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogDebug(@"");
     [self dismissViewControllerAnimated:NO completion:nil];
 }
 
@@ -211,10 +214,10 @@ const CGFloat kIconViewLength = 24;
         // Saving normally returns you to the "Show Contact" view
         // which we're not interested in, so we skip it here. There is
         // an unfortunate blip of the "Show Contact" view on slower devices.
-        DDLogDebug(@"%@ completed editing contact.", self.logTag);
+        OWSLogDebug(@"completed editing contact.");
         [self dismissViewControllerAnimated:NO completion:nil];
     } else {
-        DDLogDebug(@"%@ canceled editing contact.", self.logTag);
+        OWSLogDebug(@"canceled editing contact.");
         [self dismissViewControllerAnimated:YES completion:nil];
     }
 }
@@ -246,6 +249,9 @@ const CGFloat kIconViewLength = 24;
         self.disappearingMessagesConfiguration =
             [[OWSDisappearingMessagesConfiguration alloc] initDefaultWithThreadId:self.thread.uniqueId];
     }
+
+    self.colorPicker = [[OWSColorPicker alloc] initWithThread:self.thread];
+    self.colorPicker.delegate = self;
 
     [self updateTableContents];
 }
@@ -285,20 +291,6 @@ const CGFloat kIconViewLength = 24;
                                  [weakSelf showMediaGallery];
                              }]];
 
-#ifdef CONVERSATION_COLORS_ENABLED
-    [mainSection addItem:[OWSTableItem
-                             itemWithCustomCellBlock:^{
-                                 NSString *colorName = self.thread.conversationColorName;
-                                 UIColor *currentColor = [UIColor ows_conversationColorForColorName:colorName];
-                                 NSString *title = NSLocalizedString(@"CONVERSATION_SETTINGS_CONVERSATION_COLOR",
-                                     @"Label for table cell which leads to picking a new conversation color");
-                                 return [weakSelf disclosureCellWithName:title iconColor:currentColor];
-                             }
-                             actionBlock:^{
-                                 [weakSelf showColorPicker];
-                             }]];
-#endif
-
     if ([self.thread isKindOfClass:[TSContactThread class]] && self.contactsManager.supportsContactEditing
         && !self.hasExistingContact) {
         [mainSection addItem:[OWSTableItem itemWithCustomCellBlock:^{
@@ -318,7 +310,7 @@ const CGFloat kIconViewLength = 24;
         }
                                  actionBlock:^{
                                      OWSConversationSettingsViewController *strongSelf = weakSelf;
-                                     OWSCAssert(strongSelf);
+                                     OWSCAssertDebug(strongSelf);
                                      TSContactThread *contactThread = (TSContactThread *)strongSelf.thread;
                                      NSString *recipientId = contactThread.contactIdentifier;
                                      [strongSelf presentAddToContactViewControllerWithRecipientId:recipientId];
@@ -351,27 +343,31 @@ const CGFloat kIconViewLength = 24;
         }
                                                        actionBlock:nil]];
     } else {
-        [mainSection addItem:[OWSTableItem itemWithCustomCellBlock:^{
-            return
-                [weakSelf disclosureCellWithName:(self.isGroupThread
-                                                         ? NSLocalizedString(
-                                                               @"CONVERSATION_SETTINGS_VIEW_SHARE_PROFILE_WITH_GROUP",
-                                                               @"Action that shares user profile with a group.")
-                                                         : NSLocalizedString(
-                                                               @"CONVERSATION_SETTINGS_VIEW_SHARE_PROFILE_WITH_USER",
-                                                               @"Action that shares user profile with a user."))iconName
-                                                :@"table_ic_share_profile"];
-        }
-                                 actionBlock:^{
-                                     [weakSelf showShareProfileAlert];
-                                 }]];
+        [mainSection
+            addItem:[OWSTableItem
+                        itemWithCustomCellBlock:^{
+                            UITableViewCell *cell = [weakSelf
+                                disclosureCellWithName:
+                                    (self.isGroupThread
+                                            ? NSLocalizedString(@"CONVERSATION_SETTINGS_VIEW_SHARE_PROFILE_WITH_GROUP",
+                                                  @"Action that shares user profile with a group.")
+                                            : NSLocalizedString(@"CONVERSATION_SETTINGS_VIEW_SHARE_PROFILE_WITH_USER",
+                                                  @"Action that shares user profile with a user."))
+                                              iconName:@"table_ic_share_profile"];
+                            cell.userInteractionEnabled = !weakSelf.hasLeftGroup;
+
+                            return cell;
+                        }
+                        actionBlock:^{
+                            [weakSelf showShareProfileAlert];
+                        }]];
     }
 
     [mainSection addItem:[OWSTableItem
                              itemWithCustomCellBlock:^{
                                  UITableViewCell *cell = [OWSTableItem newCell];
                                  OWSConversationSettingsViewController *strongSelf = weakSelf;
-                                 OWSCAssert(strongSelf);
+                                 OWSCAssertDebug(strongSelf);
                                  cell.preservesSuperviewLayoutMargins = YES;
                                  cell.contentView.preservesSuperviewLayoutMargins = YES;
                                  cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -414,6 +410,8 @@ const CGFloat kIconViewLength = 24;
                                  [subtitleLabel autoPinTrailingToSuperviewMargin];
                                  [subtitleLabel autoPinBottomToSuperviewMargin];
 
+                                 cell.userInteractionEnabled = !strongSelf.hasLeftGroup;
+
                                  return cell;
                              }
                                      customRowHeight:UITableViewAutomaticDimension
@@ -425,7 +423,7 @@ const CGFloat kIconViewLength = 24;
                         itemWithCustomCellBlock:^{
                             UITableViewCell *cell = [OWSTableItem newCell];
                             OWSConversationSettingsViewController *strongSelf = weakSelf;
-                            OWSCAssert(strongSelf);
+                            OWSCAssertDebug(strongSelf);
                             cell.preservesSuperviewLayoutMargins = YES;
                             cell.contentView.preservesSuperviewLayoutMargins = YES;
                             cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -460,11 +458,27 @@ const CGFloat kIconViewLength = 24;
                             [slider autoPinTrailingToSuperviewMargin];
                             [slider autoPinBottomToSuperviewMargin];
 
+                            cell.userInteractionEnabled = !strongSelf.hasLeftGroup;
+
                             return cell;
                         }
                                 customRowHeight:UITableViewAutomaticDimension
                                     actionBlock:nil]];
     }
+    [mainSection
+        addItem:[OWSTableItem
+                    itemWithCustomCellBlock:^{
+                        NSString *colorName = self.thread.conversationColorName;
+                        UIColor *currentColor =
+                            [OWSConversationColor conversationColorOrDefaultForColorName:colorName].themeColor;
+                        NSString *title = NSLocalizedString(@"CONVERSATION_SETTINGS_CONVERSATION_COLOR",
+                            @"Label for table cell which leads to picking a new conversation color");
+                        return
+                            [weakSelf cellWithName:title iconName:@"ic_color_palette" disclosureIconColor:currentColor];
+                    }
+                    actionBlock:^{
+                        [weakSelf showColorPicker];
+                    }]];
 
     [contents addSection:mainSection];
 
@@ -472,27 +486,40 @@ const CGFloat kIconViewLength = 24;
 
     if (self.isGroupThread) {
         NSArray *groupItems = @[
-            [OWSTableItem itemWithCustomCellBlock:^{
-                return [weakSelf disclosureCellWithName:NSLocalizedString(@"EDIT_GROUP_ACTION",
-                                                            @"table cell label in conversation settings")
-                                               iconName:@"table_ic_group_edit"];
-            }
+            [OWSTableItem
+                itemWithCustomCellBlock:^{
+                    UITableViewCell *cell =
+                        [weakSelf disclosureCellWithName:NSLocalizedString(@"EDIT_GROUP_ACTION",
+                                                             @"table cell label in conversation settings")
+                                                iconName:@"table_ic_group_edit"];
+                    cell.userInteractionEnabled = !weakSelf.hasLeftGroup;
+                    return cell;
+                }
                 actionBlock:^{
                     [weakSelf showUpdateGroupView:UpdateGroupMode_Default];
                 }],
-            [OWSTableItem itemWithCustomCellBlock:^{
-                return [weakSelf disclosureCellWithName:NSLocalizedString(@"LIST_GROUP_MEMBERS_ACTION",
-                                                            @"table cell label in conversation settings")
-                                               iconName:@"table_ic_group_members"];
-            }
+            [OWSTableItem
+                itemWithCustomCellBlock:^{
+                    UITableViewCell *cell =
+                        [weakSelf disclosureCellWithName:NSLocalizedString(@"LIST_GROUP_MEMBERS_ACTION",
+                                                             @"table cell label in conversation settings")
+                                                iconName:@"table_ic_group_members"];
+                    cell.userInteractionEnabled = !weakSelf.hasLeftGroup;
+                    return cell;
+                }
                 actionBlock:^{
                     [weakSelf showGroupMembersView];
                 }],
-            [OWSTableItem itemWithCustomCellBlock:^{
-                return [weakSelf disclosureCellWithName:NSLocalizedString(@"LEAVE_GROUP_ACTION",
-                                                            @"table cell label in conversation settings")
-                                               iconName:@"table_ic_group_leave"];
-            }
+            [OWSTableItem
+                itemWithCustomCellBlock:^{
+                    UITableViewCell *cell =
+                        [weakSelf disclosureCellWithName:NSLocalizedString(@"LEAVE_GROUP_ACTION",
+                                                             @"table cell label in conversation settings")
+                                                iconName:@"table_ic_group_leave"];
+                    cell.userInteractionEnabled = !weakSelf.hasLeftGroup;
+
+                    return cell;
+                }
                 actionBlock:^{
                     [weakSelf didTapLeaveGroup];
                 }],
@@ -517,7 +544,7 @@ const CGFloat kIconViewLength = 24;
                             [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
                         [OWSTableItem configureCell:cell];
                         OWSConversationSettingsViewController *strongSelf = weakSelf;
-                        OWSCAssert(strongSelf);
+                        OWSCAssertDebug(strongSelf);
                         cell.preservesSuperviewLayoutMargins = YES;
                         cell.contentView.preservesSuperviewLayoutMargins = YES;
                         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -556,7 +583,7 @@ const CGFloat kIconViewLength = 24;
                             [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
                         [OWSTableItem configureCell:cell];
                         OWSConversationSettingsViewController *strongSelf = weakSelf;
-                        OWSCAssert(strongSelf);
+                        OWSCAssertDebug(strongSelf);
                         cell.preservesSuperviewLayoutMargins = YES;
                         cell.contentView.preservesSuperviewLayoutMargins = YES;
                         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -617,34 +644,47 @@ const CGFloat kIconViewLength = 24;
         = NSLocalizedString(@"MUTE_BEHAVIOR_EXPLANATION", @"An explanation of the consequences of muting a thread.");
     [contents addSection:notificationsSection];
 
-    // Block user section.
+    // Block Conversation section.
 
-    if (!self.isGroupThread) {
-        BOOL isBlocked = [[_blockingManager blockedPhoneNumbers] containsObject:self.thread.contactIdentifier];
-
-        OWSTableSection *section = [OWSTableSection new];
+    OWSTableSection *section = [OWSTableSection new];
+    if (self.thread.isGroupThread) {
         section.footerTitle = NSLocalizedString(
-            @"BLOCK_BEHAVIOR_EXPLANATION", @"An explanation of the consequences of blocking another user.");
-        [section addItem:[OWSTableItem itemWithCustomCellBlock:^{
-            UITableViewCell *cell =
-                [weakSelf disclosureCellWithName:NSLocalizedString(@"CONVERSATION_SETTINGS_BLOCK_THIS_USER",
-                                                     @"table cell label in conversation settings")
-                                        iconName:@"table_ic_block"];
-            OWSConversationSettingsViewController *strongSelf = weakSelf;
-            OWSCAssert(strongSelf);
-            cell.selectionStyle = UITableViewCellSelectionStyleNone;
-
-            UISwitch *blockUserSwitch = [UISwitch new];
-            blockUserSwitch.on = isBlocked;
-            [blockUserSwitch addTarget:strongSelf
-                                action:@selector(blockUserSwitchDidChange:)
-                      forControlEvents:UIControlEventValueChanged];
-            cell.accessoryView = blockUserSwitch;
-            return cell;
-        }
-                                                   actionBlock:nil]];
-        [contents addSection:section];
+            @"BLOCK_GROUP_BEHAVIOR_EXPLANATION", @"An explanation of the consequences of blocking a group.");
+    } else {
+        section.footerTitle = NSLocalizedString(
+            @"BLOCK_USER_BEHAVIOR_EXPLANATION", @"An explanation of the consequences of blocking another user.");
     }
+
+    [section addItem:[OWSTableItem
+                         itemWithCustomCellBlock:^{
+                             OWSConversationSettingsViewController *strongSelf = weakSelf;
+                             if (!strongSelf) {
+                                 return [UITableViewCell new];
+                             }
+
+                             NSString *cellTitle;
+                             if (self.thread.isGroupThread) {
+                                 cellTitle = NSLocalizedString(@"CONVERSATION_SETTINGS_BLOCK_THIS_GROUP",
+                                     @"table cell label in conversation settings");
+                             } else {
+                                 cellTitle = NSLocalizedString(@"CONVERSATION_SETTINGS_BLOCK_THIS_USER",
+                                     @"table cell label in conversation settings");
+                             }
+                             UITableViewCell *cell =
+                                 [strongSelf disclosureCellWithName:cellTitle iconName:@"table_ic_block"];
+
+                             cell.selectionStyle = UITableViewCellSelectionStyleNone;
+
+                             UISwitch *blockConversationSwitch = [UISwitch new];
+                             blockConversationSwitch.on = [strongSelf.blockingManager isThreadBlocked:self.thread];
+                             [blockConversationSwitch addTarget:strongSelf
+                                                         action:@selector(blockConversationSwitchDidChange:)
+                                               forControlEvents:UIControlEventValueChanged];
+                             cell.accessoryView = blockConversationSwitch;
+                             return cell;
+                         }
+                                     actionBlock:nil]];
+    [contents addSection:section];
 
     self.contents = contents;
 }
@@ -654,34 +694,29 @@ const CGFloat kIconViewLength = 24;
     return 12.f;
 }
 
-- (UITableViewCell *)disclosureCellWithName:(NSString *)name iconColor:(UIColor *)iconColor
+- (UITableViewCell *)cellWithName:(NSString *)name
+                         iconName:(NSString *)iconName
+              disclosureIconColor:(UIColor *)disclosureIconColor
 {
-    OWSAssert(name.length > 0);
+    UITableViewCell *cell = [self cellWithName:name iconName:iconName];
+    OWSColorPickerAccessoryView *accessoryView =
+        [[OWSColorPickerAccessoryView alloc] initWithColor:disclosureIconColor];
+    [accessoryView sizeToFit];
+    cell.accessoryView = accessoryView;
 
-    UIView *iconView = [UIView containerView];
-    [iconView autoSetDimensionsToSize:CGSizeMake(kIconViewLength, kIconViewLength)];
-
-    UIView *swatchView = [NeverClearView new];
-    const CGFloat kSwatchWidth = 20;
-    [swatchView autoSetDimensionsToSize:CGSizeMake(kSwatchWidth, kSwatchWidth)];
-    swatchView.layer.cornerRadius = kSwatchWidth / 2;
-    swatchView.backgroundColor = iconColor;
-    [iconView addSubview:swatchView];
-    [swatchView autoCenterInSuperview];
-
-    return [self cellWithName:name iconView:iconView];
+    return cell;
 }
 
 - (UITableViewCell *)cellWithName:(NSString *)name iconName:(NSString *)iconName
 {
-    OWSAssert(iconName.length > 0);
+    OWSAssertDebug(iconName.length > 0);
     UIImageView *iconView = [self viewForIconWithName:iconName];
     return [self cellWithName:name iconView:iconView];
 }
 
 - (UITableViewCell *)cellWithName:(NSString *)name iconView:(UIView *)iconView
 {
-    OWSAssert(name.length > 0);
+    OWSAssertDebug(name.length > 0);
 
     UITableViewCell *cell = [OWSTableItem newCell];
     cell.preservesSuperviewLayoutMargins = YES;
@@ -724,18 +759,16 @@ const CGFloat kIconViewLength = 24;
     [threadInfoView autoPinWidthToSuperviewWithMargin:16.f];
     [threadInfoView autoPinHeightToSuperviewWithMargin:16.f];
 
-    const NSUInteger kAvatarSize = 68;
-    UIImage *avatarImage =
-        [OWSAvatarBuilder buildImageForThread:self.thread diameter:kAvatarSize contactsManager:self.contactsManager];
-    OWSAssert(avatarImage);
+    UIImage *avatarImage = [OWSAvatarBuilder buildImageForThread:self.thread diameter:kLargeAvatarSize];
+    OWSAssertDebug(avatarImage);
 
     AvatarImageView *avatarView = [[AvatarImageView alloc] initWithImage:avatarImage];
     _avatarView = avatarView;
     [threadInfoView addSubview:avatarView];
     [avatarView autoVCenterInSuperview];
     [avatarView autoPinLeadingToSuperviewMargin];
-    [avatarView autoSetDimension:ALDimensionWidth toSize:kAvatarSize];
-    [avatarView autoSetDimension:ALDimensionHeight toSize:kAvatarSize];
+    [avatarView autoSetDimension:ALDimensionWidth toSize:kLargeAvatarSize];
+    [avatarView autoSetDimension:ALDimensionHeight toSize:kLargeAvatarSize];
 
     UIView *threadNameView = [UIView containerView];
     [threadInfoView addSubview:threadNameView];
@@ -833,7 +866,7 @@ const CGFloat kIconViewLength = 24;
 {
     UIImage *icon = [UIImage imageNamed:iconName];
 
-    OWSAssert(icon);
+    OWSAssertDebug(icon);
     UIImageView *iconView = [UIImageView new];
     iconView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     iconView.tintColor = [Theme secondaryColor];
@@ -891,8 +924,6 @@ const CGFloat kIconViewLength = 24;
 
 - (void)showShareProfileAlert
 {
-    [self.tableView deselectRowAtIndexPath:[self.tableView indexPathForSelectedRow] animated:YES];
-
     [OWSProfileManager.sharedManager presentAddThreadToProfileWhitelist:self.thread
                                                      fromViewController:self
                                                                 success:^{
@@ -903,7 +934,7 @@ const CGFloat kIconViewLength = 24;
 - (void)showVerificationView
 {
     NSString *recipientId = self.thread.contactIdentifier;
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     [FingerprintViewController presentFromViewController:self recipientId:recipientId];
 }
@@ -917,7 +948,7 @@ const CGFloat kIconViewLength = 24;
 
 - (void)showUpdateGroupView:(UpdateGroupMode)mode
 {
-    OWSAssert(self.conversationSettingsViewDelegate);
+    OWSAssertDebug(self.conversationSettingsViewDelegate);
 
     UpdateGroupViewController *updateGroupViewController = [UpdateGroupViewController new];
     updateGroupViewController.conversationSettingsViewDelegate = self.conversationSettingsViewDelegate;
@@ -929,11 +960,11 @@ const CGFloat kIconViewLength = 24;
 - (void)presentContactViewController
 {
     if (!self.contactsManager.supportsContactEditing) {
-        OWSFail(@"%@ Contact editing not supported", self.logTag);
+        OWSFailDebug(@"Contact editing not supported");
         return;
     }
     if (![self.thread isKindOfClass:[TSContactThread class]]) {
-        OWSFail(@"%@ unexpected thread: %@ in %s", self.logTag, self.thread, __PRETTY_FUNCTION__);
+        OWSFailDebug(@"unexpected thread: %@", [self.thread class]);
         return;
     }
 
@@ -947,7 +978,7 @@ const CGFloat kIconViewLength = 24;
 {
     if (!self.contactsManager.supportsContactEditing) {
         // Should not expose UI that lets the user get here.
-        OWSFail(@"%@ Contact editing not supported.", self.logTag);
+        OWSFailDebug(@"Contact editing not supported.");
         return;
     }
 
@@ -968,8 +999,6 @@ const CGFloat kIconViewLength = 24;
 
 - (void)didTapLeaveGroup
 {
-    [self.tableView deselectRowAtIndexPath:[self.tableView indexPathForSelectedRow] animated:YES];
-
     UIAlertController *alertController =
         [UIAlertController alertControllerWithTitle:NSLocalizedString(@"CONFIRM_LEAVE_GROUP_TITLE", @"Alert title")
                                             message:NSLocalizedString(@"CONFIRM_LEAVE_GROUP_DESCRIPTION", @"Alert body")
@@ -987,23 +1016,34 @@ const CGFloat kIconViewLength = 24;
     [self presentViewController:alertController animated:YES completion:nil];
 }
 
+- (BOOL)hasLeftGroup
+{
+    if (self.isGroupThread) {
+        TSGroupThread *groupThread = (TSGroupThread *)self.thread;
+        BOOL inGroup = [groupThread.groupModel.groupMemberIds containsObject:TSAccountManager.localNumber];
+        return !inGroup;
+    }
+
+    return NO;
+}
+
 - (void)leaveGroup
 {
     TSGroupThread *gThread = (TSGroupThread *)self.thread;
     TSOutgoingMessage *message =
-        [TSOutgoingMessage outgoingMessageInThread:gThread groupMetaMessage:TSGroupMessageQuit expiresInSeconds:0];
+        [TSOutgoingMessage outgoingMessageInThread:gThread groupMetaMessage:TSGroupMetaMessageQuit expiresInSeconds:0];
     [self.messageSender enqueueMessage:message
         success:^{
-            DDLogInfo(@"%@ Successfully left group.", self.logTag);
+            OWSLogInfo(@"Successfully left group.");
         }
         failure:^(NSError *error) {
-            DDLogWarn(@"%@ Failed to leave group with error: %@", self.logTag, error);
+            OWSLogWarn(@"Failed to leave group with error: %@", error);
         }];
 
-    NSMutableArray *newGroupMemberIds = [NSMutableArray arrayWithArray:gThread.groupModel.groupMemberIds];
-    [newGroupMemberIds removeObject:[self.accountManager localNumber]];
-    gThread.groupModel.groupMemberIds = newGroupMemberIds;
-    [gThread save];
+
+    [self.editingDatabaseConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *_Nonnull transaction) {
+        [gThread leaveGroupWithTransaction:transaction];
+    }];
 
     [self.navigationController popViewControllerAnimated:YES];
 }
@@ -1017,43 +1057,43 @@ const CGFloat kIconViewLength = 24;
     [self updateTableContents];
 }
 
-- (void)blockUserSwitchDidChange:(id)sender
+- (void)blockConversationSwitchDidChange:(id)sender
 {
-    OWSAssert(!self.isGroupThread);
-
     if (![sender isKindOfClass:[UISwitch class]]) {
-        OWSFail(@"%@ Unexpected sender for block user switch: %@", self.logTag, sender);
+        OWSFailDebug(@"Unexpected sender for block user switch: %@", sender);
     }
-    UISwitch *blockUserSwitch = (UISwitch *)sender;
+    UISwitch *blockConversationSwitch = (UISwitch *)sender;
 
-    BOOL isCurrentlyBlocked = [[_blockingManager blockedPhoneNumbers] containsObject:self.thread.contactIdentifier];
+    BOOL isCurrentlyBlocked = [self.blockingManager isThreadBlocked:self.thread];
 
-    if (blockUserSwitch.isOn) {
-        OWSAssert(!isCurrentlyBlocked);
+    if (blockConversationSwitch.isOn) {
+        OWSAssertDebug(!isCurrentlyBlocked);
         if (isCurrentlyBlocked) {
             return;
         }
-        [BlockListUIUtils showBlockPhoneNumberActionSheet:self.thread.contactIdentifier
-                                       fromViewController:self
-                                          blockingManager:_blockingManager
-                                          contactsManager:_contactsManager
-                                          completionBlock:^(BOOL isBlocked) {
-                                              // Update switch state if user cancels action.
-                                              blockUserSwitch.on = isBlocked;
-                                          }];
+        [BlockListUIUtils showBlockThreadActionSheet:self.thread
+                                  fromViewController:self
+                                     blockingManager:self.blockingManager
+                                     contactsManager:self.contactsManager
+                                       messageSender:self.messageSender
+                                     completionBlock:^(BOOL isBlocked) {
+                                         // Update switch state if user cancels action.
+                                         blockConversationSwitch.on = isBlocked;
+                                     }];
+
     } else {
-        OWSAssert(isCurrentlyBlocked);
+        OWSAssertDebug(isCurrentlyBlocked);
         if (!isCurrentlyBlocked) {
             return;
         }
-        [BlockListUIUtils showUnblockPhoneNumberActionSheet:self.thread.contactIdentifier
-                                         fromViewController:self
-                                            blockingManager:_blockingManager
-                                            contactsManager:_contactsManager
-                                            completionBlock:^(BOOL isBlocked) {
-                                                // Update switch state if user cancels action.
-                                                blockUserSwitch.on = isBlocked;
-                                            }];
+        [BlockListUIUtils showUnblockThreadActionSheet:self.thread
+                                    fromViewController:self
+                                       blockingManager:_blockingManager
+                                       contactsManager:_contactsManager
+                                       completionBlock:^(BOOL isBlocked) {
+                                           // Update switch state if user cancels action.
+                                           blockConversationSwitch.on = isBlocked;
+                                       }];
     }
 }
 
@@ -1219,7 +1259,7 @@ const CGFloat kIconViewLength = 24;
 
 - (void)showMediaGallery
 {
-    DDLogDebug(@"%@ in showMediaGallery", self.logTag);
+    OWSLogDebug(@"in showMediaGallery");
 
     MediaGalleryViewController *vc =
         [[MediaGalleryViewController alloc] initWithThread:self.thread
@@ -1230,7 +1270,7 @@ const CGFloat kIconViewLength = 24;
     // reference to it until we're dismissed.
     self.mediaGalleryViewController = vc;
 
-    OWSAssert([self.navigationController isKindOfClass:[OWSNavigationController class]]);
+    OWSAssertDebug([self.navigationController isKindOfClass:[OWSNavigationController class]]);
     [vc pushTileViewFromNavController:(OWSNavigationController *)self.navigationController];
 }
 #pragma mark - Notifications
@@ -1247,7 +1287,7 @@ const CGFloat kIconViewLength = 24;
     OWSAssertIsOnMainThread();
 
     NSString *recipientId = notification.userInfo[kNSNotificationKey_ProfileRecipientId];
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     if (recipientId.length > 0 && [self.thread isKindOfClass:[TSContactThread class]] &&
         [self.thread.contactIdentifier isEqualToString:recipientId]) {
@@ -1259,18 +1299,22 @@ const CGFloat kIconViewLength = 24;
 
 - (void)showColorPicker
 {
-    ColorPickerViewController *pickerController = [[ColorPickerViewController alloc] initWithThread:self.thread];
-    pickerController.delegate = self;
-    OWSNavigationController *modal = [[OWSNavigationController alloc] initWithRootViewController:pickerController];
+    OWSSheetViewController *sheetViewController = self.colorPicker.sheetViewController;
+    sheetViewController.delegate = self;
 
-    [self presentViewController:modal animated:YES completion:nil];
+    [self presentViewController:sheetViewController
+                       animated:YES
+                     completion:^() {
+                         OWSLogInfo(@"presented sheet view");
+                     }];
 }
 
-- (void)colorPicker:(ColorPickerViewController *)colorPicker didPickColorName:(NSString *)colorName
+- (void)colorPicker:(OWSColorPicker *)colorPicker
+    didPickConversationColor:(OWSConversationColor *_Nonnull)conversationColor
 {
-    DDLogDebug(@"%@ in %s picked color: %@", self.logTag, __PRETTY_FUNCTION__, colorName);
+    OWSLogDebug(@"picked color: %@", conversationColor.name);
     [self.editingDatabaseConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *_Nonnull transaction) {
-        [self.thread updateConversationColorName:colorName transaction:transaction];
+        [self.thread updateConversationColorName:conversationColor.name transaction:transaction];
     }];
 
     [self.contactsManager.avatarCache removeAllImages];
@@ -1280,14 +1324,14 @@ const CGFloat kIconViewLength = 24;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         ConversationConfigurationSyncOperation *operation =
             [[ConversationConfigurationSyncOperation alloc] initWithThread:self.thread];
-        OWSAssert(operation.isReady);
+        OWSAssertDebug(operation.isReady);
         [operation start];
     });
-
-    [self dismissViewControllerAnimated:YES completion:nil];
 }
 
-- (void)colorPickerDidCancel:(ColorPickerViewController *)colorPicker
+#pragma mark - OWSSheetViewController
+
+- (void)sheetViewControllerRequestedDismiss:(OWSSheetViewController *)sheetViewController
 {
     [self dismissViewControllerAnimated:YES completion:nil];
 }

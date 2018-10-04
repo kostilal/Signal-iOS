@@ -3,8 +3,8 @@
 //
 
 #import "SignalKeyingStorage.h"
+#import <Curve25519Kit/Randomness.h>
 #import <SignalServiceKit/OWSPrimaryStorage.h>
-#import <SignalServiceKit/SecurityUtils.h>
 #import <SignalServiceKit/YapDatabaseConnection+OWS.h>
 
 #define SignalKeyingCollection @"SignalKeyingCollection"
@@ -17,9 +17,9 @@
 
 + (void)generateSignaling
 {
-    [self storeData:[SecurityUtils generateRandomBytes:SIGNALING_MAC_KEY_LENGTH] forKey:SIGNALING_MAC_KEY];
-    [self storeData:[SecurityUtils generateRandomBytes:SIGNALING_CIPHER_KEY_LENGTH] forKey:SIGNALING_CIPHER_KEY];
-    [self storeData:[SecurityUtils generateRandomBytes:SIGNALING_EXTRA_KEY_LENGTH] forKey:SIGNALING_EXTRA_KEY];
+    [self storeData:[Randomness generateRandomBytes:SIGNALING_MAC_KEY_LENGTH] forKey:SIGNALING_MAC_KEY];
+    [self storeData:[Randomness generateRandomBytes:SIGNALING_CIPHER_KEY_LENGTH] forKey:SIGNALING_CIPHER_KEY];
+    [self storeData:[Randomness generateRandomBytes:SIGNALING_EXTRA_KEY_LENGTH] forKey:SIGNALING_EXTRA_KEY];
 }
 
 + (int64_t)getAndIncrementOneTimeCounter
@@ -58,7 +58,7 @@
     NSData *data = [self dataForKey:key];
 
     if (data.length != length) {
-        DDLogError(@"Length of data not matching. Got %lu, expected %u", (unsigned long)data.length, length);
+        OWSLogError(@"Length of data not matching. Got %lu, expected %u", (unsigned long)data.length, length);
     }
 
     return data;

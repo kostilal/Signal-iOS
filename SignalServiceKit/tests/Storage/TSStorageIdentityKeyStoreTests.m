@@ -1,74 +1,114 @@
 //
-//  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
-#import <XCTest/XCTest.h>
-#import <25519/Curve25519.h>
-
-#import "OWSUnitTestEnvironment.h"
-#import "SecurityUtils.h"
+#import "MockSSKEnvironment.h"
 #import "OWSIdentityManager.h"
+#import "OWSPrimaryStorage.h"
 #import "OWSRecipientIdentity.h"
-#import "TSStorageManager.h"
-#import "TextSecureKitEnv.h"
+#import "SSKBaseTest.h"
+#import "SSKEnvironment.h"
+#import "YapDatabaseConnection+OWS.h"
+#import <Curve25519Kit/Curve25519.h>
+#import <Curve25519Kit/Randomness.h>
 
-@interface TSStorageIdentityKeyStoreTests : XCTestCase
+extern NSString *const OWSPrimaryStorageTrustedKeysCollection;
+
+@interface TSStorageIdentityKeyStoreTests : SSKBaseTest
 
 @end
 
 @implementation TSStorageIdentityKeyStoreTests
 
-- (void)setUp {
+- (void)setUp
+{
     [super setUp];
-    
-    [[TSStorageManager sharedManager] purgeCollection:@"TSStorageManagerTrustedKeysCollection"];
-    [OWSRecipientIdentity removeAllObjectsInCollection];
 }
 
-- (void)tearDown {
+- (void)tearDown
+{
     // Put teardown code here. This method is called after the invocation of each test method in the class.
     [super tearDown];
 }
 
-- (void)testNewEmptyKey {
-    NSData *newKey = [SecurityUtils generateRandomBytes:32];
+- (void)testNewEmptyKey
+{
+    NSData *newKey = [Randomness generateRandomBytes:32];
     NSString *recipientId = @"test@gmail.com";
-    
-    XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey recipientId:recipientId direction:TSMessageDirectionOutgoing]);
-    XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey recipientId:recipientId direction:TSMessageDirectionIncoming]);
+
+    [self
+        readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+            XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey
+                                                                   recipientId:recipientId
+                                                                     direction:TSMessageDirectionOutgoing
+                                                               protocolContext:transaction]);
+            XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey
+                                                                   recipientId:recipientId
+                                                                     direction:TSMessageDirectionIncoming
+                                                               protocolContext:transaction]);
+        }];
 }
 
-- (void)testAlreadyRegisteredKey {
-    NSData *newKey = [SecurityUtils generateRandomBytes:32];
+- (void)testAlreadyRegisteredKey
+{
+    NSData *newKey = [Randomness generateRandomBytes:32];
     NSString *recipientId = @"test@gmail.com";
-    
-    [[OWSIdentityManager sharedManager] saveRemoteIdentity:newKey recipientId:recipientId];
-    
-    XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey recipientId:recipientId direction:TSMessageDirectionOutgoing]);
-    XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey recipientId:recipientId direction:TSMessageDirectionIncoming]);
+
+    [self
+        readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+            [[OWSIdentityManager sharedManager] saveRemoteIdentity:newKey
+                                                       recipientId:recipientId
+                                                   protocolContext:transaction];
+
+            XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey
+                                                                   recipientId:recipientId
+                                                                     direction:TSMessageDirectionOutgoing
+                                                               protocolContext:transaction]);
+            XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:newKey
+                                                                   recipientId:recipientId
+                                                                     direction:TSMessageDirectionIncoming
+                                                               protocolContext:transaction]);
+        }];
 }
 
 
 - (void)testChangedKey
 {
-    NSData *originalKey = [SecurityUtils generateRandomBytes:32];
+    NSData *originalKey = [Randomness generateRandomBytes:32];
     NSString *recipientId = @"test@protonmail.com";
 
-    [[OWSIdentityManager sharedManager] saveRemoteIdentity:originalKey recipientId:recipientId];
-    
-    XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:originalKey recipientId:recipientId direction:TSMessageDirectionOutgoing]);
-    XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:originalKey recipientId:recipientId direction:TSMessageDirectionIncoming]);
-    
-    NSData *otherKey = [SecurityUtils generateRandomBytes:32];
-    
-    XCTAssertFalse([[OWSIdentityManager sharedManager] isTrustedIdentityKey:otherKey recipientId:recipientId direction:TSMessageDirectionOutgoing]);
-    XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:otherKey recipientId:recipientId direction:TSMessageDirectionIncoming]);
+    [self
+        readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+            [[OWSIdentityManager sharedManager] saveRemoteIdentity:originalKey
+                                                       recipientId:recipientId
+                                                   protocolContext:transaction];
+
+            XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:originalKey
+                                                                   recipientId:recipientId
+                                                                     direction:TSMessageDirectionOutgoing
+                                                               protocolContext:transaction]);
+            XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:originalKey
+                                                                   recipientId:recipientId
+                                                                     direction:TSMessageDirectionIncoming
+                                                               protocolContext:transaction]);
+
+            NSData *otherKey = [Randomness generateRandomBytes:32];
+
+            XCTAssertFalse([[OWSIdentityManager sharedManager] isTrustedIdentityKey:otherKey
+                                                                        recipientId:recipientId
+                                                                          direction:TSMessageDirectionOutgoing
+                                                                    protocolContext:transaction]);
+            XCTAssert([[OWSIdentityManager sharedManager] isTrustedIdentityKey:otherKey
+                                                                   recipientId:recipientId
+                                                                     direction:TSMessageDirectionIncoming
+                                                               protocolContext:transaction]);
+        }];
 }
 
-
-- (void)testIdentityKey {
+- (void)testIdentityKey
+{
     [[OWSIdentityManager sharedManager] generateNewIdentityKey];
-    
+
     XCTAssert([[[OWSIdentityManager sharedManager] identityKeyPair].publicKey length] == 32);
 }
 

@@ -51,7 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)assumeAllExistingMigrationsRun
 {
     for (OWSDatabaseMigration *migration in self.allMigrations) {
-        DDLogInfo(@"%@ Skipping migration on new install: %@", self.logTag, migration);
+        OWSLogInfo(@"Skipping migration on new install: %@", migration);
         [migration save];
     }
 }
@@ -68,8 +68,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)runMigrations:(NSMutableArray<OWSDatabaseMigration *> *)migrations
            completion:(OWSDatabaseMigrationCompletion)completion
 {
-    OWSAssert(migrations);
-    OWSAssert(completion);
+    OWSAssertDebug(migrations);
+    OWSAssertDebug(completion);
 
     // If there are no more migrations to run, complete.
     if (migrations.count < 1) {
@@ -89,9 +89,9 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    DDLogInfo(@"%@ Running migration: %@", self.logTag, migration);
+    OWSLogInfo(@"Running migration: %@", migration);
     [migration runUpWithCompletion:^{
-        DDLogInfo(@"%@ Migration complete: %@", self.logTag, migration);
+        OWSLogInfo(@"Migration complete: %@", migration);
         [self runMigrations:migrations completion:completion];
     }];
 }

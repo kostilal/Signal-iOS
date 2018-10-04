@@ -2,9 +2,9 @@
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
+#import "OWSPrimaryStorage+SignedPreKeyStore.h"
 #import "OWSIdentityManager.h"
 #import "OWSPrimaryStorage+PreKeyStore.h"
-#import "OWSPrimaryStorage+SignedPreKeyStore.h"
 #import "OWSPrimaryStorage+keyFromIntLong.h"
 #import "YapDatabaseConnection+OWS.h"
 #import <AxolotlKit/AxolotlExceptions.h>
@@ -105,12 +105,31 @@ NSString *const OWSPrimaryStorageKeyPrekeyCurrentSignedPrekeyId = @"currentSigne
                              inCollection:OWSPrimaryStorageSignedPreKeyMetadataCollection];
 }
 
+- (nullable SignedPreKeyRecord *)currentSignedPreKey
+{
+    __block SignedPreKeyRecord *_Nullable currentRecord;
+
+    [self.dbReadConnection readWithBlock:^(YapDatabaseReadTransaction *_Nonnull transaction) {
+        NSNumber *_Nullable preKeyId = [transaction objectForKey:OWSPrimaryStorageKeyPrekeyCurrentSignedPrekeyId
+                                                    inCollection:OWSPrimaryStorageSignedPreKeyMetadataCollection];
+
+        if (preKeyId == nil) {
+            return;
+        }
+
+        currentRecord =
+            [transaction objectForKey:preKeyId.stringValue inCollection:OWSPrimaryStorageSignedPreKeyStoreCollection];
+    }];
+
+    return currentRecord;
+}
+
 #pragma mark - Prekey update failures
 
 - (int)prekeyUpdateFailureCount
 {
-    NSNumber *value = [self.dbReadConnection objectForKey:OWSPrimaryStorageKeyPrekeyUpdateFailureCount
-                                             inCollection:OWSPrimaryStorageSignedPreKeyMetadataCollection];
+    NSNumber *_Nullable value = [self.dbReadConnection objectForKey:OWSPrimaryStorageKeyPrekeyUpdateFailureCount
+                                                       inCollection:OWSPrimaryStorageSignedPreKeyMetadataCollection];
     // Will default to zero.
     return [value intValue];
 }
@@ -159,13 +178,13 @@ NSString *const OWSPrimaryStorageKeyPrekeyCurrentSignedPrekeyId = @"currentSigne
     [self.dbReadConnection readWithBlock:^(YapDatabaseReadTransaction *_Nonnull transaction) {
         __block int i = 0;
 
-        DDLogInfo(@"%@ SignedPreKeys Report:", tag);
-        DDLogInfo(@"%@   currentId: %@", tag, currentId);
-        DDLogInfo(@"%@   firstPrekeyUpdateFailureDate: %@", tag, firstPrekeyUpdateFailureDate);
-        DDLogInfo(@"%@   prekeyUpdateFailureCount: %lu", tag, (unsigned long)prekeyUpdateFailureCount);
+        OWSLogInfo(@"%@ SignedPreKeys Report:", tag);
+        OWSLogInfo(@"%@   currentId: %@", tag, currentId);
+        OWSLogInfo(@"%@   firstPrekeyUpdateFailureDate: %@", tag, firstPrekeyUpdateFailureDate);
+        OWSLogInfo(@"%@   prekeyUpdateFailureCount: %lu", tag, (unsigned long)prekeyUpdateFailureCount);
 
         NSUInteger count = [transaction numberOfKeysInCollection:OWSPrimaryStorageSignedPreKeyStoreCollection];
-        DDLogInfo(@"%@   All Keys (count: %lu):", tag, (unsigned long)count);
+        OWSLogInfo(@"%@   All Keys (count: %lu):", tag, (unsigned long)count);
 
         [transaction
             enumerateKeysAndObjectsInCollection:OWSPrimaryStorageSignedPreKeyStoreCollection
@@ -173,15 +192,15 @@ NSString *const OWSPrimaryStorageKeyPrekeyCurrentSignedPrekeyId = @"currentSigne
                                          NSString *_Nonnull key, id _Nonnull signedPreKeyObject, BOOL *_Nonnull stop) {
                                          i++;
                                          if (![signedPreKeyObject isKindOfClass:[SignedPreKeyRecord class]]) {
-                                             OWSFail(@"%@ Was expecting SignedPreKeyRecord, but found: %@",
+                                             OWSFailDebug(@"%@ Was expecting SignedPreKeyRecord, but found: %@",
                                                  tag,
-                                                 signedPreKeyObject);
+                                                 [signedPreKeyObject class]);
                                              return;
                                          }
                                          SignedPreKeyRecord *signedPreKeyRecord
                                              = (SignedPreKeyRecord *)signedPreKeyObject;
-                                         DDLogInfo(@"%@     #%d <SignedPreKeyRecord: id: %d, generatedAt: %@, "
-                                                   @"wasAcceptedByService:%@, signature: %@",
+                                         OWSLogInfo(@"%@     #%d <SignedPreKeyRecord: id: %d, generatedAt: %@, "
+                                                    @"wasAcceptedByService:%@, signature: %@",
                                              tag,
                                              i,
                                              signedPreKeyRecord.Id,

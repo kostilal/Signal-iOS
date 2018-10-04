@@ -3,6 +3,7 @@
 //
 
 #import "UIUtil.h"
+#import "Theme.h"
 #import "UIColor+OWS.h"
 #import <SignalServiceKit/AppContext.h>
 
@@ -33,8 +34,13 @@
 
     UIBarButtonItem.appearance.tintColor = Theme.navbarIconColor;
 
-    //    [[UIBarButtonItem appearanceWhenContainedIn:[UISearchBar class], nil] setTintColor:[UIColor
-    //    ows_materialBlueColor]];
+    // Using the keyboardAppearance causes crashes due to a bug in UIKit.
+    //    UITextField.appearance.keyboardAppearance = (Theme.isDarkThemeEnabled
+    //                                                 ? UIKeyboardAppearanceDark
+    //                                                 : UIKeyboardAppearanceDefault);
+    //    UITextView.appearance.keyboardAppearance = (Theme.isDarkThemeEnabled
+    //                                                 ? UIKeyboardAppearanceDark
+    //                                                 : UIKeyboardAppearanceDefault);
 
     [[UISwitch appearance] setOnTintColor:[UIColor ows_materialBlueColor]];
     [[UIToolbar appearance] setTintColor:[UIColor ows_materialBlueColor]];

@@ -34,7 +34,7 @@ NSString *const OWSCensorshipConfiguration_DefaultFrontingHost = OWSCensorshipCo
 + (instancetype)censorshipConfigurationWithCountryCode:(NSString *)countryCode
 {
     OWSCountryMetadata *countryMetadadata = [OWSCountryMetadata countryMetadataForCountryCode:countryCode];
-    OWSAssert(countryMetadadata);
+    OWSAssertDebug(countryMetadadata);
 
     NSString *_Nullable specifiedDomain = countryMetadadata.frontingDomain;
 
@@ -51,8 +51,8 @@ NSString *const OWSCensorshipConfiguration_DefaultFrontingHost = OWSCensorshipCo
         securityPolicy = [self securityPolicyForDomain:OWSCensorshipConfiguration_DefaultFrontingHost];
     }
 
-    OWSAssert(baseURL);
-    OWSAssert(securityPolicy);
+    OWSAssertDebug(baseURL);
+    OWSAssertDebug(securityPolicy);
 
 
     return [[OWSCensorshipConfiguration alloc] initWithDomainFrontBaseURL:baseURL securityPolicy:securityPolicy];
@@ -60,8 +60,8 @@ NSString *const OWSCensorshipConfiguration_DefaultFrontingHost = OWSCensorshipCo
 
 - (instancetype)initWithDomainFrontBaseURL:(NSURL *)domainFrontBaseURL securityPolicy:(AFSecurityPolicy *)securityPolicy
 {
-    OWSAssert(domainFrontBaseURL);
-    OWSAssert(securityPolicy);
+    OWSAssertDebug(domainFrontBaseURL);
+    OWSAssertDebug(securityPolicy);
 
     self = [super init];
     if (!self) {
@@ -140,7 +140,7 @@ NSString *const OWSCensorshipConfiguration_DefaultFrontingHost = OWSCensorshipCo
     } else if ([domain isEqualToString:OWSCensorshipConfiguration_YahooViewFrontingHost]) {
         return [self yahooViewPinningPolicy];
     } else {
-        OWSFail(@"unknown pinning domain.");
+        OWSFailDebug(@"unknown pinning domain.");
         return [self yahooViewPinningPolicy];
     }
 }
@@ -152,12 +152,12 @@ NSString *const OWSCensorshipConfiguration_DefaultFrontingHost = OWSCensorshipCo
         NSError *error;
         NSData *certData = [self certificateDataWithName:certName error:&error];
         if (error) {
-            DDLogError(@"%@ reading data for certificate: %@ failed with error: %@", self.logTag, certName, error);
+            OWSLogError(@"reading data for certificate: %@ failed with error: %@", certName, error);
             OWSRaiseException(@"OWSSignalService_UnableToReadCertificate", @"%@", error.description);
         }
 
         if (!certData) {
-            DDLogError(@"%@ No data for certificate: %@", self.logTag, certName);
+            OWSLogError(@"No data for certificate: %@", certName);
             OWSRaiseException(@"OWSSignalService_UnableToReadCertificate", @"%@", error.description);
         }
         [certificates addObject:certData];
@@ -186,16 +186,16 @@ NSString *const OWSCensorshipConfiguration_DefaultFrontingHost = OWSCensorshipCo
     NSData *_Nullable certData = [NSData dataWithContentsOfFile:path options:0 error:error];
 
     if (*error != nil) {
-        OWSFail(@"%@ Failed to read cert file with path: %@", self.logTag, path);
+        OWSFailDebug(@"Failed to read cert file with path: %@", path);
         return nil;
     }
 
     if (certData.length == 0) {
-        OWSFail(@"%@ empty certData for name: %@", self.logTag, name);
+        OWSFailDebug(@"empty certData for name: %@", name);
         return nil;
     }
 
-    DDLogVerbose(@"%@ read cert data with name: %@ length: %lu", self.logTag, name, (unsigned long)certData.length);
+    OWSLogVerbose(@"read cert data with name: %@ length: %lu", name, (unsigned long)certData.length);
     return certData;
 }
 

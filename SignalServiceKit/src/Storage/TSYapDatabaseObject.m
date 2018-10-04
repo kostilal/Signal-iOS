@@ -4,6 +4,7 @@
 
 #import "TSYapDatabaseObject.h"
 #import "OWSPrimaryStorage.h"
+#import "SSKEnvironment.h"
 #import <YapDatabase/YapDatabaseTransaction.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -123,13 +124,7 @@ NS_ASSUME_NONNULL_BEGIN
 {
     OWSJanksUI();
 
-    // Use a dedicated connection for model reads & writes.
-    static YapDatabaseConnection *dbReadWriteConnection = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        dbReadWriteConnection = [self primaryStorage].newDatabaseConnection;
-    });
-    return dbReadWriteConnection;
+    return SSKEnvironment.shared.objectReadWriteConnection;
 }
 
 + (OWSPrimaryStorage *)primaryStorage
@@ -211,7 +206,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)applyChangeToSelfAndLatestCopy:(YapDatabaseReadWriteTransaction *)transaction
                            changeBlock:(void (^)(id))changeBlock
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     changeBlock(self);
 
@@ -225,9 +220,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)reload
 {
-    TSYapDatabaseObject *latest = [[self class] fetchObjectWithUniqueID:self.uniqueId];
+    [self.dbReadConnection readWithBlock:^(YapDatabaseReadTransaction *_Nonnull transaction) {
+        [self reloadWithTransaction:transaction];
+    }];
+}
+
+- (void)reloadWithTransaction:(YapDatabaseReadTransaction *)transaction
+{
+    TSYapDatabaseObject *latest = [[self class] fetchObjectWithUniqueID:self.uniqueId transaction:transaction];
     if (!latest) {
-        OWSFail(@"%@ in %s `latest` was unexpectedly nil", self.logTag, __PRETTY_FUNCTION__);
+        OWSFailDebug(@"`latest` was unexpectedly nil");
         return;
     }
 

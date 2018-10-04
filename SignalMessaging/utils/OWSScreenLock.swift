@@ -33,7 +33,7 @@ import LocalAuthentication
     private let OWSScreenLock_Key_IsScreenLockEnabled = "OWSScreenLock_Key_IsScreenLockEnabled"
     private let OWSScreenLock_Key_ScreenLockTimeoutSeconds = "OWSScreenLock_Key_ScreenLockTimeoutSeconds"
 
-    // MARK - Singleton class
+    // MARK: - Singleton class
 
     @objc(sharedManager)
     public static let shared = OWSScreenLock()
@@ -50,10 +50,10 @@ import LocalAuthentication
     // MARK: - Properties
 
     @objc public func isScreenLockEnabled() -> Bool {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         if !OWSStorage.isStorageReady() {
-            owsFail("\(logTag) accessed screen lock state before storage is ready.")
+            owsFailDebug("accessed screen lock state before storage is ready.")
             return false
         }
 
@@ -62,7 +62,7 @@ import LocalAuthentication
 
     @objc
     public func setIsScreenLockEnabled(_ value: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         assert(OWSStorage.isStorageReady())
 
         self.dbConnection.setBool(value, forKey: OWSScreenLock_Key_IsScreenLockEnabled, inCollection: OWSScreenLock_Collection)
@@ -71,10 +71,10 @@ import LocalAuthentication
     }
 
     @objc public func screenLockTimeout() -> TimeInterval {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         if !OWSStorage.isStorageReady() {
-            owsFail("\(logTag) accessed screen lock state before storage is ready.")
+            owsFailDebug("accessed screen lock state before storage is ready.")
             return 0
         }
 
@@ -82,7 +82,7 @@ import LocalAuthentication
     }
 
     @objc public func setScreenLockTimeout(_ value: TimeInterval) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         assert(OWSStorage.isStorageReady())
 
         self.dbConnection.setDouble(value, forKey: OWSScreenLock_Key_ScreenLockTimeoutSeconds, inCollection: OWSScreenLock_Collection)
@@ -104,25 +104,25 @@ import LocalAuthentication
                                             failure: @escaping ((Error) -> Void),
                                             unexpectedFailure: @escaping ((Error) -> Void),
                                             cancel: @escaping (() -> Void)) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         tryToVerifyLocalAuthentication(localizedReason: NSLocalizedString("SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK",
                                                                           comment: "Description of how and why Signal iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'."),
                                        completion: { (outcome: OWSScreenLockOutcome) in
-                                        SwiftAssertIsOnMainThread(#function)
+                                        AssertIsOnMainThread()
 
                                         switch outcome {
                                         case .failure(let error):
-                                            Logger.error("\(self.logTag) local authentication failed with error: \(error)")
+                                            Logger.error("local authentication failed with error: \(error)")
                                             failure(self.authenticationError(errorDescription: error))
                                         case .unexpectedFailure(let error):
-                                            Logger.error("\(self.logTag) local authentication failed with unexpected error: \(error)")
+                                            Logger.error("local authentication failed with unexpected error: \(error)")
                                             unexpectedFailure(self.authenticationError(errorDescription: error))
                                         case .success:
-                                            Logger.verbose("\(self.logTag) local authentication succeeded.")
+                                            Logger.verbose("local authentication succeeded.")
                                             success()
                                         case .cancel:
-                                            Logger.verbose("\(self.logTag) local authentication cancelled.")
+                                            Logger.verbose("local authentication cancelled.")
                                             cancel()
                                         }
         })
@@ -138,7 +138,7 @@ import LocalAuthentication
     // * On the main thread.
     private func tryToVerifyLocalAuthentication(localizedReason: String,
                                                 completion completionParam: @escaping ((OWSScreenLockOutcome) -> Void)) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         let defaultErrorDescription = NSLocalizedString("SCREEN_LOCK_ENABLE_UNKNOWN_ERROR",
                                                         comment: "Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode.")
@@ -155,13 +155,13 @@ import LocalAuthentication
         var authError: NSError?
         let canEvaluatePolicy = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError)
         if !canEvaluatePolicy || authError != nil {
-            Logger.error("\(logTag) could not determine if local authentication is supported: \(String(describing: authError))")
+            Logger.error("could not determine if local authentication is supported: \(String(describing: authError))")
 
             let outcome = self.outcomeForLAError(errorParam: authError,
                                                  defaultErrorDescription: defaultErrorDescription)
             switch outcome {
             case .success:
-                owsFail("\(self.logTag) local authentication unexpected success")
+                owsFailDebug("local authentication unexpected success")
                 completion(.failure(error:defaultErrorDescription))
             case .cancel, .failure, .unexpectedFailure:
                 completion(outcome)
@@ -172,14 +172,14 @@ import LocalAuthentication
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: localizedReason) { success, evaluateError in
 
             if success {
-                Logger.info("\(self.logTag) local authentication succeeded.")
+                Logger.info("local authentication succeeded.")
                 completion(.success)
             } else {
                 let outcome = self.outcomeForLAError(errorParam: evaluateError,
                                                      defaultErrorDescription: defaultErrorDescription)
                 switch outcome {
                 case .success:
-                    owsFail("\(self.logTag) local authentication unexpected success")
+                    owsFailDebug("local authentication unexpected success")
                     completion(.failure(error:defaultErrorDescription))
                 case .cancel, .failure, .unexpectedFailure:
                     completion(outcome)
@@ -199,15 +199,15 @@ import LocalAuthentication
             if #available(iOS 11.0, *) {
                 switch laError.code {
                 case .biometryNotAvailable:
-                    Logger.error("\(self.logTag) local authentication error: biometryNotAvailable.")
+                    Logger.error("local authentication error: biometryNotAvailable.")
                     return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE",
                                                              comment: "Indicates that Touch ID/Face ID/Phone Passcode are not available on this device."))
                 case .biometryNotEnrolled:
-                    Logger.error("\(self.logTag) local authentication error: biometryNotEnrolled.")
+                    Logger.error("local authentication error: biometryNotEnrolled.")
                     return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED",
                                                              comment: "Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device."))
                 case .biometryLockout:
-                    Logger.error("\(self.logTag) local authentication error: biometryLockout.")
+                    Logger.error("local authentication error: biometryLockout.")
                     return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT",
                                                              comment: "Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures."))
                 default:
@@ -218,33 +218,33 @@ import LocalAuthentication
 
             switch laError.code {
             case .authenticationFailed:
-                Logger.error("\(self.logTag) local authentication error: authenticationFailed.")
+                Logger.error("local authentication error: authenticationFailed.")
                 return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED",
                                                          comment: "Indicates that Touch ID/Face ID/Phone Passcode authentication failed."))
             case .userCancel, .userFallback, .systemCancel, .appCancel:
-                Logger.info("\(self.logTag) local authentication cancelled.")
+                Logger.info("local authentication cancelled.")
                 return .cancel
             case .passcodeNotSet:
-                Logger.error("\(self.logTag) local authentication error: passcodeNotSet.")
+                Logger.error("local authentication error: passcodeNotSet.")
                 return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET",
                                                          comment: "Indicates that Touch ID/Face ID/Phone Passcode passcode is not set."))
             case .touchIDNotAvailable:
-                Logger.error("\(self.logTag) local authentication error: touchIDNotAvailable.")
+                Logger.error("local authentication error: touchIDNotAvailable.")
                 return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE",
                                                          comment: "Indicates that Touch ID/Face ID/Phone Passcode are not available on this device."))
             case .touchIDNotEnrolled:
-                Logger.error("\(self.logTag) local authentication error: touchIDNotEnrolled.")
+                Logger.error("local authentication error: touchIDNotEnrolled.")
                 return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED",
                                                          comment: "Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device."))
             case .touchIDLockout:
-                Logger.error("\(self.logTag) local authentication error: touchIDLockout.")
+                Logger.error("local authentication error: touchIDLockout.")
                 return .failure(error: NSLocalizedString("SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT",
                                                          comment: "Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures."))
             case .invalidContext:
-                owsFail("\(self.logTag) context not valid.")
+                owsFailDebug("context not valid.")
                 return .unexpectedFailure(error:defaultErrorDescription)
             case .notInteractive:
-                owsFail("\(self.logTag) context not interactive.")
+                owsFailDebug("context not interactive.")
                 return .unexpectedFailure(error:defaultErrorDescription)
             }
         }

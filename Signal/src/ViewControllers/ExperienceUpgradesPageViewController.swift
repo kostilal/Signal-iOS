@@ -30,7 +30,7 @@ private class IntroducingCustomNotificationAudioExperienceUpgradeViewController:
         view.addSubview(bodyLabel)
         bodyLabel.text = body
         bodyLabel.font = UIFont.ows_lightFont(withSize: ScaleFromIPhone5To7Plus(17, 22))
-        bodyLabel.textColor = UIColor.black
+        bodyLabel.textColor = Theme.primaryColor
         bodyLabel.numberOfLines = 0
         bodyLabel.lineBreakMode = .byWordWrapping
         bodyLabel.textAlignment = .center
@@ -45,7 +45,7 @@ private class IntroducingCustomNotificationAudioExperienceUpgradeViewController:
             // dismiss the modally presented view controller, then proceed.
             self.experienceUpgradesPageViewController.dismiss(animated: true) {
                 guard let fromViewController = UIApplication.shared.frontmostViewController else {
-                    owsFail("frontmostViewController was unexectedly nil")
+                    owsFailDebug("frontmostViewController was unexectedly nil")
                     return
                 }
 
@@ -104,10 +104,10 @@ private class IntroducingCustomNotificationAudioExperienceUpgradeViewController:
     }
 
     @objc func didTapButton(sender: UIButton) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
 
         guard let buttonAction = self.buttonAction else {
-            owsFail("\(TAG) button action was nil")
+            owsFailDebug("button action was nil")
             return
         }
 
@@ -140,7 +140,7 @@ private class IntroductingReadReceiptsExperienceUpgradeViewController: Experienc
         view.addSubview(bodyLabel)
         bodyLabel.text = body
         bodyLabel.font = UIFont.ows_lightFont(withSize: ScaleFromIPhone5To7Plus(17, 22))
-        bodyLabel.textColor = UIColor.black
+        bodyLabel.textColor = Theme.primaryColor
         bodyLabel.numberOfLines = 0
         bodyLabel.lineBreakMode = .byWordWrapping
         bodyLabel.textAlignment = .center
@@ -155,7 +155,7 @@ private class IntroductingReadReceiptsExperienceUpgradeViewController: Experienc
             // dismiss the modally presented view controller, then proceed.
             self.experienceUpgradesPageViewController.dismiss(animated: true) {
                 guard let fromViewController = UIApplication.shared.frontmostViewController as? HomeViewController else {
-                    owsFail("unexpected frontmostViewController: \(String(describing: UIApplication.shared.frontmostViewController))")
+                    owsFailDebug("unexpected frontmostViewController: \(String(describing: UIApplication.shared.frontmostViewController))")
                     return
                 }
 
@@ -214,10 +214,10 @@ private class IntroductingReadReceiptsExperienceUpgradeViewController: Experienc
     }
 
     @objc func didTapButton(sender: UIButton) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
 
         guard let buttonAction = self.buttonAction else {
-            owsFail("\(TAG) button action was nil")
+            owsFailDebug("button action was nil")
             return
         }
 
@@ -292,7 +292,7 @@ private class IntroductingProfilesExperienceUpgradeViewController: ExperienceUpg
         view.addSubview(bodyLabel)
         bodyLabel.text = body
         bodyLabel.font = UIFont.ows_lightFont(withSize: ScaleFromIPhone5To7Plus(17, 22))
-        bodyLabel.textColor = UIColor.black
+        bodyLabel.textColor = Theme.primaryColor
         bodyLabel.numberOfLines = 0
         bodyLabel.lineBreakMode = .byWordWrapping
         bodyLabel.textAlignment = .center
@@ -344,12 +344,12 @@ private class IntroductingProfilesExperienceUpgradeViewController: ExperienceUpg
     // MARK: - Actions
 
     @objc func didTapButton(sender: UIButton) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
 
         // dismiss the modally presented view controller, then proceed.
         experienceUpgradesPageViewController.dismiss(animated: true) {
             guard let fromViewController = UIApplication.shared.frontmostViewController as? HomeViewController else {
-                owsFail("unexpected frontmostViewController: \(String(describing: UIApplication.shared.frontmostViewController))")
+                owsFailDebug("unexpected frontmostViewController: \(String(describing: UIApplication.shared.frontmostViewController))")
                 return
             }
             ProfileViewController.presentForUpgradeOrNag(from: fromViewController)
@@ -383,7 +383,7 @@ private class CallKitExperienceUpgradeViewController: ExperienceUpgradeViewContr
     // MARK: - Actions
 
     @objc func didTapPrivacySettingsButton(sender: UIButton) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
 
         // dismiss the modally presented view controller, then proceed.
         experienceUpgradesPageViewController.dismiss(animated: true) {
@@ -400,7 +400,6 @@ private class CallKitExperienceUpgradeViewController: ExperienceUpgradeViewContr
 }
 
 private class ExperienceUpgradeViewController: OWSViewController {
-    let TAG = "[ExperienceUpgradeViewController]"
 
     let header: String
     let body: String
@@ -419,7 +418,7 @@ private class ExperienceUpgradeViewController: OWSViewController {
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     override func loadView() {
@@ -443,7 +442,7 @@ private class ExperienceUpgradeViewController: OWSViewController {
         view.addSubview(bodyLabel)
         bodyLabel.text = body
         bodyLabel.font = UIFont.ows_lightFont(withSize: ScaleFromIPhone5To7Plus(17, 22))
-        bodyLabel.textColor = UIColor.black
+        bodyLabel.textColor = Theme.primaryColor
         bodyLabel.numberOfLines = 0
         bodyLabel.lineBreakMode = .byWordWrapping
         bodyLabel.textAlignment = .center
@@ -483,8 +482,6 @@ func setPageControlAppearance() {
 @objc
 public class ExperienceUpgradesPageViewController: OWSViewController, UIPageViewControllerDataSource {
 
-    let TAG = "[ExperienceUpgradeViewController]"
-
     private let experienceUpgrades: [ExperienceUpgrade]
     private var allViewControllers = [UIViewController]()
     private var viewControllerIndexes = [UIViewController: Int]()
@@ -511,14 +508,14 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
     @available(*, unavailable, message:"unavailable, use initWithExperienceUpgrade instead")
     @objc
     public required init?(coder aDecoder: NSCoder) {
-        fatalError("unimplemented")
+        notImplemented()
     }
 
     // MARK: - View lifecycle
 
     @objc public override func viewDidLoad() {
         guard let firstViewController = allViewControllers.first else {
-            owsFail("\(TAG) no pages to show.")
+            owsFailDebug("no pages to show.")
             dismiss(animated: true)
             return
         }
@@ -529,7 +526,7 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
 
     @objc public override func loadView() {
         self.view = UIView.container()
-        view.backgroundColor = UIColor.white
+        view.backgroundColor = Theme.backgroundColor
 
         //// Create Views
 
@@ -554,7 +551,7 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
         dismissButton.contentEdgeInsets = UIEdgeInsets(top: dismissInsetValue, left: dismissInsetValue, bottom: dismissInsetValue, right: dismissInsetValue)
 
         guard let carouselView = self.pageViewController.view else {
-            Logger.error("\(TAG) carousel view was unexpectedly nil")
+            Logger.error("carousel view was unexpectedly nil")
             return
         }
 
@@ -602,9 +599,9 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
     // MARK: - UIPageViewControllerDataSource
 
     public func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
         guard let currentIndex = self.viewControllerIndexes[viewController] else {
-            owsFail("\(TAG) unknown view controller: \(viewController)")
+            owsFailDebug("unknown view controller: \(viewController)")
             return nil
         }
 
@@ -617,9 +614,9 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
     }
 
     public func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
         guard let currentIndex = self.viewControllerIndexes[viewController] else {
-            owsFail("\(TAG) unknown view controller: \(viewController)")
+            owsFailDebug("unknown view controller: \(viewController)")
             return nil
         }
 
@@ -638,12 +635,12 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
 
     public func presentationIndex(for pageViewController: UIPageViewController) -> Int {
         guard let currentViewController = pageViewController.viewControllers?.first else {
-            Logger.error("\(TAG) unexpectedly empty view controllers.")
+            Logger.error("unexpectedly empty view controllers.")
             return 0
         }
 
         guard let currentIndex = self.viewControllerIndexes[currentViewController] else {
-            Logger.error("\(TAG) unknown view controller: \(currentViewController)")
+            Logger.error("unknown view controller: \(currentViewController)")
             return 0
         }
 
@@ -652,11 +649,11 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
 
     public func addViewController(experienceUpgrade: ExperienceUpgrade) {
         guard let uniqueId = experienceUpgrade.uniqueId else {
-            Logger.error("\(self.TAG) experienceUpgrade is missing uniqueId.")
+            Logger.error("experienceUpgrade is missing uniqueId.")
             return
         }
         guard let identifier = ExperienceUpgradeId(rawValue: uniqueId) else {
-            owsFail("\(TAG) unknown experience upgrade. skipping")
+            owsFailDebug("unknown experience upgrade. skipping")
             return
         }
 
@@ -684,19 +681,19 @@ public class ExperienceUpgradesPageViewController: OWSViewController, UIPageView
         // Blocking write before dismiss, to be sure they're marked as complete
         // before HomeView.didAppear is re-fired.
         self.editingDBConnection.readWrite { transaction in
-            Logger.info("\(self.logTag) marking all upgrades as seen.")
+            Logger.info("marking all upgrades as seen.")
             ExperienceUpgradeFinder.shared.markAllAsSeen(transaction: transaction)
         }
         super.dismiss(animated: flag, completion: completion)
     }
 
     @objc func didTapDismissButton(sender: UIButton) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
         self.dismiss(animated: true)
     }
 
     @objc func handleDismissGesture(sender: AnyObject) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
         self.dismiss(animated: true)
     }
 }

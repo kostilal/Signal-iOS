@@ -96,7 +96,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)pinEntryView:(PinEntryView *)entryView submittedPinCode:(NSString *)pinCode
 {
-    OWSAssert(self.entryView.hasValidPin);
+    OWSAssertDebug(self.entryView.hasValidPin);
 
     [self tryToRegisterWithPinCode:pinCode];
 }
@@ -112,11 +112,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)tryToRegisterWithPinCode:(NSString *)pinCode
 {
-    OWSAssert(self.entryView.hasValidPin);
-    OWSAssert(self.verificationCode.length > 0);
-    OWSAssert(pinCode.length > 0);
+    OWSAssertDebug(self.entryView.hasValidPin);
+    OWSAssertDebug(self.verificationCode.length > 0);
+    OWSAssertDebug(pinCode.length > 0);
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     __weak OWS2FARegistrationViewController *weakSelf = self;
 
@@ -131,7 +131,7 @@ NS_ASSUME_NONNULL_BEGIN
                               OWSProdInfo([OWSAnalyticsEvents registrationRegisteringSubmittedCode]);
                               [[OWS2FAManager sharedManager] mark2FAAsEnabledWithPin:pinCode];
 
-                              DDLogInfo(@"%@ Successfully registered Signal account.", weakSelf.logTag);
+                              OWSLogInfo(@"Successfully registered Signal account.");
                               dispatch_async(dispatch_get_main_queue(), ^{
                                   [modalActivityIndicator dismissWithCompletion:^{
                                       OWSAssertIsOnMainThread();
@@ -143,7 +143,7 @@ NS_ASSUME_NONNULL_BEGIN
                           .catch(^(NSError *error) {
                               OWSAssertIsOnMainThread();
                               OWSProdInfo([OWSAnalyticsEvents registrationRegistrationFailed]);
-                              DDLogError(@"%@ error verifying challenge: %@", weakSelf.logTag, error);
+                              OWSLogError(@"error verifying challenge: %@", error);
                               dispatch_async(dispatch_get_main_queue(), ^{
                                   [modalActivityIndicator dismissWithCompletion:^{
                                       OWSAssertIsOnMainThread();

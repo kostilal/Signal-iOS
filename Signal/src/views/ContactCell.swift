@@ -50,7 +50,7 @@ class ContactCell: UITableViewCell {
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     override func prepareForReuse() {
@@ -96,8 +96,7 @@ class ContactCell: UITableViewCell {
 
             let avatarBuilder = OWSContactAvatarBuilder(nonSignalName: contact.fullName,
                                                         colorSeed: contactIdForDeterminingBackgroundColor,
-                                                        diameter: ContactCell.kAvatarDiameter,
-                                                        contactsManager: contactsManager)
+                                                        diameter: ContactCell.kAvatarDiameter)
 
             contactImageView.image = avatarBuilder.build()
         }

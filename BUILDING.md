@@ -9,7 +9,7 @@ As of this writing, that's Xcode 9.4.
 Clone the repo to a working directory:
 
 ```
-git clone --recurse-submodules https:github.com/signalapp/Signal-iOS
+git clone --recurse-submodules https://github.com/signalapp/Signal-iOS
 ```
 
 Since we make use of submodules, you must use `git clone`, rather than
@@ -24,7 +24,7 @@ git clone --recurse-submodules https://github.com/<USERNAME>/Signal-iOS.git
 You can then add the Signal repo to sync with upstream changes:
 
 ```
-git remote add upstream https:github.com/signalapp/Signal-iOS
+git remote add upstream https://github.com/signalapp/Signal-iOS
 ```
 
 ## 2. Dependencies
@@ -41,7 +41,7 @@ Else if the above completed without error - jump ahead to step 3.
 
 ### Dependency Details
 
-We have a couple of dependency management tools. We us Carthage for
+We have a couple of dependency management tools. We use Carthage for
 managing frameworks, but because some of our dependencies are not yet
 framework compatible, we use Cocoapods to manage the remainder in a
 static library.

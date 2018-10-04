@@ -362,7 +362,7 @@ NSString *const kSyncMessageFileExtension = @"bin";
         return [self filePathForData:uniqueId withFileExtension:fileExtension inFolder:folder];
     }
 
-    DDLogError(@"Got asked for path of file %@ which is unsupported", contentType);
+    OWSLogError(@"Got asked for path of file %@ which is unsupported", contentType);
     // Use a fallback file extension.
     return [self filePathForData:uniqueId withFileExtension:kDefaultFileExtension inFolder:folder];
 }
@@ -456,7 +456,7 @@ NSString *const kSyncMessageFileExtension = @"bin";
     for (NSString *mimeType in mimeTypes) {
         NSString *_Nullable utiType = [self utiTypeForMIMEType:mimeType];
         if (!utiType) {
-            OWSFail(@"%@ unknown utiType for mimetype: %@", self.logTag, mimeType);
+            OWSFailDebug(@"unknown utiType for mimetype: %@", mimeType);
             continue;
         }
         [result addObject:utiType];
@@ -1573,7 +1573,7 @@ NSString *const kSyncMessageFileExtension = @"bin";
 
 + (nullable NSString *)mimeTypeForFileExtension:(NSString *)fileExtension
 {
-    OWSAssert(fileExtension.length > 0);
+    OWSAssertDebug(fileExtension.length > 0);
 
     return [self genericExtensionTypesToMIMETypes][fileExtension];
 }
@@ -2594,7 +2594,7 @@ NSString *const kSyncMessageFileExtension = @"bin";
 
 + (nullable NSString *)utiTypeForFileExtension:(NSString *)fileExtension
 {
-    OWSAssert(fileExtension.length > 0);
+    OWSAssertDebug(fileExtension.length > 0);
 
     NSString *_Nullable utiType = (__bridge_transfer NSString *)UTTypeCreatePreferredIdentifierForTag(
         kUTTagClassFilenameExtension, (__bridge CFStringRef)fileExtension, NULL);

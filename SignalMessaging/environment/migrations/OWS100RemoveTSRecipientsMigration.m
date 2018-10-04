@@ -19,10 +19,10 @@ static NSString *const OWS100RemoveTSRecipientsMigrationId = @"100";
 
 - (void)runUpWithTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     NSUInteger legacyRecipientCount = [transaction numberOfKeysInCollection:@"TSRecipient"];
-    DDLogWarn(@"Removing %lu objects from TSRecipient collection", (unsigned long)legacyRecipientCount);
+    OWSLogWarn(@"Removing %lu objects from TSRecipient collection", (unsigned long)legacyRecipientCount);
     [transaction removeAllObjectsInCollection:@"TSRecipient"];
 }
 

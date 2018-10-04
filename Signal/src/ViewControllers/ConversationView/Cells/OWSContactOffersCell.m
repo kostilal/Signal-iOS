@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)commontInit
 {
-    OWSAssert(!self.titleLabel);
+    OWSAssertDebug(!self.titleLabel);
 
     self.layoutMargins = UIEdgeInsetsZero;
     self.contentView.layoutMargins = UIEdgeInsetsZero;
@@ -100,6 +100,7 @@ NS_ASSUME_NONNULL_BEGIN
     button.titleLabel.textAlignment = NSTextAlignmentCenter;
     button.layer.cornerRadius = 4.f;
     [button addTarget:self action:selector forControlEvents:UIControlEventTouchUpInside];
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 10.f, 0, 10.f);
     return button;
 }
 
@@ -108,12 +109,12 @@ NS_ASSUME_NONNULL_BEGIN
     return NSStringFromClass([self class]);
 }
 
-- (void)loadForDisplayWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (void)loadForDisplay
 {
-    OWSAssert(self.conversationStyle);
-    OWSAssert(self.conversationStyle.viewWidth > 0);
-    OWSAssert(self.viewItem);
-    OWSAssert([self.viewItem.interaction isKindOfClass:[OWSContactOffersInteraction class]]);
+    OWSAssertDebug(self.conversationStyle);
+    OWSAssertDebug(self.conversationStyle.viewWidth > 0);
+    OWSAssertDebug(self.viewItem);
+    OWSAssertDebug([self.viewItem.interaction isKindOfClass:[OWSContactOffersInteraction class]]);
 
     self.backgroundColor = [Theme conversationBackgroundColor];
 
@@ -131,7 +132,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     OWSContactOffersInteraction *interaction = (OWSContactOffersInteraction *)self.viewItem.interaction;
 
-    OWSAssert(
+    OWSAssertDebug(
         interaction.hasBlockOffer || interaction.hasAddToContactsOffer || interaction.hasAddToProfileWhitelistOffer);
 
     self.addToContactsButton.hidden = !interaction.hasAddToContactsOffer;
@@ -173,12 +174,12 @@ NS_ASSUME_NONNULL_BEGIN
     return (24.f + self.addToContactsButton.titleLabel.font.lineHeight);
 }
 
-- (CGSize)cellSizeWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (CGSize)cellSize
 {
-    OWSAssert(self.conversationStyle);
-    OWSAssert(self.conversationStyle.viewWidth > 0);
-    OWSAssert(self.viewItem);
-    OWSAssert([self.viewItem.interaction isKindOfClass:[OWSContactOffersInteraction class]]);
+    OWSAssertDebug(self.conversationStyle);
+    OWSAssertDebug(self.conversationStyle.viewWidth > 0);
+    OWSAssertDebug(self.viewItem);
+    OWSAssertDebug([self.viewItem.interaction isKindOfClass:[OWSContactOffersInteraction class]]);
 
     [self configureFonts];
 
@@ -201,10 +202,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable OWSContactOffersInteraction *)interaction
 {
-    OWSAssert(self.viewItem);
-    OWSAssert(self.viewItem.interaction);
+    OWSAssertDebug(self.viewItem);
+    OWSAssertDebug(self.viewItem.interaction);
     if (![self.viewItem.interaction isKindOfClass:[OWSContactOffersInteraction class]]) {
-        OWSFail(@"%@ expected OWSContactOffersInteraction but found: %@", self.logTag, self.viewItem.interaction);
+        OWSFailDebug(@"expected OWSContactOffersInteraction but found: %@", self.viewItem.interaction);
         return nil;
     }
     return (OWSContactOffersInteraction *)self.viewItem.interaction;
@@ -212,24 +213,24 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)addToContacts
 {
-    OWSAssert(self.delegate);
-    OWSAssert(self.interaction);
+    OWSAssertDebug(self.delegate);
+    OWSAssertDebug(self.interaction);
 
     [self.delegate tappedAddToContactsOfferMessage:self.interaction];
 }
 
 - (void)addToProfileWhitelist
 {
-    OWSAssert(self.delegate);
-    OWSAssert(self.interaction);
+    OWSAssertDebug(self.delegate);
+    OWSAssertDebug(self.interaction);
 
     [self.delegate tappedAddToProfileWhitelistOfferMessage:self.interaction];
 }
 
 - (void)block
 {
-    OWSAssert(self.delegate);
-    OWSAssert(self.interaction);
+    OWSAssertDebug(self.delegate);
+    OWSAssertDebug(self.interaction);
 
     [self.delegate tappedUnknownContactBlockOfferMessage:self.interaction];
 }

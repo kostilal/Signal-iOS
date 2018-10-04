@@ -3,6 +3,7 @@
 //
 
 #import "OWSPrimaryStorage+PreKeyStore.h"
+#import "Cryptography.h"
 #import "OWSPrimaryStorage+keyFromIntLong.h"
 #import "TSStorageKeys.h"
 #import "YapDatabaseConnection+OWS.h"
@@ -15,19 +16,7 @@
 
 @implementation OWSPrimaryStorage (PreKeyStore)
 
-- (PreKeyRecord *)getOrGenerateLastResortKey
-{
-    if ([self containsPreKey:kPreKeyOfLastResortId]) {
-        return [self loadPreKey:kPreKeyOfLastResortId];
-    } else {
-        PreKeyRecord *lastResort =
-            [[PreKeyRecord alloc] initWithId:kPreKeyOfLastResortId keyPair:[Curve25519 generateKeyPair]];
-        [self storePreKey:kPreKeyOfLastResortId preKeyRecord:lastResort];
-        return lastResort;
-    }
-}
-
-- (NSArray *)generatePreKeyRecords
+- (NSArray<PreKeyRecord *> *)generatePreKeyRecords;
 {
     NSMutableArray *preKeyRecords = [NSMutableArray array];
 
@@ -35,7 +24,7 @@
     {
         int preKeyId = [self nextPreKeyId];
 
-        DDLogInfo(@"%@ building %d new preKeys starting from preKeyId: %d", self.logTag, BATCH_SIZE, preKeyId);
+        OWSLogInfo(@"building %d new preKeys starting from preKeyId: %d", BATCH_SIZE, preKeyId);
         for (int i = 0; i < BATCH_SIZE; i++) {
             ECKeyPair *keyPair = [Curve25519 generateKeyPair];
             PreKeyRecord *record = [[PreKeyRecord alloc] initWithId:preKeyId keyPair:keyPair];
@@ -51,7 +40,7 @@
     return preKeyRecords;
 }
 
-- (void)storePreKeyRecords:(NSArray *)preKeyRecords
+- (void)storePreKeyRecords:(NSArray<PreKeyRecord *> *)preKeyRecords
 {
     for (PreKeyRecord *record in preKeyRecords) {
         [self.dbReadWriteConnection setObject:record
@@ -105,7 +94,7 @@
         // to avoid biasing towards higher values.
         lastPreKeyId = 1;
     }
-    OWSCAssert(lastPreKeyId > 0 && lastPreKeyId < kPreKeyOfLastResortId);
+    OWSCAssertDebug(lastPreKeyId > 0 && lastPreKeyId < kPreKeyOfLastResortId);
 
     return lastPreKeyId;
 }

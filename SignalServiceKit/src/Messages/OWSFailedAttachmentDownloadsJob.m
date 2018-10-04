@@ -39,7 +39,7 @@ static NSString *const OWSFailedAttachmentDownloadsJobAttachmentStateIndex = @"i
 - (NSArray<NSString *> *)fetchAttemptingOutAttachmentIdsWithTransaction:
     (YapDatabaseReadWriteTransaction *_Nonnull)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     NSMutableArray<NSString *> *attachmentIds = [NSMutableArray new];
 
@@ -59,7 +59,7 @@ static NSString *const OWSFailedAttachmentDownloadsJobAttachmentStateIndex = @"i
 - (void)enumerateAttemptingOutAttachmentsWithBlock:(void (^_Nonnull)(TSAttachmentPointer *attachment))block
                                        transaction:(YapDatabaseReadWriteTransaction *_Nonnull)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     // Since we can't directly mutate the enumerated attachments, we store only their ids in hopes
     // of saving a little memory and then enumerate the (larger) TSAttachment objects one at a time.
@@ -69,7 +69,7 @@ static NSString *const OWSFailedAttachmentDownloadsJobAttachmentStateIndex = @"i
         if ([attachment isKindOfClass:[TSAttachmentPointer class]]) {
             block(attachment);
         } else {
-            DDLogError(@"%@ unexpected object: %@", self.logTag, attachment);
+            OWSLogError(@"unexpected object: %@", attachment);
         }
     }
 }
@@ -90,7 +90,7 @@ static NSString *const OWSFailedAttachmentDownloadsJobAttachmentStateIndex = @"i
                                                  transaction:transaction];
         }];
 
-    DDLogDebug(@"%@ Marked %u attachments as unsent", self.logTag, count);
+    OWSLogDebug(@"Marked %u attachments as unsent", count);
 }
 
 #pragma mark - YapDatabaseExtension

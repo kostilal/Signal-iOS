@@ -19,7 +19,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface ContactsViewHelper ()
+@interface ContactsViewHelper () <OWSBlockListCacheDelegate>
 
 // This property is a cached value that is lazy-populated.
 @property (nonatomic, nullable) NSArray<Contact *> *nonSignalContacts;
@@ -27,7 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) NSDictionary<NSString *, SignalAccount *> *signalAccountMap;
 @property (nonatomic) NSArray<SignalAccount *> *signalAccounts;
 
-@property (nonatomic) NSArray<NSString *> *blockedPhoneNumbers;
+@property (nonatomic, readonly) OWSBlockListCache *blockListCache;
 
 @property (nonatomic) BOOL shouldNotifyDelegateOfUpdatedContacts;
 @property (nonatomic) BOOL hasUpdatedContactsAtLeastOnce;
@@ -47,14 +47,16 @@ NS_ASSUME_NONNULL_BEGIN
         return self;
     }
 
-    OWSAssert(delegate);
+    OWSAssertDebug(delegate);
     _delegate = delegate;
 
     _blockingManager = [OWSBlockingManager sharedManager];
-    _blockedPhoneNumbers = [_blockingManager blockedPhoneNumbers];
+    _blockListCache = [OWSBlockListCache new];
+    [_blockListCache startObservingAndSyncStateWithDelegate:self];
+
     _conversationSearcher = ConversationSearcher.shared;
 
-    _contactsManager = [Environment current].contactsManager;
+    _contactsManager = Environment.shared.contactsManager;
     _profileManager = [OWSProfileManager sharedManager];
 
     // We don't want to notify the delegate in the `updateContacts`.
@@ -73,10 +75,6 @@ NS_ASSUME_NONNULL_BEGIN
                                              selector:@selector(signalAccountsDidChange:)
                                                  name:OWSContactsManagerSignalAccountsDidChangeNotification
                                                object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(blockedPhoneNumbersDidChange:)
-                                                 name:kNSNotificationName_BlockedPhoneNumbersDidChange
-                                               object:nil];
 }
 
 - (void)dealloc
@@ -91,28 +89,19 @@ NS_ASSUME_NONNULL_BEGIN
     [self updateContacts];
 }
 
-- (void)blockedPhoneNumbersDidChange:(id)notification
-{
-    OWSAssertIsOnMainThread();
-
-    self.blockedPhoneNumbers = [_blockingManager blockedPhoneNumbers];
-
-    [self updateContacts];
-}
-
 #pragma mark - Contacts
 
 - (nullable SignalAccount *)fetchSignalAccountForRecipientId:(NSString *)recipientId
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     return self.signalAccountMap[recipientId];
 }
 
 - (SignalAccount *)fetchOrBuildSignalAccountForRecipientId:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     SignalAccount *_Nullable signalAccount = [self fetchSignalAccountForRecipientId:recipientId];
     return (signalAccount ?: [[SignalAccount alloc] initWithRecipientId:recipientId]);
@@ -158,7 +147,28 @@ NS_ASSUME_NONNULL_BEGIN
 {
     OWSAssertIsOnMainThread();
 
-    return [_blockedPhoneNumbers containsObject:recipientId];
+    return [self.blockListCache isRecipientIdBlocked:recipientId];
+}
+
+- (BOOL)isGroupIdBlocked:(NSData *)groupId
+{
+    OWSAssertIsOnMainThread();
+
+    return [self.blockListCache isGroupIdBlocked:groupId];
+}
+
+- (BOOL)isThreadBlocked:(TSThread *)thread
+{
+    if ([thread isKindOfClass:[TSContactThread class]]) {
+        TSContactThread *contactThread = (TSContactThread *)thread;
+        return [self isRecipientIdBlocked:contactThread.contactIdentifier];
+    } else if ([thread isKindOfClass:[TSGroupThread class]]) {
+        TSGroupThread *groupThread = (TSGroupThread *)thread;
+        return [self isGroupIdBlocked:groupThread.groupModel.groupId];
+    } else {
+        OWSFailDebug(@"%@ failure: unexpected thread: %@", self.logTag, thread.class);
+        return NO;
+    }
 }
 
 - (void)updateContacts
@@ -201,8 +211,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)doesContact:(Contact *)contact matchSearchTerm:(NSString *)searchTerm
 {
-    OWSAssert(contact);
-    OWSAssert(searchTerm.length > 0);
+    OWSAssertDebug(contact);
+    OWSAssertDebug(searchTerm.length > 0);
 
     if ([contact.fullName.lowercaseString containsString:searchTerm.lowercaseString]) {
         return YES;
@@ -222,8 +232,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)doesContact:(Contact *)contact matchSearchTerms:(NSArray<NSString *> *)searchTerms
 {
-    OWSAssert(contact);
-    OWSAssert(searchTerms.count > 0);
+    OWSAssertDebug(contact);
+    OWSAssertDebug(searchTerms.count > 0);
 
     for (NSString *searchTerm in searchTerms) {
         if (![self doesContact:contact matchSearchTerm:searchTerm]) {
@@ -322,7 +332,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     if (!self.contactsManager.supportsContactEditing) {
         // Should not expose UI that lets the user get here.
-        OWSFail(@"%@ Contact editing not supported.", self.logTag);
+        OWSFailDebug(@"Contact editing not supported.");
         return;
     }
 
@@ -343,8 +353,8 @@ NS_ASSUME_NONNULL_BEGIN
         for (CNLabeledValue *existingPhoneNumber in phoneNumbers) {
             CNPhoneNumber *phoneNumber = existingPhoneNumber.value;
             if ([phoneNumber.stringValue isEqualToString:recipientId]) {
-                OWSFail(@"We currently only should the 'add to existing contact' UI for phone numbers that don't "
-                        @"correspond to an existing user.");
+                OWSFailDebug(@"We currently only should the 'add to existing contact' UI for phone numbers that don't "
+                             @"correspond to an existing user.");
                 hasPhoneNumber = YES;
                 break;
             }
@@ -407,6 +417,12 @@ NS_ASSUME_NONNULL_BEGIN
         modal.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
     }
     [fromViewController presentViewController:modal animated:YES completion:nil];
+}
+
+- (void)blockListCacheDidUpdate:(OWSBlockListCache *)blocklistCache
+{
+    OWSAssertIsOnMainThread();
+    [self updateContacts];
 }
 
 @end

@@ -8,23 +8,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @implementation NSData (OWS)
 
-- (BOOL)ows_constantTimeIsEqualToData:(NSData *)other
++ (NSData *)join:(NSArray<NSData *> *)datas
 {
-    volatile UInt8 isEqual = 0;
+    OWSAssert(datas);
 
-    if (self.length != other.length) {
-        return NO;
+    NSMutableData *result = [NSMutableData new];
+    for (NSData *data in datas) {
+        [result appendData:data];
     }
-
-    UInt8 *leftBytes = (UInt8 *)self.bytes;
-    UInt8 *rightBytes = (UInt8 *)other.bytes;
-    for (int i = 0; i < self.length; i++) {
-        // rather than returning as soon as we find a discrepency, we compare the rest of
-        // the byte stream to maintain a constant time comparison
-        isEqual |= leftBytes[i] ^ rightBytes[i];
-    }
-
-    return isEqual == 0;
+    return [result copy];
 }
 
 - (NSData *)dataByAppendingData:(NSData *)data
@@ -49,6 +41,53 @@ NS_ASSUME_NONNULL_BEGIN
         [hexString appendFormat:@"%02x", dataBuffer[i]];
     }
     return [hexString copy];
+}
+
+#pragma mark - Base64
+
++ (NSData *)dataFromBase64StringNoPadding:(NSString *)aString
+{
+    int padding = aString.length % 4;
+
+    NSMutableString *strResult = [aString mutableCopy];
+    if (padding != 0) {
+        int charsToAdd = 4 - padding;
+        for (int i = 0; i < charsToAdd; i++) {
+            [strResult appendString:@"="];
+        }
+    }
+    return [self dataFromBase64String:strResult];
+}
+
+//
+// dataFromBase64String:
+//
+// Creates an NSData object containing the base64 decoded representation of
+// the base64 string 'aString'
+//
+// Parameters:
+//    aString - the base64 string to decode
+//
+// returns the NSData representation of the base64 string
+//
+
++ (NSData *)dataFromBase64String:(NSString *)aString
+{
+    return [[NSData alloc] initWithBase64EncodedString:aString options:NSDataBase64DecodingIgnoreUnknownCharacters];
+}
+
+//
+// base64EncodedString
+//
+// Creates an NSString object that contains the base 64 encoding of the
+// receiver's data. Lines are broken at 64 characters long.
+//
+// returns an NSString being the base 64 representation of the
+//    receiver.
+//
+- (NSString *)base64EncodedString
+{
+    return [self base64EncodedStringWithOptions:0];
 }
 
 @end

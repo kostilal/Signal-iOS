@@ -65,12 +65,12 @@ struct AudioSource: Hashable {
         }
 
         guard let lhsPortDescription = lhs.portDescription else {
-            owsFail("only the built in speaker should lack a port description")
+            owsFailDebug("only the built in speaker should lack a port description")
             return false
         }
 
         guard let rhsPortDescription = rhs.portDescription else {
-            owsFail("only the built in speaker should lack a port description")
+            owsFailDebug("only the built in speaker should lack a port description")
             return false
         }
 
@@ -141,24 +141,24 @@ protocol CallAudioServiceDelegate: class {
     // MARK: - CallObserver
 
     internal func stateDidChange(call: SignalCall, state: CallState) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         self.handleState(call: call)
     }
 
     internal func muteDidChange(call: SignalCall, isMuted: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         ensureProperAudioSession(call: call)
     }
 
     internal func holdDidChange(call: SignalCall, isOnHold: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         ensureProperAudioSession(call: call)
     }
 
     internal func audioSourceDidChange(call: SignalCall, audioSource: AudioSource?) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         ensureProperAudioSession(call: call)
 
@@ -170,7 +170,7 @@ protocol CallAudioServiceDelegate: class {
     }
 
     internal func hasLocalVideoDidChange(call: SignalCall, hasLocalVideo: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         ensureProperAudioSession(call: call)
     }
@@ -193,7 +193,7 @@ protocol CallAudioServiceDelegate: class {
             do {
                 try self.avAudioSession.overrideOutputAudioPort( isEnabled ? .speaker : .none )
             } catch {
-                owsFail("\(self.logTag) failed to set \(#function) = \(isEnabled) with error: \(error)")
+                owsFailDebug("failed to set \(#function) = \(isEnabled) with error: \(error)")
             }
         }
     }
@@ -208,7 +208,7 @@ protocol CallAudioServiceDelegate: class {
     }
 
     private func ensureProperAudioSession(call: SignalCall?) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         guard let call = call, !call.isTerminated else {
             // Revert to default audio
@@ -255,19 +255,19 @@ protocol CallAudioServiceDelegate: class {
             // because some sources are only valid for certain category/option combinations.
             let existingPreferredInput = avAudioSession.preferredInput
             if  existingPreferredInput != call.audioSource?.portDescription {
-                Logger.info("\(self.logTag) changing preferred input: \(String(describing: existingPreferredInput)) -> \(String(describing: call.audioSource?.portDescription))")
+                Logger.info("changing preferred input: \(String(describing: existingPreferredInput)) -> \(String(describing: call.audioSource?.portDescription))")
                 try avAudioSession.setPreferredInput(call.audioSource?.portDescription)
             }
 
         } catch {
-            owsFail("\(self.logTag) failed setting audio source with error: \(error) isSpeakerPhoneEnabled: \(call.isSpeakerphoneEnabled)")
+            owsFailDebug("failed setting audio source with error: \(error) isSpeakerPhoneEnabled: \(call.isSpeakerphoneEnabled)")
         }
     }
 
     // MARK: - Service action handlers
 
     public func didUpdateVideoTracks(call: SignalCall?) {
-        Logger.verbose("\(self.logTag) in \(#function)")
+        Logger.verbose("")
 
         self.ensureProperAudioSession(call: call)
     }
@@ -275,7 +275,7 @@ protocol CallAudioServiceDelegate: class {
     public func handleState(call: SignalCall) {
         assert(Thread.isMainThread)
 
-        Logger.verbose("\(self.logTag) in \(#function) new state: \(call.state)")
+        Logger.verbose("new state: \(call.state)")
 
         // Stop playing sounds while switching audio session so we don't 
         // get any blips across a temporary unintended route.
@@ -298,12 +298,12 @@ protocol CallAudioServiceDelegate: class {
     }
 
     private func handleIdle(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
+        Logger.debug("")
     }
 
     private func handleDialing(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         // HACK: Without this async, dialing sound only plays once. I don't really understand why. Does the audioSession
         // need some time to settle? Is somethign else interrupting our session?
@@ -313,52 +313,52 @@ protocol CallAudioServiceDelegate: class {
     }
 
     private func handleAnswering(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
     }
 
     private func handleRemoteRinging(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         self.play(sound: OWSSound.callOutboundRinging)
     }
 
     private func handleLocalRinging(call: SignalCall) {
-        Logger.debug("\(self.logTag) in \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         startRinging(call: call)
     }
 
     private func handleConnected(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
     }
 
     private func handleReconnecting(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
     }
 
     private func handleLocalFailure(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         play(sound: OWSSound.callFailure)
         handleCallEnded(call: call)
     }
 
     private func handleLocalHangup(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         handleCallEnded(call: call)
     }
 
     private func handleRemoteHangup(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         vibrate()
 
@@ -366,8 +366,8 @@ protocol CallAudioServiceDelegate: class {
     }
 
     private func handleBusy(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         play(sound: OWSSound.callBusy)
 
@@ -378,8 +378,8 @@ protocol CallAudioServiceDelegate: class {
     }
 
     private func handleCallEnded(call: SignalCall) {
-        Logger.debug("\(self.logTag) \(#function)")
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         // Stop solo audio, revert to default.
         isSpeakerphoneEnabled = false
@@ -397,10 +397,10 @@ protocol CallAudioServiceDelegate: class {
 
     private func play(sound: OWSSound) {
         guard let newPlayer = OWSSounds.audioPlayer(for: sound) else {
-            owsFail("\(self.logTag) unable to build player for sound: \(OWSSounds.displayName(for: sound))")
+            owsFailDebug("unable to build player for sound: \(OWSSounds.displayName(for: sound))")
             return
         }
-        Logger.info("\(self.logTag) playing sound: \(OWSSounds.displayName(for: sound))")
+        Logger.info("playing sound: \(OWSSounds.displayName(for: sound))")
 
         // It's important to stop the current player **before** starting the new player. In the case that 
         // we're playing the same sound, since the player is memoized on the sound instance, we'd otherwise 
@@ -414,7 +414,7 @@ protocol CallAudioServiceDelegate: class {
 
     private func startRinging(call: SignalCall) {
         guard handleRinging else {
-            Logger.debug("\(self.logTag) ignoring \(#function) since CallKit handles it's own ringing state")
+            Logger.debug("ignoring \(#function) since CallKit handles it's own ringing state")
             return
         }
 
@@ -427,10 +427,10 @@ protocol CallAudioServiceDelegate: class {
 
     private func stopAnyRingingVibration() {
         guard handleRinging else {
-            Logger.debug("\(self.logTag) ignoring \(#function) since CallKit handles it's own ringing state")
+            Logger.debug("ignoring \(#function) since CallKit handles it's own ringing state")
             return
         }
-        Logger.debug("\(self.logTag) in \(#function)")
+        Logger.debug("")
 
         // Stop vibrating
         vibrateTimer?.invalidate()
@@ -452,7 +452,7 @@ protocol CallAudioServiceDelegate: class {
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
     }
 
-    // MARK - AudioSession MGMT
+    // MARK: - AudioSession MGMT
     // TODO move this to CallAudioSession?
 
     // Note this method is sensitive to the current audio session configuration.
@@ -461,11 +461,11 @@ protocol CallAudioServiceDelegate: class {
     var availableInputs: [AudioSource] {
         guard let availableInputs = avAudioSession.availableInputs else {
             // I'm not sure why this would happen, but it may indicate an error.
-            owsFail("No available inputs or inputs not ready")
+            owsFailDebug("No available inputs or inputs not ready")
             return [AudioSource.builtInSpeaker]
         }
 
-        Logger.info("\(self.logTag) in \(#function) availableInputs: \(availableInputs)")
+        Logger.info("availableInputs: \(availableInputs)")
         return [AudioSource.builtInSpeaker] + availableInputs.map { portDescription in
             return AudioSource(portDescription: portDescription)
         }
@@ -491,7 +491,7 @@ protocol CallAudioServiceDelegate: class {
                                  mode: String? = nil,
                                  options: AVAudioSessionCategoryOptions = AVAudioSessionCategoryOptions(rawValue: 0)) {
 
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         var audioSessionChanged = false
         do {
@@ -507,13 +507,13 @@ protocol CallAudioServiceDelegate: class {
                 audioSessionChanged = true
 
                 if oldCategory != category {
-                    Logger.debug("\(self.logTag) audio session changed category: \(oldCategory) -> \(category) ")
+                    Logger.debug("audio session changed category: \(oldCategory) -> \(category) ")
                 }
                 if oldMode != mode {
-                    Logger.debug("\(self.logTag) audio session changed mode: \(oldMode) -> \(mode) ")
+                    Logger.debug("audio session changed mode: \(oldMode) -> \(mode) ")
                 }
                 if oldOptions != options {
-                    Logger.debug("\(self.logTag) audio session changed options: \(oldOptions) -> \(options) ")
+                    Logger.debug("audio session changed options: \(oldOptions) -> \(options) ")
                 }
                 try avAudioSession.setCategory(category, mode: mode, options: options)
 
@@ -528,21 +528,21 @@ protocol CallAudioServiceDelegate: class {
                 audioSessionChanged = true
 
                 if oldCategory != category {
-                    Logger.debug("\(self.logTag) audio session changed category: \(oldCategory) -> \(category) ")
+                    Logger.debug("audio session changed category: \(oldCategory) -> \(category) ")
                 }
                 if oldOptions != options {
-                    Logger.debug("\(self.logTag) audio session changed options: \(oldOptions) -> \(options) ")
+                    Logger.debug("audio session changed options: \(oldOptions) -> \(options) ")
                 }
                 try avAudioSession.setCategory(category, with: options)
 
             }
         } catch {
-            let message = "\(self.logTag) in \(#function) failed to set category: \(category) mode: \(String(describing: mode)), options: \(options) with error: \(error)"
-            owsFail(message)
+            let message = "failed to set category: \(category) mode: \(String(describing: mode)), options: \(options) with error: \(error)"
+            owsFailDebug(message)
         }
 
         if audioSessionChanged {
-            Logger.info("\(self.logTag) in \(#function)")
+            Logger.info("")
             self.delegate?.callAudioServiceDidChangeAudioSession(self)
         }
     }

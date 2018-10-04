@@ -5,12 +5,12 @@
 #import "OWSSyncGroupsMessage.h"
 #import "NSDate+OWS.h"
 #import "OWSGroupsOutputStream.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import "TSAttachment.h"
 #import "TSAttachmentStream.h"
 #import "TSContactThread.h"
 #import "TSGroupModel.h"
 #import "TSGroupThread.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -26,41 +26,52 @@ NS_ASSUME_NONNULL_BEGIN
     return [super initWithCoder:coder];
 }
 
-- (OWSSignalServiceProtosSyncMessageBuilder *)syncMessageBuilder
+- (nullable SSKProtoSyncMessageBuilder *)syncMessageBuilder
 {
-
     if (self.attachmentIds.count != 1) {
-        DDLogError(@"expected sync groups message to have exactly one attachment, but found %lu",
+        OWSLogError(@"expected sync groups message to have exactly one attachment, but found %lu",
             (unsigned long)self.attachmentIds.count);
     }
-    OWSSignalServiceProtosAttachmentPointer *attachmentProto = [TSAttachmentStream buildProtoForAttachmentId:self.attachmentIds.firstObject];
 
-    OWSSignalServiceProtosSyncMessageGroupsBuilder *groupsBuilder =
-        [OWSSignalServiceProtosSyncMessageGroupsBuilder new];
+    SSKProtoAttachmentPointer *_Nullable attachmentProto =
+        [TSAttachmentStream buildProtoForAttachmentId:self.attachmentIds.firstObject];
+    if (!attachmentProto) {
+        OWSFailDebug(@"could not build protobuf.");
+        return nil;
+    }
 
+    SSKProtoSyncMessageGroupsBuilder *groupsBuilder =
+        [SSKProtoSyncMessageGroupsBuilder new];
     [groupsBuilder setBlob:attachmentProto];
 
-    OWSSignalServiceProtosSyncMessageBuilder *syncMessageBuilder = [OWSSignalServiceProtosSyncMessageBuilder new];
-    [syncMessageBuilder setGroupsBuilder:groupsBuilder];
+    NSError *error;
+    SSKProtoSyncMessageGroups *_Nullable groupsProto = [groupsBuilder buildAndReturnError:&error];
+    if (error || !groupsProto) {
+        OWSFailDebug(@"could not build protobuf: %@", error);
+        return nil;
+    }
+
+    SSKProtoSyncMessageBuilder *syncMessageBuilder = [SSKProtoSyncMessageBuilder new];
+    [syncMessageBuilder setGroups:groupsProto];
 
     return syncMessageBuilder;
 }
 
-- (NSData *)buildPlainTextAttachmentDataWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (nullable NSData *)buildPlainTextAttachmentDataWithTransaction:(YapDatabaseReadTransaction *)transaction
 {
     // TODO use temp file stream to avoid loading everything into memory at once
     // First though, we need to re-engineer our attachment process to accept streams (encrypting with stream,
     // and uploading with streams).
     NSOutputStream *dataOutputStream = [NSOutputStream outputStreamToMemory];
     [dataOutputStream open];
-    OWSGroupsOutputStream *groupsOutputStream = [OWSGroupsOutputStream streamWithOutputStream:dataOutputStream];
+    OWSGroupsOutputStream *groupsOutputStream = [[OWSGroupsOutputStream alloc] initWithOutputStream:dataOutputStream];
 
     [TSGroupThread
         enumerateCollectionObjectsWithTransaction:transaction
                                        usingBlock:^(id obj, BOOL *stop) {
                                            if (![obj isKindOfClass:[TSGroupThread class]]) {
                                                if (![obj isKindOfClass:[TSContactThread class]]) {
-                                                   DDLogWarn(
+                                                   OWSLogWarn(
                                                        @"Ignoring non group thread in thread collection: %@", obj);
                                                }
                                                return;
@@ -69,8 +80,12 @@ NS_ASSUME_NONNULL_BEGIN
                                            [groupsOutputStream writeGroup:groupThread transaction:transaction];
                                        }];
 
-    [groupsOutputStream flush];
     [dataOutputStream close];
+
+    if (groupsOutputStream.hasError) {
+        OWSFailDebug(@"Could not write groups sync stream.");
+        return nil;
+    }
 
     return [dataOutputStream propertyForKey:NSStreamDataWrittenToMemoryStreamKey];
 }

@@ -35,9 +35,49 @@
     return resized;
 }
 
+- (nullable UIImage *)resizedWithMaxDimensionPoints:(CGFloat)maxDimensionPoints
+{
+    CGSize originalSize = self.size;
+    if (originalSize.width < 1 || originalSize.height < 1) {
+        OWSLogError(@"Invalid original size: %@", NSStringFromCGSize(originalSize));
+        return nil;
+    }
+
+    CGFloat maxOriginalDimensionPoints = MAX(originalSize.width, originalSize.height);
+    if (maxOriginalDimensionPoints < maxDimensionPoints) {
+        // Don't bother scaling an image that is already smaller than the max dimension.
+        return self;
+    }
+
+    CGSize thumbnailSize = CGSizeZero;
+    if (originalSize.width > originalSize.height) {
+        thumbnailSize.width = maxDimensionPoints;
+        thumbnailSize.height = round(maxDimensionPoints * originalSize.height / originalSize.width);
+    } else {
+        thumbnailSize.width = round(maxDimensionPoints * originalSize.width / originalSize.height);
+        thumbnailSize.height = maxDimensionPoints;
+    }
+    if (thumbnailSize.width < 1 || thumbnailSize.height < 1) {
+        OWSLogError(@"Invalid thumbnail size: %@", NSStringFromCGSize(thumbnailSize));
+        return nil;
+    }
+
+    UIGraphicsBeginImageContext(CGSizeMake(thumbnailSize.width, thumbnailSize.height));
+    CGContextRef _Nullable context = UIGraphicsGetCurrentContext();
+    if (context == NULL) {
+        OWSLogError(@"Couldn't create context.");
+        return nil;
+    }
+    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+    [self drawInRect:CGRectMake(0, 0, thumbnailSize.width, thumbnailSize.height)];
+    UIImage *_Nullable resized = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return resized;
+}
+
 // Source: https://github.com/AliSoftware/UIImage-Resize
 
-- (UIImage *)resizedImageToSize:(CGSize)dstSize
+- (nullable UIImage *)resizedImageToSize:(CGSize)dstSize
 {
     CGImageRef imgRef = self.CGImage;
     // the below values are regardless of orientation : for UIImages from Camera, width>height (landscape)
@@ -106,10 +146,10 @@
     UIGraphicsBeginImageContextWithOptions(dstSize, NO, self.scale);
 
     CGContextRef context = UIGraphicsGetCurrentContext();
-
     if (!context) {
         return nil;
     }
+    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
 
     if (orient == UIImageOrientationRight || orient == UIImageOrientationLeft) {
         CGContextScaleCTM(context, -scaleRatio, scaleRatio);
@@ -124,7 +164,7 @@
     // we use srcSize (and not dstSize) as the size to specify is in user space (and we use the CTM to apply a
     // scaleRatio)
     CGContextDrawImage(UIGraphicsGetCurrentContext(), CGRectMake(0, 0, srcSize.width, srcSize.height), imgRef);
-    UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIImage *_Nullable resizedImage = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
 
     return resizedImage;
@@ -132,15 +172,15 @@
 
 - (UIImage *)resizedImageToFillPixelSize:(CGSize)dstSize
 {
-    OWSAssert(dstSize.width > 0);
-    OWSAssert(dstSize.height > 0);
+    OWSAssertDebug(dstSize.width > 0);
+    OWSAssertDebug(dstSize.height > 0);
 
     UIImage *normalized = [self normalizedImage];
 
     // Get the size in pixels, not points.
     CGSize srcSize = CGSizeMake(CGImageGetWidth(normalized.CGImage), CGImageGetHeight(normalized.CGImage));
-    OWSAssert(srcSize.width > 0);
-    OWSAssert(srcSize.height > 0);
+    OWSAssertDebug(srcSize.width > 0);
+    OWSAssertDebug(srcSize.height > 0);
 
     CGFloat widthRatio = srcSize.width / dstSize.width;
     CGFloat heightRatio = srcSize.height / dstSize.height;
@@ -149,13 +189,13 @@
         drawRect.origin.y = 0;
         drawRect.size.height = dstSize.height;
         drawRect.size.width = dstSize.height * srcSize.width / srcSize.height;
-        OWSAssert(drawRect.size.width > dstSize.width);
+        OWSAssertDebug(drawRect.size.width > dstSize.width);
         drawRect.origin.x = (drawRect.size.width - dstSize.width) * -0.5f;
     } else {
         drawRect.origin.x = 0;
         drawRect.size.width = dstSize.width;
         drawRect.size.height = dstSize.width * srcSize.height / srcSize.width;
-        OWSAssert(drawRect.size.height >= dstSize.height);
+        OWSAssertDebug(drawRect.size.height >= dstSize.height);
         drawRect.origin.y = (drawRect.size.height - dstSize.height) * -0.5f;
     }
 
@@ -171,7 +211,7 @@
 + (UIImage *)imageWithColor:(UIColor *)color
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(color);
+    OWSAssertDebug(color);
 
     return [self imageWithColor:color size:CGSizeMake(1.f, 1.f)];
 }
@@ -179,7 +219,7 @@
 + (UIImage *)imageWithColor:(UIColor *)color size:(CGSize)size
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(color);
+    OWSAssertDebug(color);
 
     CGRect rect = CGRectMake(0.0f, 0.0f, size.width, size.height);
     UIGraphicsBeginImageContextWithOptions(rect.size, NO, 1.f);

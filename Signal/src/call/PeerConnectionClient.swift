@@ -53,7 +53,7 @@ protocol PeerConnectionClientDelegate: class {
     /**
      * Once the peerconnection is established, we can receive messages via the data channel, and notify the delegate.
      */
-    func peerConnectionClient(_ peerconnectionClient: PeerConnectionClient, received dataChannelMessage: OWSWebRTCProtosData)
+    func peerConnectionClient(_ peerconnectionClient: PeerConnectionClient, received dataChannelMessage: WebRTCProtoData)
 
     /**
      * Fired whenever the local video track become active or inactive.
@@ -119,14 +119,14 @@ class PeerConnectionProxy: NSObject, RTCPeerConnectionDelegate, RTCDataChannelDe
         if result == nil {
             // Every time this method returns nil is a
             // possible crash avoided.
-            Logger.verbose("\(logTag) cleared get.")
+            Logger.verbose("cleared get.")
         }
 
         return result
     }
 
     func clear() {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
 
         objc_sync_enter(self)
         value = nil
@@ -218,7 +218,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     private let iceServers: [RTCIceServer]
     private let connectionConstraints: RTCMediaConstraints
     private let configuration: RTCConfiguration
-    private let factory = RTCPeerConnectionFactory()
+    private let factory: RTCPeerConnectionFactory
 
     // DataChannel
 
@@ -249,20 +249,26 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     private static var expiredProxies = [PeerConnectionProxy]()
 
     init(iceServers: [RTCIceServer], delegate: PeerConnectionClientDelegate, callDirection: CallDirection, useTurnOnly: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         self.iceServers = iceServers
         self.delegate = delegate
 
+        // Ensure we enable SW decoders to enable VP8 support
+        let decoderFactory = RTCDefaultVideoDecoderFactory()
+        let encoderFactory = RTCDefaultVideoEncoderFactory()
+        let factory = RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
+
+        self.factory = factory
         configuration = RTCConfiguration()
         configuration.iceServers = iceServers
         configuration.bundlePolicy = .maxBundle
         configuration.rtcpMuxPolicy = .require
         if useTurnOnly {
-            Logger.debug("\(PeerConnectionClient.logTag) using iceTransportPolicy: relay")
+            Logger.debug("using iceTransportPolicy: relay")
             configuration.iceTransportPolicy = .relay
         } else {
-            Logger.debug("\(PeerConnectionClient.logTag) using iceTransportPolicy: default")
+            Logger.debug("using iceTransportPolicy: default")
         }
 
         let connectionConstraintsDict = ["DtlsSrtpKeyAgreement": "true"]
@@ -297,9 +303,9 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     // MARK: - Media Streams
 
     private func createSignalingDataChannel() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         guard let peerConnection = peerConnection else {
-            Logger.debug("\(logTag) \(#function) Ignoring obsolete event in terminated client")
+            Logger.debug("Ignoring obsolete event in terminated client")
             return
         }
 
@@ -311,7 +317,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
                                                            configuration: configuration) else {
 
                                                             // TODO fail outgoing call?
-                                                            owsFail("dataChannel was unexpectedly nil")
+                                                            owsFailDebug("dataChannel was unexpectedly nil")
                                                             return
         }
         dataChannel.delegate = proxy
@@ -323,16 +329,16 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     // MARK: - Video
 
     fileprivate func createVideoSender() {
-        SwiftAssertIsOnMainThread(#function)
-        Logger.debug("\(logTag) in \(#function)")
+        AssertIsOnMainThread()
+        Logger.debug("")
         assert(self.videoSender == nil, "\(#function) should only be called once.")
 
         guard !Platform.isSimulator else {
-            Logger.warn("\(logTag) Refusing to create local video track on simulator which has no capture device.")
+            Logger.warn("Refusing to create local video track on simulator which has no capture device.")
             return
         }
         guard let peerConnection = peerConnection else {
-            Logger.debug("\(logTag) \(#function) Ignoring obsolete event in terminated client")
+            Logger.debug("Ignoring obsolete event in terminated client")
             return
         }
 
@@ -355,14 +361,14 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func setCameraSource(isUsingFrontCamera: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         let proxyCopy = self.proxy
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
 
             guard let captureController = strongSelf.videoCaptureController else {
-                owsFail("\(self.logTag) in \(#function) captureController was unexpectedly nil")
+                owsFailDebug("captureController was unexpectedly nil")
                 return
             }
 
@@ -371,7 +377,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func setLocalVideoEnabled(enabled: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         let proxyCopy = self.proxy
         let completion = {
             guard let strongSelf = proxyCopy.get() else { return }
@@ -383,7 +389,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
                 }
 
                 guard let captureController = strongSelf.videoCaptureController else {
-                    owsFail("\(self.logTag) in \(#function) videoCaptureController was unexpectedly nil")
+                    owsFailDebug("videoCaptureController was unexpectedly nil")
                     return nil
                 }
 
@@ -396,26 +402,26 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard strongSelf.peerConnection != nil else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
 
             guard let videoCaptureController = strongSelf.videoCaptureController else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
 
             guard let localVideoTrack = strongSelf.localVideoTrack else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
             localVideoTrack.isEnabled = enabled
 
             if enabled {
-                Logger.debug("\(strongSelf.logTag) in \(#function) starting video capture")
+                Logger.debug("starting video capture")
                 videoCaptureController.startCapture()
             } else {
-                Logger.debug("\(strongSelf.logTag) in \(#function) stopping video capture")
+                Logger.debug("stopping video capture")
                 videoCaptureController.stopCapture()
             }
 
@@ -436,12 +442,12 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     // MARK: - Audio
 
     fileprivate func createAudioSender() {
-        SwiftAssertIsOnMainThread(#function)
-        Logger.debug("\(logTag) in \(#function)")
+        AssertIsOnMainThread()
+        Logger.debug("")
         assert(self.audioSender == nil, "\(#function) should only be called once.")
 
         guard let peerConnection = peerConnection else {
-            Logger.debug("\(logTag) \(#function) Ignoring obsolete event in terminated client")
+            Logger.debug("Ignoring obsolete event in terminated client")
             return
         }
 
@@ -462,16 +468,16 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func setAudioEnabled(enabled: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         let proxyCopy = self.proxy
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard strongSelf.peerConnection != nil else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
             guard let audioTrack = strongSelf.audioTrack else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
 
@@ -490,7 +496,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func createOffer() -> Promise<HardenedRTCSessionDescription> {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         let proxyCopy = self.proxy
         let (promise, fulfill, reject) = Promise<HardenedRTCSessionDescription>.pending()
         let completion: ((RTCSessionDescription?, Error?) -> Void) = { (sdp, error) in
@@ -500,7 +506,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             }
             strongSelf.assertOnSignalingQueue()
             guard strongSelf.peerConnection != nil else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 reject(NSError(domain: "Obsolete client", code: 0, userInfo: nil))
                 return
             }
@@ -510,7 +516,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             }
 
             guard let sessionDescription = sdp else {
-                Logger.error("\(strongSelf.logTag) No session description was obtained, even though there was no error reported.")
+                Logger.error("No session description was obtained, even though there was no error reported.")
                 let error = OWSErrorMakeUnableToProcessServerResponseError()
                 reject(error)
                 return
@@ -526,7 +532,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             }
             strongSelf.assertOnSignalingQueue()
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 reject(NSError(domain: "Obsolete client", code: 0, userInfo: nil))
                 return
             }
@@ -552,12 +558,12 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             strongSelf.assertOnSignalingQueue()
 
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 reject(NSError(domain: "Obsolete client", code: 0, userInfo: nil))
                 return
             }
 
-            Logger.verbose("\(strongSelf.logTag) setting local session description: \(sessionDescription)")
+            Logger.verbose("setting local session description: \(sessionDescription)")
             peerConnection.setLocalDescription(sessionDescription.rtcSessionDescription, completionHandler: { (error) in
                 if let error = error {
                     reject(error)
@@ -570,7 +576,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func setLocalSessionDescription(_ sessionDescription: HardenedRTCSessionDescription) -> Promise<Void> {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         let proxyCopy = self.proxy
         let (promise, fulfill, reject) = Promise<Void>.pending()
         PeerConnectionClient.signalingQueue.async {
@@ -580,12 +586,12 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             }
             strongSelf.assertOnSignalingQueue()
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 reject(NSError(domain: "Obsolete client", code: 0, userInfo: nil))
                 return
             }
 
-            Logger.verbose("\(strongSelf.logTag) setting local session description: \(sessionDescription)")
+            Logger.verbose("setting local session description: \(sessionDescription)")
             peerConnection.setLocalDescription(sessionDescription.rtcSessionDescription,
                                                completionHandler: { error in
                                                 if let error = error {
@@ -600,7 +606,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func negotiateSessionDescription(remoteDescription: RTCSessionDescription, constraints: RTCMediaConstraints) -> Promise<HardenedRTCSessionDescription> {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         let proxyCopy = self.proxy
         return setRemoteSessionDescription(remoteDescription)
             .then(on: PeerConnectionClient.signalingQueue) {
@@ -612,7 +618,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func setRemoteSessionDescription(_ sessionDescription: RTCSessionDescription) -> Promise<Void> {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         let proxyCopy = self.proxy
         let (promise, fulfill, reject) = Promise<Void>.pending()
         PeerConnectionClient.signalingQueue.async {
@@ -622,11 +628,11 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             }
             strongSelf.assertOnSignalingQueue()
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 reject(NSError(domain: "Obsolete client", code: 0, userInfo: nil))
                 return
             }
-            Logger.verbose("\(strongSelf.logTag) setting remote description: \(sessionDescription)")
+            Logger.verbose("setting remote description: \(sessionDescription)")
             peerConnection.setRemoteDescription(sessionDescription,
                                                 completionHandler: { error in
                                                     if let error = error {
@@ -650,7 +656,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             }
             strongSelf.assertOnSignalingQueue()
             guard strongSelf.peerConnection != nil else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 reject(NSError(domain: "Obsolete client", code: 0, userInfo: nil))
                 return
             }
@@ -660,7 +666,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             }
 
             guard let sessionDescription = sdp else {
-                Logger.error("\(strongSelf.logTag) unexpected empty session description, even though no error was reported.")
+                Logger.error("unexpected empty session description, even though no error was reported.")
                 let error = OWSErrorMakeUnableToProcessServerResponseError()
                 reject(error)
                 return
@@ -684,12 +690,12 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
             strongSelf.assertOnSignalingQueue()
 
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 reject(NSError(domain: "Obsolete client", code: 0, userInfo: nil))
                 return
             }
 
-            Logger.debug("\(strongSelf.logTag) negotiating answer session.")
+            Logger.debug("negotiating answer session.")
 
             peerConnection.answer(for: constraints, completionHandler: { (sdp: RTCSessionDescription?, error: Error?) in
                 PeerConnectionClient.signalingQueue.async {
@@ -705,17 +711,17 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
-            Logger.info("\(strongSelf.logTag) adding remote ICE candidate: \(candidate.sdp)")
+            Logger.info("adding remote ICE candidate: \(candidate.sdp)")
             peerConnection.add(candidate)
         }
     }
 
     public func terminate() {
-        SwiftAssertIsOnMainThread(#function)
-        Logger.debug("\(logTag) in \(#function)")
+        AssertIsOnMainThread()
+        Logger.debug("")
 
         // Clear the delegate immediately so that we can guarantee that
         // no delegate methods are called after terminate() returns.
@@ -734,7 +740,7 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
 
     private func terminateInternal() {
         assertOnSignalingQueue()
-        Logger.debug("\(logTag) in \(#function)")
+        Logger.debug("")
 
         //        Some notes on preventing crashes while disposing of peerConnection for video calls
         //        from: https://groups.google.com/forum/#!searchin/discuss-webrtc/objc$20crash$20dealloc%7Csort:relevance/discuss-webrtc/7D-vk5yLjn8/rBW2D6EW4GYJ
@@ -782,35 +788,35 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     }
 
     public func sendDataChannelMessage(data: Data, description: String, isCritical: Bool) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
         let proxyCopy = self.proxy
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
 
             guard strongSelf.peerConnection != nil else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client: \(description)")
+                Logger.debug("Ignoring obsolete event in terminated client: \(description)")
                 return
             }
 
             guard let dataChannel = strongSelf.dataChannel else {
                 if isCritical {
-                    Logger.info("\(strongSelf.logTag) in \(#function) enqueuing critical data channel message for after we have a dataChannel: \(description)")
+                    Logger.info("enqueuing critical data channel message for after we have a dataChannel: \(description)")
                     strongSelf.pendingDataChannelMessages.append(PendingDataChannelMessage(data: data, description: description, isCritical: isCritical))
                 } else {
-                    Logger.error("\(strongSelf.logTag) in \(#function) ignoring sending \(data) for nil dataChannel: \(description)")
+                    Logger.error("ignoring sending \(data) for nil dataChannel: \(description)")
                 }
                 return
             }
 
-            Logger.debug("\(strongSelf.logTag) sendDataChannelMessage trying: \(description)")
+            Logger.debug("sendDataChannelMessage trying: \(description)")
 
             let buffer = RTCDataBuffer(data: data, isBinary: false)
             let result = dataChannel.sendData(buffer)
 
             if result {
-                Logger.debug("\(strongSelf.logTag) sendDataChannelMessage succeeded: \(description)")
+                Logger.debug("sendDataChannelMessage succeeded: \(description)")
             } else {
-                Logger.warn("\(strongSelf.logTag) sendDataChannelMessage failed: \(description)")
+                Logger.warn("sendDataChannelMessage failed: \(description)")
                 if isCritical {
                     OWSProdError(OWSAnalyticsEvents.peerConnectionClientErrorSendDataChannelMessageFailed(), file: #file, function: #function, line: #line)
                 }
@@ -822,14 +828,14 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
 
     /** The data channel state changed. */
     internal func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
-        Logger.debug("\(logTag) dataChannelDidChangeState: \(dataChannel)")
+        Logger.debug("dataChannelDidChangeState: \(dataChannel)")
     }
 
     /** The data channel successfully received a data buffer. */
     internal func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
         let proxyCopy = self.proxy
-        let completion: (OWSWebRTCProtosData) -> Void = { (dataChannelMessage) in
-            SwiftAssertIsOnMainThread(#function)
+        let completion: (WebRTCProtoData) -> Void = { (dataChannelMessage) in
+            AssertIsOnMainThread()
             guard let strongSelf = proxyCopy.get() else { return }
             guard let strongDelegate = strongSelf.delegate else { return }
             strongDelegate.peerConnectionClient(strongSelf, received: dataChannelMessage)
@@ -838,14 +844,16 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard strongSelf.peerConnection != nil else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
-            Logger.debug("\(strongSelf.logTag) dataChannel didReceiveMessageWith buffer:\(buffer)")
+            Logger.debug("dataChannel didReceiveMessageWith buffer:\(buffer)")
 
-            guard let dataChannelMessage = OWSWebRTCProtosData.parse(from: buffer.data) else {
-                // TODO can't proto parsings throw an exception? Is it just being lost in the Objc->Swift?
-                Logger.error("\(strongSelf.logTag) failed to parse dataProto")
+            var dataChannelMessage: WebRTCProtoData
+            do {
+                dataChannelMessage = try WebRTCProtoData.parseData(buffer.data)
+            } catch {
+                Logger.error("failed to parse dataProto")
                 return
             }
 
@@ -857,21 +865,21 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
 
     /** The data channel's |bufferedAmount| changed. */
     internal func dataChannel(_ dataChannel: RTCDataChannel, didChangeBufferedAmount amount: UInt64) {
-        Logger.debug("\(logTag) didChangeBufferedAmount: \(amount)")
+        Logger.debug("didChangeBufferedAmount: \(amount)")
     }
 
     // MARK: - RTCPeerConnectionDelegate
 
     /** Called when the SignalingState changed. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {
-        Logger.debug("\(logTag) didChange signalingState:\(stateChanged.debugDescription)")
+        Logger.debug("didChange signalingState:\(stateChanged.debugDescription)")
     }
 
     /** Called when media is received on a new stream from remote peer. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didAdd stream: RTCMediaStream) {
         let proxyCopy = self.proxy
         let completion: (RTCVideoTrack) -> Void = { (remoteVideoTrack) in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = proxyCopy.get() else { return }
             guard let strongDelegate = strongSelf.delegate else { return }
 
@@ -883,19 +891,19 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
             guard peerConnection == peerConnectionParam else {
-                owsFail("\(strongSelf.logTag) in \(#function) mismatched peerConnection callback.")
+                owsFailDebug("mismatched peerConnection callback.")
                 return
             }
             guard stream.videoTracks.count > 0 else {
-                owsFail("\(strongSelf.logTag) in \(#function) didAdd stream missing stream.")
+                owsFailDebug("didAdd stream missing stream.")
                 return
             }
             let remoteVideoTrack = stream.videoTracks[0]
-            Logger.debug("\(strongSelf.logTag) didAdd stream:\(stream) video tracks: \(stream.videoTracks.count) audio tracks: \(stream.audioTracks.count)")
+            Logger.debug("didAdd stream:\(stream) video tracks: \(stream.videoTracks.count) audio tracks: \(stream.audioTracks.count)")
 
             strongSelf.remoteVideoTrack = remoteVideoTrack
 
@@ -907,31 +915,31 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
 
     /** Called when a remote peer closes a stream. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didRemove stream: RTCMediaStream) {
-        Logger.debug("\(logTag) didRemove Stream:\(stream)")
+        Logger.debug("didRemove Stream:\(stream)")
     }
 
     /** Called when negotiation is needed, for example ICE has restarted. */
     internal func peerConnectionShouldNegotiate(_ peerConnectionParam: RTCPeerConnection) {
-        Logger.debug("\(logTag) shouldNegotiate")
+        Logger.debug("shouldNegotiate")
     }
 
     /** Called any time the IceConnectionState changes. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         let proxyCopy = self.proxy
         let connectedCompletion : () -> Void = {
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = proxyCopy.get() else { return }
             guard let strongDelegate = strongSelf.delegate else { return }
             strongDelegate.peerConnectionClientIceConnected(strongSelf)
         }
         let failedCompletion : () -> Void = {
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = proxyCopy.get() else { return }
             guard let strongDelegate = strongSelf.delegate else { return }
             strongDelegate.peerConnectionClientIceFailed(strongSelf)
         }
         let disconnectedCompletion : () -> Void = {
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = proxyCopy.get() else { return }
             guard let strongDelegate = strongSelf.delegate else { return }
             strongDelegate.peerConnectionClientIceDisconnected(strongSelf)
@@ -940,40 +948,40 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
             guard peerConnection == peerConnectionParam else {
-                owsFail("\(strongSelf.logTag) in \(#function) mismatched peerConnection callback.")
+                owsFailDebug("mismatched peerConnection callback.")
                 return
             }
 
-            Logger.info("\(strongSelf.logTag) didChange IceConnectionState:\(newState.debugDescription)")
+            Logger.info("didChange IceConnectionState:\(newState.debugDescription)")
             switch newState {
             case .connected, .completed:
                 DispatchQueue.main.async(execute: connectedCompletion)
             case .failed:
-                Logger.warn("\(strongSelf.logTag) RTCIceConnection failed.")
+                Logger.warn("RTCIceConnection failed.")
                 DispatchQueue.main.async(execute: failedCompletion)
             case .disconnected:
-                Logger.warn("\(strongSelf.logTag) RTCIceConnection disconnected.")
+                Logger.warn("RTCIceConnection disconnected.")
                 DispatchQueue.main.async(execute: disconnectedCompletion)
             default:
-                Logger.debug("\(strongSelf.logTag) ignoring change IceConnectionState:\(newState.debugDescription)")
+                Logger.debug("ignoring change IceConnectionState:\(newState.debugDescription)")
             }
         }
     }
 
     /** Called any time the IceGatheringState changes. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didChange newState: RTCIceGatheringState) {
-        Logger.info("\(logTag) didChange IceGatheringState:\(newState.debugDescription)")
+        Logger.info("didChange IceGatheringState:\(newState.debugDescription)")
     }
 
     /** New ice candidate has been found. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
         let proxyCopy = self.proxy
         let completion: (RTCIceCandidate) -> Void = { (candidate) in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = proxyCopy.get() else { return }
             guard let strongDelegate = strongSelf.delegate else { return }
             strongDelegate.peerConnectionClient(strongSelf, addedLocalIceCandidate: candidate)
@@ -982,14 +990,14 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
             guard peerConnection == peerConnectionParam else {
-                owsFail("\(strongSelf.logTag) in \(#function) mismatched peerConnection callback.")
+                owsFailDebug("mismatched peerConnection callback.")
                 return
             }
-            Logger.info("\(strongSelf.logTag) adding local ICE candidate:\(candidate.sdp)")
+            Logger.info("adding local ICE candidate:\(candidate.sdp)")
             DispatchQueue.main.async {
                 completion(candidate)
             }
@@ -998,14 +1006,14 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
 
     /** Called when a group of local Ice candidates have been removed. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {
-        Logger.debug("\(logTag) didRemove IceCandidates:\(candidates)")
+        Logger.debug("didRemove IceCandidates:\(candidates)")
     }
 
     /** New data channel has been opened. */
     internal func peerConnection(_ peerConnectionParam: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
         let proxyCopy = self.proxy
         let completion: ([PendingDataChannelMessage]) -> Void = { (pendingMessages) in
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
             guard let strongSelf = proxyCopy.get() else { return }
             pendingMessages.forEach { message in
                 strongSelf.sendDataChannelMessage(data: message.data, description: message.description, isCritical: message.isCritical)
@@ -1015,16 +1023,16 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
         PeerConnectionClient.signalingQueue.async {
             guard let strongSelf = proxyCopy.get() else { return }
             guard let peerConnection = strongSelf.peerConnection else {
-                Logger.debug("\(strongSelf.logTag) \(#function) Ignoring obsolete event in terminated client")
+                Logger.debug("Ignoring obsolete event in terminated client")
                 return
             }
             guard peerConnection == peerConnectionParam else {
-                owsFail("\(strongSelf.logTag) in \(#function) mismatched peerConnection callback.")
+                owsFailDebug("mismatched peerConnection callback.")
                 return
             }
-            Logger.info("\(strongSelf.logTag) didOpen dataChannel:\(dataChannel)")
+            Logger.info("didOpen dataChannel:\(dataChannel)")
             if strongSelf.dataChannel != nil {
-                owsFail("\(strongSelf.logTag) in \(#function) dataChannel unexpectedly set twice.")
+                owsFailDebug("dataChannel unexpectedly set twice.")
             }
             strongSelf.dataChannel = dataChannel
             dataChannel.delegate = strongSelf.proxy
@@ -1049,29 +1057,29 @@ class PeerConnectionClient: NSObject, RTCPeerConnectionDelegate, RTCDataChannelD
     // MARK: Test-only accessors
 
     internal func peerConnectionForTests() -> RTCPeerConnection {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        var result: RTCPeerConnection? = nil
+        var result: RTCPeerConnection?
         PeerConnectionClient.signalingQueue.sync {
             result = peerConnection
-            Logger.info("\(self.logTag) called \(#function)")
+            Logger.info("")
         }
         return result!
     }
 
     internal func dataChannelForTests() -> RTCDataChannel {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
-        var result: RTCDataChannel? = nil
+        var result: RTCDataChannel?
         PeerConnectionClient.signalingQueue.sync {
             result = dataChannel
-            Logger.info("\(self.logTag) called \(#function)")
+            Logger.info("")
         }
         return result!
     }
 
     internal func flushSignalingQueueForTests() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         PeerConnectionClient.signalingQueue.sync {
             // Noop.
@@ -1106,6 +1114,58 @@ class HardenedRTCSessionDescription {
         description = audioLevelRegex.stringByReplacingMatches(in: description, options: [], range: NSRange(location: 0, length: description.count), withTemplate: "")
 
         return RTCSessionDescription.init(type: rtcSessionDescription.type, sdp: description)
+    }
+
+    var logSafeDescription: String {
+        #if DEBUG
+        return sdp
+        #else
+        return redactIPV6(sdp: redactIcePwd(sdp: sdp))
+        #endif
+    }
+
+    private func redactIcePwd(sdp: String) -> String {
+        #if DEBUG
+        return sdp
+        #else
+        var text = sdp
+        text = text.replacingOccurrences(of: "\r", with: "\n")
+        text = text.replacingOccurrences(of: "\n\n", with: "\n")
+        let lines = text.components(separatedBy: "\n")
+        let filteredLines: [String] = lines.map { line in
+            guard !line.contains("ice-pwd") else {
+                return "[ REDACTED ice-pwd ]"
+            }
+            return line
+        }
+        let filteredText = filteredLines.joined(separator: "\n")
+        return filteredText
+        #endif
+    }
+
+    private func redactIPV6(sdp: String) -> String {
+        #if DEBUG
+        return sdp
+        #else
+
+        // Example values to match:
+        //
+        // * 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+        // * 2001:db8:85a3::8a2e:370:7334
+        // * ::1
+        // * ::
+        // * ::ffff:192.0.2.128
+        //
+        // See: https://en.wikipedia.org/wiki/IPv6_addresshttps://en.wikipedia.org/wiki/IPv6_address
+        do {
+            let regex = try NSRegularExpression(pattern: "[\\da-f]*:[\\da-f]*:[\\da-f:\\.]*",
+                options: .caseInsensitive)
+            return regex.stringByReplacingMatches(in: sdp, options: [], range: NSRange(location: 0, length: sdp.count), withTemplate: "[ REDACTED_IPV6_ADDRESS ]")
+        } catch {
+            owsFail("Could not redact IPv6 addresses.")
+            return "[Could not redact IPv6 addresses.]"
+        }
+        #endif
     }
 }
 
@@ -1172,12 +1232,12 @@ class VideoCaptureController {
 
         let position: AVCaptureDevice.Position = isUsingFrontCamera ? .front : .back
         guard let device: AVCaptureDevice = self.device(position: position) else {
-            owsFail("unable to find captureDevice")
+            owsFailDebug("unable to find captureDevice")
             return
         }
 
         guard let format: AVCaptureDevice.Format = self.format(device: device) else {
-            owsFail("unable to find captureDevice")
+            owsFailDebug("unable to find captureDevice")
             return
         }
 
@@ -1214,7 +1274,7 @@ class VideoCaptureController {
 
         if _isDebugAssertConfiguration(), let selectedFormat = selectedFormat {
             let dimension = CMVideoFormatDescriptionGetDimensions(selectedFormat.formatDescription)
-            Logger.debug("in \(#function) selected format width: \(dimension.width) height: \(dimension.height)")
+            Logger.debug("selected format width: \(dimension.width) height: \(dimension.height)")
         }
 
         assert(selectedFormat != nil)
@@ -1232,7 +1292,7 @@ class VideoCaptureController {
     }
 }
 
-// Mark: Pretty Print Objc enums.
+// MARK: Pretty Print Objc enums.
 
 fileprivate extension RTCSignalingState {
     var debugDescription: String {

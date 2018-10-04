@@ -3,6 +3,7 @@
 //
 
 #import "TSAttachmentPointer.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -50,19 +51,28 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 
-+ (TSAttachmentPointer *)attachmentPointerFromProto:(OWSSignalServiceProtosAttachmentPointer *)attachmentProto
++ (nullable TSAttachmentPointer *)attachmentPointerFromProto:(SSKProtoAttachmentPointer *)attachmentProto
 {
-    OWSAssert(attachmentProto.id != 0);
-    OWSAssert(attachmentProto.key != nil);
-    OWSAssert(attachmentProto.contentType != nil);
+    if (attachmentProto.id < 1) {
+        OWSFailDebug(@"Invalid attachment id.");
+        return nil;
+    }
+    if (attachmentProto.key.length < 1) {
+        OWSFailDebug(@"Invalid attachment key.");
+        return nil;
+    }
+    if (attachmentProto.contentType.length < 1) {
+        OWSFailDebug(@"Invalid attachment content type.");
+        return nil;
+    }
 
     // digest will be empty for old clients.
-    NSData *digest = attachmentProto.hasDigest ? attachmentProto.digest : nil;
+    NSData *_Nullable digest = attachmentProto.hasDigest ? attachmentProto.digest : nil;
 
     TSAttachmentType attachmentType = TSAttachmentTypeDefault;
     if ([attachmentProto hasFlags]) {
         UInt32 flags = attachmentProto.flags;
-        if ((flags & (UInt32)OWSSignalServiceProtosAttachmentPointerFlagsVoiceMessage) > 0) {
+        if ((flags & (UInt32)SSKProtoAttachmentPointerFlagsVoiceMessage) > 0) {
             attachmentType = TSAttachmentTypeVoiceMessage;
         }
     }
@@ -87,12 +97,12 @@ NS_ASSUME_NONNULL_BEGIN
     // Legacy instances of TSAttachmentPointer apparently used the serverId as their
     // uniqueId.
     if (attachmentSchemaVersion < 2 && self.serverId == 0) {
-        OWSAssert([self isDecimalNumberText:self.uniqueId]);
+        OWSAssertDebug([self isDecimalNumberText:self.uniqueId]);
         if ([self isDecimalNumberText:self.uniqueId]) {
             // For legacy instances, try to parse the serverId from the uniqueId.
             self.serverId = [self.uniqueId integerValue];
         } else {
-            DDLogError(@"%@ invalid legacy attachment uniqueId: %@.", self.logTag, self.uniqueId);
+            OWSLogError(@"invalid legacy attachment uniqueId: %@.", self.uniqueId);
         }
     }
 }

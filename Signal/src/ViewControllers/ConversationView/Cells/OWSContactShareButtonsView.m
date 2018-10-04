@@ -37,7 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
     if (self) {
         _delegate = delegate;
         _contactShare = contactShare;
-        _contactsManager = [Environment current].contactsManager;
+        _contactsManager = Environment.shared.contactsManager;
 
         [self createContents];
     }
@@ -49,39 +49,39 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)hasSendTextButton:(ContactShareViewModel *)contactShare contactsManager:(OWSContactsManager *)contactsManager
 {
-    OWSAssert(contactShare);
-    OWSAssert(contactsManager);
+    OWSAssertDebug(contactShare);
+    OWSAssertDebug(contactsManager);
 
     return [contactShare systemContactsWithSignalAccountPhoneNumbers:contactsManager].count > 0;
 }
 
 + (BOOL)hasInviteButton:(ContactShareViewModel *)contactShare contactsManager:(OWSContactsManager *)contactsManager
 {
-    OWSAssert(contactShare);
-    OWSAssert(contactsManager);
+    OWSAssertDebug(contactShare);
+    OWSAssertDebug(contactsManager);
 
     return [contactShare systemContactPhoneNumbers:contactsManager].count > 0;
 }
 
 + (BOOL)hasAddToContactsButton:(ContactShareViewModel *)contactShare
 {
-    OWSAssert(contactShare);
+    OWSAssertDebug(contactShare);
 
     return [contactShare e164PhoneNumbers].count > 0;
 }
 
 + (BOOL)hasAnyButton:(ContactShareViewModel *)contactShare
 {
-    OWSAssert(contactShare);
+    OWSAssertDebug(contactShare);
 
-    OWSContactsManager *contactsManager = [Environment current].contactsManager;
+    OWSContactsManager *contactsManager = Environment.shared.contactsManager;
 
     return [self hasAnyButton:contactShare contactsManager:contactsManager];
 }
 
 + (BOOL)hasAnyButton:(ContactShareViewModel *)contactShare contactsManager:(OWSContactsManager *)contactsManager
 {
-    OWSAssert(contactShare);
+    OWSAssertDebug(contactShare);
 
     return ([self hasSendTextButton:contactShare contactsManager:contactsManager] ||
         [self hasInviteButton:contactShare contactsManager:contactsManager] ||
@@ -110,7 +110,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)createContents
 {
-    OWSAssert([OWSContactShareButtonsView hasAnyButton:self.contactShare contactsManager:self.contactsManager]);
+    OWSAssertDebug([OWSContactShareButtonsView hasAnyButton:self.contactShare contactsManager:self.contactsManager]);
 
     self.layoutMargins = UIEdgeInsetsZero;
     self.backgroundColor = Theme.conversationButtonBackgroundColor;
@@ -126,10 +126,10 @@ NS_ASSUME_NONNULL_BEGIN
         label.text = NSLocalizedString(@"CONVERSATION_VIEW_ADD_TO_CONTACTS_OFFER",
             @"Message shown in conversation view that offers to add an unknown user to your phone's contacts.");
     } else {
-        OWSFail(@"%@ unexpected button state.", self.logTag);
+        OWSFailDebug(@"unexpected button state.");
     }
     label.font = OWSContactShareButtonsView.buttonFont;
-    label.textColor = UIColor.ows_materialBlueColor;
+    label.textColor = (Theme.isDarkThemeEnabled ? UIColor.ows_whiteColor : UIColor.ows_materialBlueColor);
     label.textAlignment = NSTextAlignmentCenter;
     [self addSubview:label];
     [label ows_autoPinToSuperviewEdges];
@@ -158,7 +158,7 @@ NS_ASSUME_NONNULL_BEGIN
     } else if ([OWSContactShareButtonsView hasAddToContactsButton:self.contactShare]) {
         [self.delegate didTapShowAddToContactUIForContactShare:self.contactShare];
     } else {
-        OWSFail(@"%@ unexpected button tap.", self.logTag);
+        OWSFailDebug(@"unexpected button tap.");
     }
 
     return YES;

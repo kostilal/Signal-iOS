@@ -16,86 +16,34 @@
 #import <SignalServiceKit/TSQuotedMessage.h>
 #import <SignalServiceKit/TSThread.h>
 
-// View Model which has already fetched any thumbnail attachment.
-@implementation OWSQuotedReplyModel
+NS_ASSUME_NONNULL_BEGIN
 
-- (instancetype)initWithTimestamp:(uint64_t)timestamp
-                         authorId:(NSString *)authorId
-                             body:(NSString *_Nullable)body
-                 attachmentStream:(nullable TSAttachmentStream *)attachmentStream
-{
-    return [self initWithTimestamp:timestamp
-                          authorId:authorId
-                              body:body
-                    thumbnailImage:attachmentStream.thumbnailImage
-                       contentType:attachmentStream.contentType
-                    sourceFilename:attachmentStream.sourceFilename
-                  attachmentStream:attachmentStream
-        thumbnailAttachmentPointer:nil
-           thumbnailDownloadFailed:NO];
-}
+@interface OWSQuotedReplyModel ()
 
-- (instancetype)initWithTimestamp:(uint64_t)timestamp
-                         authorId:(NSString *)authorId
-                             body:(NSString *_Nullable)body
-                   thumbnailImage:(nullable UIImage *)thumbnailImage;
-{
-    return [self initWithTimestamp:timestamp
-                          authorId:authorId
-                              body:body
-                    thumbnailImage:thumbnailImage
-                       contentType:nil
-                    sourceFilename:nil
-                  attachmentStream:nil
-        thumbnailAttachmentPointer:nil
-           thumbnailDownloadFailed:NO];
-}
-
-- (instancetype)initWithQuotedMessage:(TSQuotedMessage *)quotedMessage
-                          transaction:(YapDatabaseReadTransaction *)transaction
-{
-    OWSAssert(quotedMessage.quotedAttachments.count <= 1);
-    OWSAttachmentInfo *attachmentInfo = quotedMessage.quotedAttachments.firstObject;
-
-    BOOL thumbnailDownloadFailed = NO;
-    UIImage *_Nullable thumbnailImage;
-    TSAttachmentPointer *attachmentPointer;
-    if (attachmentInfo.thumbnailAttachmentStreamId) {
-        TSAttachment *attachment =
-            [TSAttachment fetchObjectWithUniqueID:attachmentInfo.thumbnailAttachmentStreamId transaction:transaction];
-
-        TSAttachmentStream *attachmentStream;
-        if ([attachment isKindOfClass:[TSAttachmentStream class]]) {
-            attachmentStream = (TSAttachmentStream *)attachment;
-            thumbnailImage = attachmentStream.image;
-        }
-    } else if (attachmentInfo.thumbnailAttachmentPointerId) {
-        // download failed, or hasn't completed yet.
-        TSAttachment *attachment =
-            [TSAttachment fetchObjectWithUniqueID:attachmentInfo.thumbnailAttachmentPointerId transaction:transaction];
-
-        if ([attachment isKindOfClass:[TSAttachmentPointer class]]) {
-            attachmentPointer = (TSAttachmentPointer *)attachment;
-            if (attachmentPointer.state == TSAttachmentPointerStateFailed) {
-                thumbnailDownloadFailed = YES;
-            }
-        }
-    }
-
-    return [self initWithTimestamp:quotedMessage.timestamp
-                          authorId:quotedMessage.authorId
-                              body:quotedMessage.body
-                    thumbnailImage:thumbnailImage
-                       contentType:attachmentInfo.contentType
-                    sourceFilename:attachmentInfo.sourceFilename
-                  attachmentStream:nil
-        thumbnailAttachmentPointer:attachmentPointer
-           thumbnailDownloadFailed:thumbnailDownloadFailed];
-}
+@property (nonatomic, readonly) TSQuotedMessageContentSource bodySource;
 
 - (instancetype)initWithTimestamp:(uint64_t)timestamp
                          authorId:(NSString *)authorId
                              body:(nullable NSString *)body
+                       bodySource:(TSQuotedMessageContentSource)bodySource
+                   thumbnailImage:(nullable UIImage *)thumbnailImage
+                      contentType:(nullable NSString *)contentType
+                   sourceFilename:(nullable NSString *)sourceFilename
+                 attachmentStream:(nullable TSAttachmentStream *)attachmentStream
+       thumbnailAttachmentPointer:(nullable TSAttachmentPointer *)thumbnailAttachmentPointer
+          thumbnailDownloadFailed:(BOOL)thumbnailDownloadFailed NS_DESIGNATED_INITIALIZER;
+
+@end
+
+// View Model which has already fetched any thumbnail attachment.
+@implementation OWSQuotedReplyModel
+
+#pragma mark - Initializers
+
+- (instancetype)initWithTimestamp:(uint64_t)timestamp
+                         authorId:(NSString *)authorId
+                             body:(nullable NSString *)body
+                       bodySource:(TSQuotedMessageContentSource)bodySource
                    thumbnailImage:(nullable UIImage *)thumbnailImage
                       contentType:(nullable NSString *)contentType
                    sourceFilename:(nullable NSString *)sourceFilename
@@ -111,6 +59,7 @@
     _timestamp = timestamp;
     _authorId = authorId;
     _body = body;
+    _bodySource = bodySource;
     _thumbnailImage = thumbnailImage;
     _contentType = contentType;
     _sourceFilename = sourceFilename;
@@ -121,30 +70,65 @@
     return self;
 }
 
-- (TSQuotedMessage *)buildQuotedMessage
-{
-    NSArray *attachments = self.attachmentStream ? @[ self.attachmentStream ] : @[];
+#pragma mark - Factory Methods
 
-    return [[TSQuotedMessage alloc] initWithTimestamp:self.timestamp
-                                             authorId:self.authorId
-                                                 body:self.body
-                          quotedAttachmentsForSending:attachments];
++ (instancetype)quotedReplyWithQuotedMessage:(TSQuotedMessage *)quotedMessage
+                                 transaction:(YapDatabaseReadTransaction *)transaction
+{
+    OWSAssertDebug(quotedMessage.quotedAttachments.count <= 1);
+    OWSAttachmentInfo *attachmentInfo = quotedMessage.quotedAttachments.firstObject;
+
+    BOOL thumbnailDownloadFailed = NO;
+    UIImage *_Nullable thumbnailImage;
+    TSAttachmentPointer *attachmentPointer;
+    if (attachmentInfo.thumbnailAttachmentStreamId) {
+        TSAttachment *attachment =
+            [TSAttachment fetchObjectWithUniqueID:attachmentInfo.thumbnailAttachmentStreamId transaction:transaction];
+
+        TSAttachmentStream *attachmentStream;
+        if ([attachment isKindOfClass:[TSAttachmentStream class]]) {
+            attachmentStream = (TSAttachmentStream *)attachment;
+            thumbnailImage = attachmentStream.thumbnailImageSmallSync;
+        }
+    } else if (attachmentInfo.thumbnailAttachmentPointerId) {
+        // download failed, or hasn't completed yet.
+        TSAttachment *attachment =
+            [TSAttachment fetchObjectWithUniqueID:attachmentInfo.thumbnailAttachmentPointerId transaction:transaction];
+
+        if ([attachment isKindOfClass:[TSAttachmentPointer class]]) {
+            attachmentPointer = (TSAttachmentPointer *)attachment;
+            if (attachmentPointer.state == TSAttachmentPointerStateFailed) {
+                thumbnailDownloadFailed = YES;
+            }
+        }
+    }
+
+    return [[self alloc] initWithTimestamp:quotedMessage.timestamp
+                                  authorId:quotedMessage.authorId
+                                      body:quotedMessage.body
+                                bodySource:quotedMessage.bodySource
+                            thumbnailImage:thumbnailImage
+                               contentType:attachmentInfo.contentType
+                            sourceFilename:attachmentInfo.sourceFilename
+                          attachmentStream:nil
+                thumbnailAttachmentPointer:attachmentPointer
+                   thumbnailDownloadFailed:thumbnailDownloadFailed];
 }
 
-+ (nullable instancetype)quotedReplyForConversationViewItem:(ConversationViewItem *)conversationItem
-                                                transaction:(YapDatabaseReadTransaction *)transaction;
++ (nullable instancetype)quotedReplyForSendingWithConversationViewItem:(id<ConversationViewItem>)conversationItem
+                                                           transaction:(YapDatabaseReadTransaction *)transaction;
 {
-    OWSAssert(conversationItem);
-    OWSAssert(transaction);
+    OWSAssertDebug(conversationItem);
+    OWSAssertDebug(transaction);
 
     TSMessage *message = (TSMessage *)conversationItem.interaction;
     if (![message isKindOfClass:[TSMessage class]]) {
-        OWSFail(@"%@ unexpected reply message: %@", self.logTag, message);
+        OWSFailDebug(@"unexpected reply message: %@", message);
         return nil;
     }
 
     TSThread *thread = [message threadWithTransaction:transaction];
-    OWSAssert(thread);
+    OWSAssertDebug(thread);
 
     uint64_t timestamp = message.timestamp;
 
@@ -154,11 +138,11 @@
         } else if ([message isKindOfClass:[TSIncomingMessage class]]) {
             return [(TSIncomingMessage *)message authorId];
         } else {
-            OWSFail(@"%@ Unexpected message type: %@", self.logTag, message.class);
+            OWSFailDebug(@"Unexpected message type: %@", message.class);
             return (NSString * _Nullable) nil;
         }
     }();
-    OWSAssert(authorId.length > 0);
+    OWSAssertDebug(authorId.length > 0);
     
     if (conversationItem.contactShare) {
         ContactShareViewModel *contactShare = conversationItem.contactShare;
@@ -167,11 +151,16 @@
         // because the QuotedReplyViewModel has some hardcoded assumptions that only quoted attachments have
         // thumbnails. Until we address that we want to be consistent about neither showing nor sending the
         // contactShare avatar in the quoted reply.
-        return [[OWSQuotedReplyModel alloc] initWithTimestamp:timestamp
-                                                     authorId:authorId
-                                                         body:[@"👤 " stringByAppendingString:contactShare.displayName]
-                                               thumbnailImage:nil];
-        
+        return [[self alloc] initWithTimestamp:timestamp
+                                      authorId:authorId
+                                          body:[@"👤 " stringByAppendingString:contactShare.displayName]
+                                    bodySource:TSQuotedMessageContentSourceLocal
+                                thumbnailImage:nil
+                                   contentType:nil
+                                sourceFilename:nil
+                              attachmentStream:nil
+                    thumbnailAttachmentPointer:nil
+                       thumbnailDownloadFailed:NO];
     }
 
     NSString *_Nullable quotedText = message.body;
@@ -190,7 +179,7 @@
             hasText = YES;
             quotedText = @"";
 
-            NSData *_Nullable oversizeTextData = [NSData dataWithContentsOfFile:attachmentStream.filePath];
+            NSData *_Nullable oversizeTextData = [NSData dataWithContentsOfFile:attachmentStream.originalFilePath];
             if (oversizeTextData) {
                 // We don't need to include the entire text body of the message, just
                 // enough to render a snippet.  kOversizeTextMessageSizeThreshold is our
@@ -219,7 +208,7 @@
                 if ([truncatedText dataUsingEncoding:NSUTF8StringEncoding].length < kOversizeTextMessageSizeThreshold) {
                     quotedText = truncatedText;
                 } else {
-                    OWSFail(@"%@ Missing valid text snippet.", self.logTag);
+                    OWSFailDebug(@"Missing valid text snippet.");
                 }
             }
         } else {
@@ -229,16 +218,40 @@
     }
 
     if (!hasText && !hasAttachment) {
-        OWSFail(@"%@ quoted message has neither text nor attachment", self.logTag);
+        OWSFailDebug(@"quoted message has neither text nor attachment");
         quotedText = @"";
         hasText = YES;
     }
 
-    return [[OWSQuotedReplyModel alloc] initWithTimestamp:timestamp
-                                                 authorId:authorId
-                                                     body:quotedText
-                                         attachmentStream:quotedAttachment];
+    return [[self alloc] initWithTimestamp:timestamp
+                                  authorId:authorId
+                                      body:quotedText
+                                bodySource:TSQuotedMessageContentSourceLocal
+                            thumbnailImage:quotedAttachment.thumbnailImageSmallSync
+                               contentType:quotedAttachment.contentType
+                            sourceFilename:quotedAttachment.sourceFilename
+                          attachmentStream:quotedAttachment
+                thumbnailAttachmentPointer:nil
+                   thumbnailDownloadFailed:NO];
 }
 
+#pragma mark - Instance Methods
+
+- (TSQuotedMessage *)buildQuotedMessageForSending
+{
+    NSArray *attachments = self.attachmentStream ? @[ self.attachmentStream ] : @[];
+
+    return [[TSQuotedMessage alloc] initWithTimestamp:self.timestamp
+                                             authorId:self.authorId
+                                                 body:self.body
+                          quotedAttachmentsForSending:attachments];
+}
+
+- (BOOL)isRemotelySourced
+{
+    return self.bodySource == TSQuotedMessageContentSourceRemote;
+}
 
 @end
+
+NS_ASSUME_NONNULL_END

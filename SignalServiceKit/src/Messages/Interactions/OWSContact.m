@@ -7,11 +7,11 @@
 #import "MimeTypeUtil.h"
 #import "NSString+SSK.h"
 #import "OWSContact+Private.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import "PhoneNumber.h"
 #import "TSAttachment.h"
 #import "TSAttachmentPointer.h"
 #import "TSAttachmentStream.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 #import <YapDatabase/YapDatabaseTransaction.h>
 
 @import Contacts;
@@ -52,7 +52,7 @@ NSString *NSStringForContactPhoneType(OWSContactPhoneType value)
 - (BOOL)ows_isValid
 {
     if (self.phoneNumber.ows_stripped.length < 1) {
-        DDLogWarn(@"%@ invalid phone number: %@.", self.logTag, self.phoneNumber);
+        OWSLogWarn(@"invalid phone number: %@.", self.phoneNumber);
         return NO;
     }
     return YES;
@@ -138,7 +138,7 @@ NSString *NSStringForContactEmailType(OWSContactEmailType value)
 - (BOOL)ows_isValid
 {
     if (self.email.ows_stripped.length < 1) {
-        DDLogWarn(@"%@ invalid email: %@.", self.logTag, self.email);
+        OWSLogWarn(@"invalid email: %@.", self.email);
         return NO;
     }
     return YES;
@@ -217,7 +217,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
         && self.neighborhood.ows_stripped.length < 1 && self.city.ows_stripped.length < 1
         && self.region.ows_stripped.length < 1 && self.postcode.ows_stripped.length < 1
         && self.country.ows_stripped.length < 1) {
-        DDLogWarn(@"%@ invalid address; empty.", self.logTag);
+        OWSLogWarn(@"invalid address; empty.");
         return NO;
     }
     return YES;
@@ -311,7 +311,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     [self ensureDisplayName];
 
     if (_displayName.length < 1) {
-        OWSProdLogAndFail(@"%@ could not derive a valid display name.", self.logTag);
+        OWSFailDebug(@"could not derive a valid display name.");
         return NSLocalizedString(@"CONTACT_WITHOUT_NAME", @"Indicates that a contact has no name.");
     }
     return _displayName;
@@ -410,7 +410,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 - (BOOL)ows_isValid
 {
     if (self.name.displayName.ows_stripped.length < 1) {
-        DDLogWarn(@"%@ invalid contact; no display name.", self.logTag);
+        OWSLogWarn(@"invalid contact; no display name.");
         return NO;
     }
     BOOL hasValue = NO;
@@ -458,7 +458,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
 - (OWSContact *)newContactWithName:(OWSContactName *)name
 {
-    OWSAssert(name);
+    OWSAssertDebug(name);
 
     OWSContact *newContact = [OWSContact new];
 
@@ -471,7 +471,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
 - (OWSContact *)copyContactWithName:(OWSContactName *)name
 {
-    OWSAssert(name);
+    OWSAssertDebug(name);
 
     OWSContact *contactCopy = [self copy];
 
@@ -500,7 +500,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
     NSError *error;
     BOOL success = [attachmentStream writeData:imageData error:&error];
-    OWSAssert(success && !error);
+    OWSAssertDebug(success && !error);
 
     [attachmentStream saveWithTransaction:transaction];
     self.avatarAttachmentId = attachmentStream.uniqueId;
@@ -517,7 +517,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
 - (NSArray<NSString *> *)systemContactsWithSignalAccountPhoneNumbers:(id<ContactsManagerProtocol>)contactsManager
 {
-    OWSAssert(contactsManager);
+    OWSAssertDebug(contactsManager);
 
     return [self.e164PhoneNumbers
         filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *_Nullable recipientId,
@@ -528,7 +528,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
 - (NSArray<NSString *> *)systemContactPhoneNumbers:(id<ContactsManagerProtocol>)contactsManager
 {
-    OWSAssert(contactsManager);
+    OWSAssertDebug(contactsManager);
 
     return [self.e164PhoneNumbers
         filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *_Nullable recipientId,
@@ -569,7 +569,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 + (nullable OWSContact *)contactForSystemContact:(CNContact *)systemContact
 {
     if (!systemContact) {
-        OWSProdLogAndFail(@"%@ Missing contact.", self.logTag);
+        OWSFailDebug(@"Missing contact.");
         return nil;
     }
 
@@ -664,7 +664,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 + (nullable CNContact *)systemContactForContact:(OWSContact *)contact imageData:(nullable NSData *)imageData
 {
     if (!contact) {
-        OWSProdLogAndFail(@"%@ Missing contact.", self.logTag);
+        OWSFailDebug(@"Missing contact.");
         return nil;
     }
 
@@ -766,15 +766,15 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
 #pragma mark - Proto Serialization
 
-+ (nullable OWSSignalServiceProtosDataMessageContact *)protoForContact:(OWSContact *)contact
++ (nullable SSKProtoDataMessageContact *)protoForContact:(OWSContact *)contact
 {
-    OWSAssert(contact);
+    OWSAssertDebug(contact);
 
-    OWSSignalServiceProtosDataMessageContactBuilder *contactBuilder =
-        [OWSSignalServiceProtosDataMessageContactBuilder new];
+    SSKProtoDataMessageContactBuilder *contactBuilder =
+        [SSKProtoDataMessageContactBuilder new];
 
-    OWSSignalServiceProtosDataMessageContactNameBuilder *nameBuilder =
-        [OWSSignalServiceProtosDataMessageContactNameBuilder new];
+    SSKProtoDataMessageContactNameBuilder *nameBuilder =
+        [SSKProtoDataMessageContactNameBuilder new];
 
     OWSContactName *contactName = contact.name;
     if (contactName.givenName.ows_stripped.length > 0) {
@@ -796,59 +796,76 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
         contactBuilder.organization = contactName.organizationName.ows_stripped;
     }
     nameBuilder.displayName = contactName.displayName;
-    [contactBuilder setNameBuilder:nameBuilder];
+
+    NSError *error;
+    SSKProtoDataMessageContactName *_Nullable nameProto = [nameBuilder buildAndReturnError:&error];
+    if (error || !nameProto) {
+        OWSLogError(@"could not build protobuf: %@", error);
+    } else {
+        [contactBuilder setName:nameProto];
+    }
 
     for (OWSContactPhoneNumber *phoneNumber in contact.phoneNumbers) {
-        OWSSignalServiceProtosDataMessageContactPhoneBuilder *phoneBuilder =
-            [OWSSignalServiceProtosDataMessageContactPhoneBuilder new];
+        SSKProtoDataMessageContactPhoneBuilder *phoneBuilder =
+            [SSKProtoDataMessageContactPhoneBuilder new];
         phoneBuilder.value = phoneNumber.phoneNumber;
         if (phoneNumber.label.ows_stripped.length > 0) {
             phoneBuilder.label = phoneNumber.label.ows_stripped;
         }
         switch (phoneNumber.phoneType) {
             case OWSContactPhoneType_Home:
-                phoneBuilder.type = OWSSignalServiceProtosDataMessageContactPhoneTypeHome;
+                phoneBuilder.type = SSKProtoDataMessageContactPhoneTypeHome;
                 break;
             case OWSContactPhoneType_Mobile:
-                phoneBuilder.type = OWSSignalServiceProtosDataMessageContactPhoneTypeMobile;
+                phoneBuilder.type = SSKProtoDataMessageContactPhoneTypeMobile;
                 break;
             case OWSContactPhoneType_Work:
-                phoneBuilder.type = OWSSignalServiceProtosDataMessageContactPhoneTypeWork;
+                phoneBuilder.type = SSKProtoDataMessageContactPhoneTypeWork;
                 break;
             case OWSContactPhoneType_Custom:
-                phoneBuilder.type = OWSSignalServiceProtosDataMessageContactPhoneTypeCustom;
+                phoneBuilder.type = SSKProtoDataMessageContactPhoneTypeCustom;
                 break;
         }
-        [contactBuilder addNumber:phoneBuilder.build];
+        SSKProtoDataMessageContactPhone *_Nullable numberProto = [phoneBuilder buildAndReturnError:&error];
+        if (error || !numberProto) {
+            OWSLogError(@"could not build protobuf: %@", error);
+        } else {
+            [contactBuilder addNumber:numberProto];
+        }
     }
 
     for (OWSContactEmail *email in contact.emails) {
-        OWSSignalServiceProtosDataMessageContactEmailBuilder *emailBuilder =
-            [OWSSignalServiceProtosDataMessageContactEmailBuilder new];
+        SSKProtoDataMessageContactEmailBuilder *emailBuilder =
+            [SSKProtoDataMessageContactEmailBuilder new];
         emailBuilder.value = email.email;
         if (email.label.ows_stripped.length > 0) {
             emailBuilder.label = email.label.ows_stripped;
         }
         switch (email.emailType) {
             case OWSContactEmailType_Home:
-                emailBuilder.type = OWSSignalServiceProtosDataMessageContactEmailTypeHome;
+                emailBuilder.type = SSKProtoDataMessageContactEmailTypeHome;
                 break;
             case OWSContactEmailType_Mobile:
-                emailBuilder.type = OWSSignalServiceProtosDataMessageContactEmailTypeMobile;
+                emailBuilder.type = SSKProtoDataMessageContactEmailTypeMobile;
                 break;
             case OWSContactEmailType_Work:
-                emailBuilder.type = OWSSignalServiceProtosDataMessageContactEmailTypeWork;
+                emailBuilder.type = SSKProtoDataMessageContactEmailTypeWork;
                 break;
             case OWSContactEmailType_Custom:
-                emailBuilder.type = OWSSignalServiceProtosDataMessageContactEmailTypeCustom;
+                emailBuilder.type = SSKProtoDataMessageContactEmailTypeCustom;
                 break;
         }
-        [contactBuilder addEmail:emailBuilder.build];
+        SSKProtoDataMessageContactEmail *_Nullable emailProto = [emailBuilder buildAndReturnError:&error];
+        if (error || !emailProto) {
+            OWSLogError(@"could not build protobuf: %@", error);
+        } else {
+            [contactBuilder addEmail:emailProto];
+        }
     }
 
     for (OWSContactAddress *address in contact.addresses) {
-        OWSSignalServiceProtosDataMessageContactPostalAddressBuilder *addressBuilder =
-            [OWSSignalServiceProtosDataMessageContactPostalAddressBuilder new];
+        SSKProtoDataMessageContactPostalAddressBuilder *addressBuilder =
+            [SSKProtoDataMessageContactPostalAddressBuilder new];
         if (address.label.ows_stripped.length > 0) {
             addressBuilder.label = address.label.ows_stripped;
         }
@@ -873,69 +890,87 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
         if (address.country.ows_stripped.length > 0) {
             addressBuilder.country = address.country.ows_stripped;
         }
-        [contactBuilder addAddress:addressBuilder.build];
+        SSKProtoDataMessageContactPostalAddress *_Nullable addressProto = [addressBuilder buildAndReturnError:&error];
+        if (error || !addressProto) {
+            OWSLogError(@"could not build protobuf: %@", error);
+        } else {
+            [contactBuilder addAddress:addressProto];
+        }
     }
 
-    if (contact.avatarAttachmentId != nil) {
-        OWSSignalServiceProtosDataMessageContactAvatarBuilder *avatarBuilder =
-            [OWSSignalServiceProtosDataMessageContactAvatarBuilder new];
-        avatarBuilder.avatar =
+    if (contact.avatarAttachmentId) {
+        SSKProtoAttachmentPointer *_Nullable attachmentProto =
             [TSAttachmentStream buildProtoForAttachmentId:contact.avatarAttachmentId];
-        contactBuilder.avatar = [avatarBuilder build];
+        if (!attachmentProto) {
+            OWSLogError(@"could not build protobuf: %@", error);
+        } else {
+            SSKProtoDataMessageContactAvatarBuilder *avatarBuilder = [SSKProtoDataMessageContactAvatarBuilder new];
+            avatarBuilder.avatar = attachmentProto;
+            SSKProtoDataMessageContactAvatar *_Nullable avatarProto = [avatarBuilder buildAndReturnError:&error];
+            if (error || !avatarProto) {
+                OWSLogError(@"could not build protobuf: %@", error);
+            } else {
+                contactBuilder.avatar = avatarProto;
+            }
+        }
     }
 
-    OWSSignalServiceProtosDataMessageContact *contactProto = [contactBuilder build];
+    SSKProtoDataMessageContact *_Nullable contactProto = [contactBuilder buildAndReturnError:&error];
+    if (error || !contactProto) {
+        OWSFailDebug(@"could not build protobuf: %@", error);
+        return nil;
+    }
     if (contactProto.number.count < 1 && contactProto.email.count < 1 && contactProto.address.count < 1) {
-        OWSProdLogAndFail(@"%@ contact has neither phone, email or address.", self.logTag);
+        OWSFailDebug(@"contact has neither phone, email or address.");
         return nil;
     }
     return contactProto;
 }
 
-+ (nullable OWSContact *)contactForDataMessage:(OWSSignalServiceProtosDataMessage *)dataMessage
++ (nullable OWSContact *)contactForDataMessage:(SSKProtoDataMessage *)dataMessage
                                    transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(dataMessage);
+    OWSAssertDebug(dataMessage);
 
     if (dataMessage.contact.count < 1) {
         return nil;
     }
-    OWSAssert(dataMessage.contact.count == 1);
-    OWSSignalServiceProtosDataMessageContact *contactProto = dataMessage.contact.firstObject;
+    OWSAssertDebug(dataMessage.contact.count == 1);
+    SSKProtoDataMessageContact *contactProto = dataMessage.contact.firstObject;
 
     OWSContact *contact = [OWSContact new];
 
     OWSContactName *contactName = [OWSContactName new];
-    if (contactProto.hasName) {
-        OWSSignalServiceProtosDataMessageContactName *nameProto = contactProto.name;
+    if (contactProto.name) {
+        SSKProtoDataMessageContactName *nameProto = contactProto.name;
 
-        if (nameProto.hasGivenName) {
+        if (nameProto.givenName) {
             contactName.givenName = nameProto.givenName.ows_stripped;
         }
-        if (nameProto.hasFamilyName) {
+        if (nameProto.familyName) {
             contactName.familyName = nameProto.familyName.ows_stripped;
         }
-        if (nameProto.hasPrefix) {
+        if (nameProto.prefix) {
             contactName.namePrefix = nameProto.prefix.ows_stripped;
         }
-        if (nameProto.hasSuffix) {
+        if (nameProto.suffix) {
             contactName.nameSuffix = nameProto.suffix.ows_stripped;
         }
-        if (nameProto.hasMiddleName) {
+        if (nameProto.middleName) {
             contactName.middleName = nameProto.middleName.ows_stripped;
         }
-        if (nameProto.hasDisplayName) {
+        if (nameProto.displayName) {
             contactName.displayName = nameProto.displayName.ows_stripped;
         }
     }
-    if (contactProto.hasOrganization) {
+    if (contactProto.organization) {
         contactName.organizationName = contactProto.organization.ows_stripped;
     }
     [contactName ensureDisplayName];
     contact.name = contactName;
 
     NSMutableArray<OWSContactPhoneNumber *> *phoneNumbers = [NSMutableArray new];
-    for (OWSSignalServiceProtosDataMessageContactPhone *phoneNumberProto in contactProto.number) {
+    for (SSKProtoDataMessageContactPhone *phoneNumberProto in contactProto.number) {
         OWSContactPhoneNumber *_Nullable phoneNumber = [self phoneNumberForProto:phoneNumberProto];
         if (phoneNumber) {
             [phoneNumbers addObject:phoneNumber];
@@ -944,7 +979,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     contact.phoneNumbers = [phoneNumbers copy];
 
     NSMutableArray<OWSContactEmail *> *emails = [NSMutableArray new];
-    for (OWSSignalServiceProtosDataMessageContactEmail *emailProto in contactProto.email) {
+    for (SSKProtoDataMessageContactEmail *emailProto in contactProto.email) {
         OWSContactEmail *_Nullable email = [self emailForProto:emailProto];
         if (email) {
             [emails addObject:email];
@@ -953,7 +988,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     contact.emails = [emails copy];
 
     NSMutableArray<OWSContactAddress *> *addresses = [NSMutableArray new];
-    for (OWSSignalServiceProtosDataMessageContactPostalAddress *addressProto in contactProto.address) {
+    for (SSKProtoDataMessageContactPostalAddress *addressProto in contactProto.address) {
         OWSContactAddress *_Nullable address = [self addressForProto:addressProto];
         if (address) {
             [addresses addObject:address];
@@ -961,19 +996,23 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     }
     contact.addresses = [addresses copy];
 
-    if (contactProto.hasAvatar) {
-        OWSSignalServiceProtosDataMessageContactAvatar *avatarInfo = contactProto.avatar;
+    if (contactProto.avatar) {
+        SSKProtoDataMessageContactAvatar *avatarInfo = contactProto.avatar;
 
-        if (avatarInfo.hasAvatar) {
-            OWSSignalServiceProtosAttachmentPointer *avatarAttachment = avatarInfo.avatar;
+        if (avatarInfo.avatar) {
+            SSKProtoAttachmentPointer *avatarAttachment = avatarInfo.avatar;
 
-            TSAttachmentPointer *attachmentPointer = [TSAttachmentPointer attachmentPointerFromProto:avatarAttachment];
-            [attachmentPointer saveWithTransaction:transaction];
-
-            contact.avatarAttachmentId = attachmentPointer.uniqueId;
-            contact.isProfileAvatar = avatarInfo.isProfile;
+            TSAttachmentPointer *_Nullable attachmentPointer =
+                [TSAttachmentPointer attachmentPointerFromProto:avatarAttachment];
+            if (attachmentPointer) {
+                [attachmentPointer saveWithTransaction:transaction];
+                contact.avatarAttachmentId = attachmentPointer.uniqueId;
+                contact.isProfileAvatar = avatarInfo.isProfile;
+            } else {
+                OWSFailDebug(@"Invalid avatar attachment.");
+            }
         } else {
-            OWSFail(@"%@ in %s avatarInfo.hasAvatar was unexpectedly false", self.logTag, __PRETTY_FUNCTION__);
+            OWSFailDebug(@"avatarInfo.hasAvatar was unexpectedly false");
         }
     }
 
@@ -982,19 +1021,19 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 }
 
 + (nullable OWSContactPhoneNumber *)phoneNumberForProto:
-    (OWSSignalServiceProtosDataMessageContactPhone *)phoneNumberProto
+    (SSKProtoDataMessageContactPhone *)phoneNumberProto
 {
     OWSContactPhoneNumber *result = [OWSContactPhoneNumber new];
     result.phoneType = OWSContactPhoneType_Custom;
     if (phoneNumberProto.hasType) {
         switch (phoneNumberProto.type) {
-            case OWSSignalServiceProtosDataMessageContactPhoneTypeHome:
+            case SSKProtoDataMessageContactPhoneTypeHome:
                 result.phoneType = OWSContactPhoneType_Home;
                 break;
-            case OWSSignalServiceProtosDataMessageContactPhoneTypeMobile:
+            case SSKProtoDataMessageContactPhoneTypeMobile:
                 result.phoneType = OWSContactPhoneType_Mobile;
                 break;
-            case OWSSignalServiceProtosDataMessageContactPhoneTypeWork:
+            case SSKProtoDataMessageContactPhoneTypeWork:
                 result.phoneType = OWSContactPhoneType_Work;
                 break;
             default:
@@ -1012,19 +1051,19 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     return result;
 }
 
-+ (nullable OWSContactEmail *)emailForProto:(OWSSignalServiceProtosDataMessageContactEmail *)emailProto
++ (nullable OWSContactEmail *)emailForProto:(SSKProtoDataMessageContactEmail *)emailProto
 {
     OWSContactEmail *result = [OWSContactEmail new];
     result.emailType = OWSContactEmailType_Custom;
     if (emailProto.hasType) {
         switch (emailProto.type) {
-            case OWSSignalServiceProtosDataMessageContactEmailTypeHome:
+            case SSKProtoDataMessageContactEmailTypeHome:
                 result.emailType = OWSContactEmailType_Home;
                 break;
-            case OWSSignalServiceProtosDataMessageContactEmailTypeMobile:
+            case SSKProtoDataMessageContactEmailTypeMobile:
                 result.emailType = OWSContactEmailType_Mobile;
                 break;
-            case OWSSignalServiceProtosDataMessageContactEmailTypeWork:
+            case SSKProtoDataMessageContactEmailTypeWork:
                 result.emailType = OWSContactEmailType_Work;
                 break;
             default:
@@ -1042,16 +1081,16 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     return result;
 }
 
-+ (nullable OWSContactAddress *)addressForProto:(OWSSignalServiceProtosDataMessageContactPostalAddress *)addressProto
++ (nullable OWSContactAddress *)addressForProto:(SSKProtoDataMessageContactPostalAddress *)addressProto
 {
     OWSContactAddress *result = [OWSContactAddress new];
     result.addressType = OWSContactAddressType_Custom;
     if (addressProto.hasType) {
         switch (addressProto.type) {
-            case OWSSignalServiceProtosDataMessageContactPostalAddressTypeHome:
+            case SSKProtoDataMessageContactPostalAddressTypeHome:
                 result.addressType = OWSContactAddressType_Home;
                 break;
-            case OWSSignalServiceProtosDataMessageContactPostalAddressTypeWork:
+            case SSKProtoDataMessageContactPostalAddressTypeWork:
                 result.addressType = OWSContactAddressType_Work;
                 break;
             default:

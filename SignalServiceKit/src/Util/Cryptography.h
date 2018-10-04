@@ -46,7 +46,6 @@ extern const NSUInteger kAES256_KeyByteLength;
 @interface Cryptography : NSObject
 
 typedef NS_ENUM(NSInteger, TSMACType) {
-    TSHMACSHA1Truncated10Bytes   = 1,
     TSHMACSHA256Truncated10Bytes = 2,
     TSHMACSHA256AttachementType  = 3
 };
@@ -55,6 +54,7 @@ typedef NS_ENUM(NSInteger, TSMACType) {
 
 + (uint32_t)randomUInt32;
 + (uint64_t)randomUInt64;
++ (unsigned)randomUnsigned;
 
 #pragma mark - SHA and HMAC methods
 
@@ -67,6 +67,8 @@ typedef NS_ENUM(NSInteger, TSMACType) {
 + (nullable NSString *)truncatedSHA1Base64EncodedWithoutPadding:(NSString *)string;
 
 + (nullable NSData *)decryptAppleMessagePayload:(NSData *)payload withSignalingKey:(NSString *)signalingKeyString;
+
++ (nullable NSData *)computeSHA256HMAC:(NSData *)data withHMACKey:(NSData *)HMACKey;
 
 #pragma mark encrypt and decrypt attachment data
 
@@ -94,6 +96,8 @@ typedef NS_ENUM(NSInteger, TSMACType) {
 
 + (nullable NSData *)encryptAESGCMWithProfileData:(NSData *)plaintextData key:(OWSAES256Key *)key;
 + (nullable NSData *)decryptAESGCMWithProfileData:(NSData *)encryptedData key:(OWSAES256Key *)key;
+
++ (void)seedRandom;
 
 @end
 

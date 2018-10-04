@@ -55,8 +55,8 @@ NS_ASSUME_NONNULL_BEGIN
         return self;
     }
 
-    OWSAssert(mediaUrl);
-    OWSAssert(delegate);
+    OWSAssertDebug(mediaUrl);
+    OWSAssertDebug(delegate);
 
     _delegate = delegate;
     _mediaUrl = mediaUrl;
@@ -107,8 +107,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)play
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(self.mediaUrl);
-    OWSAssert([self.delegate audioPlaybackState] != AudioPlaybackState_Playing);
+    OWSAssertDebug(self.mediaUrl);
+    OWSAssertDebug([self.delegate audioPlaybackState] != AudioPlaybackState_Playing);
 
     [self.audioPlayerPoller invalidate];
 
@@ -118,7 +118,7 @@ NS_ASSUME_NONNULL_BEGIN
         NSError *error;
         self.audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:self.mediaUrl error:&error];
         if (error) {
-            DDLogError(@"%@ error: %@", self.logTag, error);
+            OWSLogError(@"error: %@", error);
             [self stop];
 
             if ([error.domain isEqualToString:NSOSStatusErrorDomain]
@@ -191,8 +191,8 @@ NS_ASSUME_NONNULL_BEGIN
 {
     OWSAssertIsOnMainThread();
 
-    OWSAssert(self.audioPlayer);
-    OWSAssert(self.audioPlayerPoller);
+    OWSAssertDebug(self.audioPlayer);
+    OWSAssertDebug(self.audioPlayerPoller);
 
     [self.delegate setAudioProgress:(CGFloat)[self.audioPlayer currentTime] duration:(CGFloat)[self.audioPlayer duration]];
 }

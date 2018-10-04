@@ -31,7 +31,7 @@ NSString *const OWSIncomingMessageFinderColumnSourceDeviceId = @"OWSIncomingMess
 
 - (instancetype)init
 {
-    OWSAssert([OWSPrimaryStorage sharedManager]);
+    OWSAssertDebug([OWSPrimaryStorage sharedManager]);
 
     return [self initWithPrimaryStorage:[OWSPrimaryStorage sharedManager]];
 }
@@ -52,7 +52,7 @@ NSString *const OWSIncomingMessageFinderColumnSourceDeviceId = @"OWSIncomingMess
 
 - (YapDatabaseConnection *)dbConnection
 {
-    @synchronized (self) {
+    @synchronized(self) {
         if (!_dbConnection) {
             _dbConnection = [self.primaryStorage newDatabaseConnection];
         }
@@ -99,7 +99,7 @@ NSString *const OWSIncomingMessageFinderColumnSourceDeviceId = @"OWSIncomingMess
 
 + (void)asyncRegisterExtensionWithPrimaryStorage:(OWSStorage *)storage
 {
-    DDLogInfo(@"%@ registering async.", self.logTag);
+    OWSLogInfo(@"registering async.");
     [storage asyncRegisterExtension:self.indexExtension withName:OWSIncomingMessageFinderExtensionName];
 }
 
@@ -107,7 +107,7 @@ NSString *const OWSIncomingMessageFinderColumnSourceDeviceId = @"OWSIncomingMess
 // We should not normally hit this, as we should have prefer registering async, but it is useful for testing.
 - (void)registerExtension
 {
-    DDLogError(@"%@ registering SYNC. We should prefer async when possible.", self.logTag);
+    OWSLogError(@"registering SYNC. We should prefer async when possible.");
     [self.primaryStorage registerExtension:self.class.indexExtension withName:OWSIncomingMessageFinderExtensionName];
 }
 #endif
@@ -121,7 +121,7 @@ NSString *const OWSIncomingMessageFinderColumnSourceDeviceId = @"OWSIncomingMess
 {
 #ifdef DEBUG
     if (![self.primaryStorage registeredExtension:OWSIncomingMessageFinderExtensionName]) {
-        OWSFail(@"%@ in %s but extension is not registered", self.logTag, __PRETTY_FUNCTION__);
+        OWSFailDebug(@"but extension is not registered");
 
         // we should be initializing this at startup rather than have an unexpectedly slow lazy setup at random.
         [self registerExtension];
@@ -138,7 +138,7 @@ NSString *const OWSIncomingMessageFinderColumnSourceDeviceId = @"OWSIncomingMess
     NSUInteger count;
     BOOL success = [[transaction ext:OWSIncomingMessageFinderExtensionName] getNumberOfRows:&count matchingQuery:query];
     if (!success) {
-        OWSFail(@"%@ Could not execute query", self.logTag);
+        OWSFailDebug(@"Could not execute query");
         return NO;
     }
 

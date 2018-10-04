@@ -123,20 +123,20 @@ void AssertIsOnDisappearingMessagesQueue()
         [self.disappearingMessagesFinder enumerateExpiredMessagesWithBlock:^(TSMessage *message) {
             // sanity check
             if (message.expiresAt > now) {
-                OWSFail(
-                    @"%@ Refusing to remove message which doesn't expire until: %lld", self.logTag, message.expiresAt);
+                OWSFailDebug(@"Refusing to remove message which doesn't expire until: %lld", message.expiresAt);
                 return;
             }
 
-            DDLogInfo(@"%@ Removing message which expired at: %lld", self.logTag, message.expiresAt);
+            OWSLogInfo(@"Removing message which expired at: %lld", message.expiresAt);
             [message removeWithTransaction:transaction];
             expirationCount++;
         }
                                                                transaction:transaction];
     }];
 
-    DDLogDebug(@"%@ Removed %lu expired messages", self.logTag, (unsigned long)expirationCount);
+    OWSLogDebug(@"Removed %lu expired messages", (unsigned long)expirationCount);
 
+    OWSAssertDebug(backgroundTask);
     backgroundTask = nil;
     return expirationCount;
 }
@@ -144,7 +144,7 @@ void AssertIsOnDisappearingMessagesQueue()
 // deletes any expired messages and schedules the next run.
 - (NSUInteger)runLoop
 {
-    DDLogVerbose(@"%@ in runLoop", self.logTag);
+    OWSLogVerbose(@"in runLoop");
     AssertIsOnDisappearingMessagesQueue();
 
     NSUInteger deletedCount = [self deleteExpiredMessages];
@@ -156,7 +156,7 @@ void AssertIsOnDisappearingMessagesQueue()
     }];
 
     if (!nextExpirationTimestampNumber) {
-        DDLogDebug(@"%@ No more expiring messages.", self.logTag);
+        OWSLogDebug(@"No more expiring messages.");
         return deletedCount;
     }
 
@@ -171,14 +171,14 @@ void AssertIsOnDisappearingMessagesQueue()
                  expirationStartedAt:(uint64_t)expirationStartedAt
                          transaction:(YapDatabaseReadWriteTransaction *_Nonnull)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
     if (!message.isExpiringMessage) {
         return;
     }
 
     NSTimeInterval startedSecondsAgo = ([NSDate ows_millisecondTimeStamp] - expirationStartedAt) / 1000.0;
-    DDLogDebug(@"%@ Starting expiration for message read %f seconds ago", self.logTag, startedSecondsAgo);
+    OWSLogDebug(@"Starting expiration for message read %f seconds ago", startedSecondsAgo);
 
     // Don't clobber if multiple actions simultaneously triggered expiration.
     if (message.expireStartedAt == 0 || message.expireStartedAt > expirationStartedAt) {
@@ -219,12 +219,12 @@ void AssertIsOnDisappearingMessagesQueue()
                           createdInExistingGroup:(BOOL)createdInExistingGroup
                                      transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(thread);
-    OWSAssert(timestampForSorting > 0);
-    OWSAssert(transaction);
+    OWSAssertDebug(thread);
+    OWSAssertDebug(timestampForSorting > 0);
+    OWSAssertDebug(transaction);
 
-    __block OWSBackgroundTask *_Nullable backgroundTask = [OWSBackgroundTask backgroundTaskWithLabelStr:__PRETTY_FUNCTION__];
-    
+    OWSBackgroundTask *_Nullable backgroundTask = [OWSBackgroundTask backgroundTaskWithLabelStr:__PRETTY_FUNCTION__];
+
     // Become eventually consistent in the case that the remote changed their settings at the same time.
     // Also in case remote doesn't support expiring messages
     OWSDisappearingMessagesConfiguration *disappearingMessagesConfiguration =
@@ -241,8 +241,7 @@ void AssertIsOnDisappearingMessagesQueue()
         return;
     }
 
-    DDLogInfo(@"%@ becoming consistent with disappearing message configuration: %@",
-        self.logTag,
+    OWSLogInfo(@"becoming consistent with disappearing message configuration: %@",
         disappearingMessagesConfiguration.dictionaryValue);
 
     [disappearingMessagesConfiguration saveWithTransaction:transaction];
@@ -256,6 +255,7 @@ void AssertIsOnDisappearingMessagesQueue()
                                                           createdInExistingGroup:createdInExistingGroup];
     [infoMessage saveWithTransaction:transaction];
 
+    OWSAssertDebug(backgroundTask);
     backgroundTask = nil;
 }
 
@@ -295,7 +295,7 @@ void AssertIsOnDisappearingMessagesQueue()
 
 - (void)scheduleRunByDate:(NSDate *)date
 {
-    OWSAssert(date);
+    OWSAssertDebug(date);
 
     dispatch_async(dispatch_get_main_queue(), ^{
         if (!CurrentAppContext().isMainAppAndActive) {
@@ -308,8 +308,7 @@ void AssertIsOnDisappearingMessagesQueue()
         NSTimeInterval delaySeconds = MAX(kMinDelaySeconds, date.timeIntervalSinceNow);
         NSDate *newTimerScheduleDate = [NSDate dateWithTimeIntervalSinceNow:delaySeconds];
         if (self.nextDisappearanceDate && [self.nextDisappearanceDate isBeforeDate:newTimerScheduleDate]) {
-            DDLogVerbose(@"%@ Request to run at %@ (%d sec.) ignored due to earlier scheduled run at %@ (%d sec.)",
-                self.logTag,
+            OWSLogVerbose(@"Request to run at %@ (%d sec.) ignored due to earlier scheduled run at %@ (%d sec.)",
                 [self.dateFormatter stringFromDate:date],
                 (int)round(MAX(0, [date timeIntervalSinceDate:[NSDate new]])),
                 [self.dateFormatter stringFromDate:self.nextDisappearanceDate],
@@ -318,8 +317,7 @@ void AssertIsOnDisappearingMessagesQueue()
         }
 
         // Update Schedule
-        DDLogVerbose(@"%@ Scheduled run at %@ (%d sec.)",
-            self.logTag,
+        OWSLogVerbose(@"Scheduled run at %@ (%d sec.)",
             [self.dateFormatter stringFromDate:newTimerScheduleDate],
             (int)round(MAX(0, [newTimerScheduleDate timeIntervalSinceDate:[NSDate new]])));
         [self resetNextDisappearanceTimer];
@@ -335,11 +333,11 @@ void AssertIsOnDisappearingMessagesQueue()
 - (void)disappearanceTimerDidFire
 {
     OWSAssertIsOnMainThread();
-    DDLogDebug(@"%@ in %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogDebug(@"");
 
     if (!CurrentAppContext().isMainAppAndActive) {
         // Don't schedule run when inactive or not in main app.
-        OWSFail(@"%@ Disappearing messages job timer fired while main app inactive.", self.logTag);
+        OWSFailDebug(@"Disappearing messages job timer fired while main app inactive.");
         return;
     }
 
@@ -353,7 +351,7 @@ void AssertIsOnDisappearingMessagesQueue()
 - (void)fallbackTimerDidFire
 {
     OWSAssertIsOnMainThread();
-    DDLogDebug(@"%@ in %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogDebug(@"");
 
     BOOL recentlyScheduledDisappearanceTimer = NO;
     if (fabs(self.nextDisappearanceDate.timeIntervalSinceNow) < 1.0) {
@@ -361,7 +359,7 @@ void AssertIsOnDisappearingMessagesQueue()
     }
 
     if (!CurrentAppContext().isMainAppAndActive) {
-        DDLogInfo(@"%@ Ignoring fallbacktimer for app which is not main and active.", self.logTag);
+        OWSLogInfo(@"Ignoring fallbacktimer for app which is not main and active.");
         return;
     }
 
@@ -373,7 +371,7 @@ void AssertIsOnDisappearingMessagesQueue()
         // exception is if we're in close proximity to the disappearanceTimer, in which case a race condition
         // is inevitable.
         if (!recentlyScheduledDisappearanceTimer && deletedCount > 0) {
-            OWSProdLogAndFail(@"%@ unexpectedly deleted disappearing messages via fallback timer.", self.logTag);
+            OWSFailDebug(@"unexpectedly deleted disappearing messages via fallback timer.");
         }
     });
 }
@@ -393,8 +391,7 @@ void AssertIsOnDisappearingMessagesQueue()
 {
     [self.disappearingMessagesFinder
         enumerateMessagesWhichFailedToStartExpiringWithBlock:^(TSMessage *_Nonnull message) {
-            OWSProdLogAndFail(
-                @"%@ starting old timer for message timestamp: %lu", self.logTag, (unsigned long)message.timestamp);
+            OWSFailDebug(@"starting old timer for message timestamp: %lu", (unsigned long)message.timestamp);
 
             // We don't know when it was actually read, so assume it was read as soon as it was received.
             uint64_t readTimeBestGuess = message.timestampForSorting;

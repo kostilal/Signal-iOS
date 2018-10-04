@@ -4,7 +4,7 @@
 
 #import "OWSReadReceiptsForLinkedDevicesMessage.h"
 #import "OWSLinkedDeviceReadReceipt.h"
-#import "OWSSignalServiceProtos.pb.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -33,17 +33,22 @@ NS_ASSUME_NONNULL_BEGIN
     return [super initWithCoder:coder];
 }
 
-- (OWSSignalServiceProtosSyncMessageBuilder *)syncMessageBuilder
+- (nullable SSKProtoSyncMessageBuilder *)syncMessageBuilder
 {
-    OWSSignalServiceProtosSyncMessageBuilder *syncMessageBuilder = [OWSSignalServiceProtosSyncMessageBuilder new];
+    SSKProtoSyncMessageBuilder *syncMessageBuilder = [SSKProtoSyncMessageBuilder new];
     for (OWSLinkedDeviceReadReceipt *readReceipt in self.readReceipts) {
-        OWSSignalServiceProtosSyncMessageReadBuilder *readProtoBuilder =
-            [OWSSignalServiceProtosSyncMessageReadBuilder new];
-        [readProtoBuilder setSender:readReceipt.senderId];
-        [readProtoBuilder setTimestamp:readReceipt.messageIdTimestamp];
-        [syncMessageBuilder addRead:[readProtoBuilder build]];
-    }
+        SSKProtoSyncMessageReadBuilder *readProtoBuilder =
+            [[SSKProtoSyncMessageReadBuilder alloc] initWithSender:readReceipt.senderId
+                                                         timestamp:readReceipt.messageIdTimestamp];
 
+        NSError *error;
+        SSKProtoSyncMessageRead *_Nullable readProto = [readProtoBuilder buildAndReturnError:&error];
+        if (error || !readProto) {
+            OWSFailDebug(@"could not build protobuf: %@", error);
+            return nil;
+        }
+        [syncMessageBuilder addRead:readProto];
+    }
     return syncMessageBuilder;
 }
 

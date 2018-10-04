@@ -10,7 +10,7 @@ protocol ConversationSearchViewDelegate: class {
 }
 
 @objc
-class ConversationSearchViewController: UITableViewController {
+class ConversationSearchViewController: UITableViewController, BlockListCacheDelegate {
 
     @objc
     public weak var delegate: ConversationSearchViewDelegate?
@@ -18,7 +18,7 @@ class ConversationSearchViewController: UITableViewController {
     @objc
     public var searchText = "" {
         didSet {
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
 
             // Use a slight delay to debounce updates.
             refreshSearchResults()
@@ -36,7 +36,7 @@ class ConversationSearchViewController: UITableViewController {
     }
 
     private var contactsManager: OWSContactsManager {
-        return Environment.current().contactsManager
+        return Environment.shared.contactsManager
     }
 
     enum SearchSection: Int {
@@ -46,20 +46,21 @@ class ConversationSearchViewController: UITableViewController {
         case messages
     }
 
-    var blockedPhoneNumberSet = Set<String>()
-
     private var hasThemeChanged = false
+
+    var blockListCache: BlockListCache!
 
     // MARK: View Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let blockingManager = OWSBlockingManager.shared()
-        blockedPhoneNumberSet = Set(blockingManager.blockedPhoneNumbers())
+        blockListCache = BlockListCache()
+        blockListCache.startObservingAndSyncState(delegate: self)
 
         tableView.rowHeight = UITableViewAutomaticDimension
         tableView.estimatedRowHeight = 60
+        tableView.separatorColor = Theme.cellSeparatorColor
 
         tableView.register(EmptySearchResultCell.self, forCellReuseIdentifier: EmptySearchResultCell.reuseIdentifier)
         tableView.register(HomeViewCell.self, forCellReuseIdentifier: HomeViewCell.cellReuseIdentifier())
@@ -94,13 +95,13 @@ class ConversationSearchViewController: UITableViewController {
     }
 
     @objc internal func yapDatabaseModified(notification: NSNotification) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         refreshSearchResults()
     }
 
     @objc internal func themeDidChange(notification: NSNotification) {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         applyTheme()
         self.tableView.reloadData()
@@ -109,7 +110,7 @@ class ConversationSearchViewController: UITableViewController {
     }
 
     private func applyTheme() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         self.view.backgroundColor = Theme.backgroundColor
         self.tableView.backgroundColor = Theme.backgroundColor
@@ -121,43 +122,44 @@ class ConversationSearchViewController: UITableViewController {
         tableView.deselectRow(at: indexPath, animated: false)
 
         guard let searchSection = SearchSection(rawValue: indexPath.section) else {
-            owsFail("\(logTag) unknown section selected.")
+            owsFailDebug("unknown section selected.")
             return
         }
 
         switch searchSection {
         case .noResults:
-            owsFail("\(logTag) shouldn't be able to tap 'no results' section")
+            owsFailDebug("shouldn't be able to tap 'no results' section")
         case .conversations:
             let sectionResults = searchResultSet.conversations
             guard let searchResult = sectionResults[safe: indexPath.row] else {
-                owsFail("\(logTag) unknown row selected.")
+                owsFailDebug("unknown row selected.")
                 return
             }
 
             let thread = searchResult.thread
-            SignalApp.shared().presentConversation(for: thread.threadRecord, action: .compose)
+            SignalApp.shared().presentConversation(for: thread.threadRecord, action: .compose, animated: true)
 
         case .contacts:
             let sectionResults = searchResultSet.contacts
             guard let searchResult = sectionResults[safe: indexPath.row] else {
-                owsFail("\(logTag) unknown row selected.")
+                owsFailDebug("unknown row selected.")
                 return
             }
 
-            SignalApp.shared().presentConversation(forRecipientId: searchResult.recipientId, action: .compose)
+            SignalApp.shared().presentConversation(forRecipientId: searchResult.recipientId, action: .compose, animated: true)
 
         case .messages:
             let sectionResults = searchResultSet.messages
             guard let searchResult = sectionResults[safe: indexPath.row] else {
-                owsFail("\(logTag) unknown row selected.")
+                owsFailDebug("unknown row selected.")
                 return
             }
 
             let thread = searchResult.thread
             SignalApp.shared().presentConversation(for: thread.threadRecord,
-                                                   action: .compose,
-                                                   focusMessageId: searchResult.messageId)
+                                                   action: .none,
+                                                   focusMessageId: searchResult.messageId,
+                                                   animated: true)
         }
     }
 
@@ -165,7 +167,7 @@ class ConversationSearchViewController: UITableViewController {
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let searchSection = SearchSection(rawValue: section) else {
-            owsFail("unknown section: \(section)")
+            owsFailDebug("unknown section: \(section)")
             return 0
         }
 
@@ -190,12 +192,12 @@ class ConversationSearchViewController: UITableViewController {
         switch searchSection {
         case .noResults:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: EmptySearchResultCell.reuseIdentifier) as? EmptySearchResultCell else {
-                owsFail("cell was unexpectedly nil")
+                owsFailDebug("cell was unexpectedly nil")
                 return UITableViewCell()
             }
 
             guard indexPath.row == 0 else {
-                owsFail("searchResult was unexpected index")
+                owsFailDebug("searchResult was unexpected index")
                 return UITableViewCell()
             }
 
@@ -206,36 +208,36 @@ class ConversationSearchViewController: UITableViewController {
             return cell
         case .conversations:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: HomeViewCell.cellReuseIdentifier()) as? HomeViewCell else {
-                owsFail("cell was unexpectedly nil")
+                owsFailDebug("cell was unexpectedly nil")
                 return UITableViewCell()
             }
 
             guard let searchResult = self.searchResultSet.conversations[safe: indexPath.row] else {
-                owsFail("searchResult was unexpectedly nil")
+                owsFailDebug("searchResult was unexpectedly nil")
                 return UITableViewCell()
             }
-            cell.configure(withThread: searchResult.thread, contactsManager: contactsManager, blockedPhoneNumber: self.blockedPhoneNumberSet)
+            cell.configure(withThread: searchResult.thread, contactsManager: contactsManager, isBlocked: isBlocked(thread: searchResult.thread))
             return cell
         case .contacts:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ContactTableViewCell.reuseIdentifier()) as? ContactTableViewCell else {
-                owsFail("cell was unexpectedly nil")
+                owsFailDebug("cell was unexpectedly nil")
                 return UITableViewCell()
             }
 
             guard let searchResult = self.searchResultSet.contacts[safe: indexPath.row] else {
-                owsFail("searchResult was unexpectedly nil")
+                owsFailDebug("searchResult was unexpectedly nil")
                 return UITableViewCell()
             }
             cell.configure(withRecipientId: searchResult.signalAccount.recipientId, contactsManager: contactsManager)
             return cell
         case .messages:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: HomeViewCell.cellReuseIdentifier()) as? HomeViewCell else {
-                owsFail("cell was unexpectedly nil")
+                owsFailDebug("cell was unexpectedly nil")
                 return UITableViewCell()
             }
 
             guard let searchResult = self.searchResultSet.messages[safe: indexPath.row] else {
-                owsFail("searchResult was unexpectedly nil")
+                owsFailDebug("searchResult was unexpectedly nil")
                 return UITableViewCell()
             }
 
@@ -245,7 +247,7 @@ class ConversationSearchViewController: UITableViewController {
                 if let messageDate = searchResult.messageDate {
                     overrideDate = messageDate
                 } else {
-                    owsFail("\(ConversationSearchViewController.logTag) message search result is missing message timestamp")
+                    owsFailDebug("message search result is missing message timestamp")
                 }
 
                 // Note that we only use the snippet for message results,
@@ -253,15 +255,18 @@ class ConversationSearchViewController: UITableViewController {
                 // a snippet for conversations that reflects the latest
                 // contents.
                 if let messageSnippet = searchResult.snippet {
-                    overrideSnippet = NSAttributedString(string: messageSnippet)
+                    overrideSnippet = NSAttributedString(string: messageSnippet,
+                                                         attributes: [
+                                                            NSAttributedStringKey.foregroundColor: Theme.secondaryColor
+                    ])
                 } else {
-                    owsFail("\(ConversationSearchViewController.logTag) message search result is missing message snippet")
+                    owsFailDebug("message search result is missing message snippet")
                 }
             }
 
             cell.configure(withThread: searchResult.thread,
                            contactsManager: contactsManager,
-                           blockedPhoneNumber: self.blockedPhoneNumberSet,
+                           isBlocked: isBlocked(thread: searchResult.thread),
                            overrideSnippet: overrideSnippet,
                            overrideDate: overrideDate)
 
@@ -273,9 +278,38 @@ class ConversationSearchViewController: UITableViewController {
         return 4
     }
 
+    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        guard nil != self.tableView(tableView, titleForHeaderInSection: section) else {
+            return 0
+        }
+        return UITableViewAutomaticDimension
+    }
+
+    override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        guard let title = self.tableView(tableView, titleForHeaderInSection: section) else {
+            return nil
+        }
+
+        let label = UILabel()
+        label.textColor = Theme.secondaryColor
+        label.text = title
+        label.font = UIFont.ows_dynamicTypeBody.ows_mediumWeight()
+        label.tag = section
+
+        let hMargin: CGFloat = 15
+        let vMargin: CGFloat = 4
+        let wrapper = UIView()
+        wrapper.backgroundColor = Theme.offBackgroundColor
+        wrapper.addSubview(label)
+        label.autoPinWidthToSuperview(withMargin: hMargin)
+        label.autoPinHeightToSuperview(withMargin: vMargin)
+
+        return wrapper
+    }
+
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         guard let searchSection = SearchSection(rawValue: section) else {
-            owsFail("unknown section: \(section)")
+            owsFailDebug("unknown section: \(section)")
             return nil
         }
 
@@ -303,12 +337,18 @@ class ConversationSearchViewController: UITableViewController {
         }
     }
 
+    // MARK: BlockListCacheDelegate
+
+    func blockListCacheDidUpdate(_ blocklistCache: BlockListCache) {
+        refreshSearchResults()
+    }
+
     // MARK: Update Search Results
 
     var refreshTimer: Timer?
 
     private func refreshSearchResults() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         guard !searchResultSet.isEmpty else {
             // To avoid incorrectly showing the "no results" state,
@@ -343,18 +383,35 @@ class ConversationSearchViewController: UITableViewController {
             return
         }
 
-        self.uiDatabaseConnection.read { transaction in
-            self.searchResultSet = self.searcher.results(searchText: searchText, transaction: transaction, contactsManager: self.contactsManager)
-        }
+        var searchResults: SearchResultSet?
+        self.uiDatabaseConnection.asyncRead({[weak self] transaction in
+            guard let strongSelf = self else { return }
+            searchResults = strongSelf.searcher.results(searchText: searchText, transaction: transaction, contactsManager: strongSelf.contactsManager)
+        },
+                                            completionBlock: { [weak self] in
+                                                AssertIsOnMainThread()
+                                                guard let strongSelf = self else { return }
 
-        // TODO: more performant way to do this?
-        self.tableView.reloadData()
+                                                guard let results = searchResults else {
+                                                    owsFailDebug("searchResults was unexpectedly nil")
+                                                    return
+                                                }
+
+                                                strongSelf.searchResultSet = results
+                                                strongSelf.tableView.reloadData()
+        })
     }
 
     // MARK: - UIScrollViewDelegate
 
     override func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         delegate?.conversationSearchViewWillBeginDragging()
+    }
+
+    // MARK: -
+
+    private func isBlocked(thread: ThreadViewModel) -> Bool {
+        return self.blockListCache.isBlocked(thread: thread.threadRecord)
     }
 }
 
@@ -366,7 +423,6 @@ class EmptySearchResultCell: UITableViewCell {
         self.messageLabel = UILabel()
         super.init(style: style, reuseIdentifier: reuseIdentifier)
 
-        messageLabel.font = UIFont.ows_dynamicTypeBody
         messageLabel.textAlignment = .center
         messageLabel.numberOfLines = 3
 
@@ -387,12 +443,15 @@ class EmptySearchResultCell: UITableViewCell {
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        notImplemented()
     }
 
     public func configure(searchText: String) {
         let format = NSLocalizedString("HOME_VIEW_SEARCH_NO_RESULTS_FORMAT", comment: "Format string when search returns no results. Embeds {{search term}}")
         let messageText: String = NSString(format: format as NSString, searchText) as String
         self.messageLabel.text = messageText
+
+        messageLabel.textColor = Theme.primaryColor
+        messageLabel.font = UIFont.ows_dynamicTypeBody
     }
 }

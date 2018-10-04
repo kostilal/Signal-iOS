@@ -7,7 +7,7 @@
 #import "ContactsUpdater.h"
 #import "NotificationsProtocol.h"
 #import "OWSIdentityManager.h"
-#import "TextSecureKitEnv.h"
+#import "SSKEnvironment.h"
 #import <YapDatabase/YapDatabaseConnection.h>
 #import <YapDatabase/YapDatabaseTransaction.h>
 
@@ -20,7 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithContactId:(NSString *)contactId {
     NSString *uniqueIdentifier = [[self class] threadIdFromContactId:contactId];
 
-    OWSAssert(contactId.length > 0);
+    OWSAssertDebug(contactId.length > 0);
 
     self = [super initWithUniqueId:uniqueIdentifier];
 
@@ -29,7 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)getOrCreateThreadWithContactId:(NSString *)contactId
                                    transaction:(YapDatabaseReadWriteTransaction *)transaction {
-    OWSAssert(contactId.length > 0);
+    OWSAssertDebug(contactId.length > 0);
 
     TSContactThread *thread =
         [self fetchObjectWithUniqueID:[self threadIdFromContactId:contactId] transaction:transaction];
@@ -44,7 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)getOrCreateThreadWithContactId:(NSString *)contactId
 {
-    OWSAssert(contactId.length > 0);
+    OWSAssertDebug(contactId.length > 0);
 
     __block TSContactThread *thread;
     [[self dbReadWriteConnection] readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
@@ -80,9 +80,8 @@ NS_ASSUME_NONNULL_BEGIN
 // TODO deprecate this? seems weird to access the displayName in the DB model
 - (NSString *)name
 {
-    return [[TextSecureKitEnv sharedEnv].contactsManager displayNameForPhoneIdentifier:self.contactIdentifier];
+    return [SSKEnvironment.shared.contactsManager displayNameForPhoneIdentifier:self.contactIdentifier];
 }
-
 
 + (NSString *)threadIdFromContactId:(NSString *)contactId {
     return [TSContactThreadPrefix stringByAppendingString:contactId];
@@ -90,6 +89,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSString *)contactIdFromThreadId:(NSString *)threadId {
     return [threadId substringWithRange:NSMakeRange(1, threadId.length - 1)];
+}
+
++ (NSString *)conversationColorNameForRecipientId:(NSString *)recipientId
+                                      transaction:(YapDatabaseReadTransaction *)transaction
+{
+    OWSAssertDebug(recipientId.length > 0);
+
+    TSContactThread *_Nullable contactThread =
+        [TSContactThread getThreadWithContactId:recipientId transaction:transaction];
+    if (contactThread) {
+        return contactThread.conversationColorName;
+    }
+    return [self stableColorNameForNewConversationWithString:recipientId];
 }
 
 @end

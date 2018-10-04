@@ -8,12 +8,10 @@ import SignalMessaging
 
 class DebugUIProfile: DebugUIPage {
 
-    let TAG = "[DebugUIProfile]"
-
     // MARK: Dependencies
 
     var messageSender: MessageSender {
-        return Environment.current().messageSender
+        return SSKEnvironment.shared.messageSender
     }
     var profileManager: OWSProfileManager {
         return OWSProfileManager.shared()
@@ -47,7 +45,7 @@ class DebugUIProfile: DebugUIPage {
                 strongSelf.messageSender.sendPromise(message: message).then {
                     Logger.info("Successfully sent profile key message to thread: \(String(describing: aThread))")
                     }.catch { _ in
-                        owsFail("Failed to send profile key message to thread: \(String(describing: aThread))")
+                        owsFailDebug("Failed to send profile key message to thread: \(String(describing: aThread))")
                 }
             }
         ]

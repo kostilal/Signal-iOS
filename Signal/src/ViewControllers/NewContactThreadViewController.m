@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSString *)stringForCollation
 {
-    OWSContactsManager *contactsManager = [Environment current].contactsManager;
+    OWSContactsManager *contactsManager = Environment.shared.contactsManager;
     return [contactsManager comparableNameForSignalAccount:self];
 }
 
@@ -86,7 +86,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                       action:@selector(dismissPressed)];
     // TODO: We should use separate RTL and LTR flavors of this asset.
     UIImage *newGroupImage = [UIImage imageNamed:@"btnGroup--white"];
-    OWSAssert(newGroupImage);
+    OWSAssertDebug(newGroupImage);
     UIBarButtonItem *newGroupButton = [[UIBarButtonItem alloc] initWithImage:newGroupImage
                                                                        style:UIBarButtonItemStylePlain
                                                                       target:self
@@ -96,13 +96,10 @@ NS_ASSUME_NONNULL_BEGIN
     self.navigationItem.rightBarButtonItem = newGroupButton;
 
     // Search
-    UISearchBar *searchBar = [UISearchBar new];
+    UISearchBar *searchBar = [OWSSearchBar new];
     _searchBar = searchBar;
-    searchBar.searchBarStyle = UISearchBarStyleMinimal;
     searchBar.delegate = self;
     searchBar.placeholder = NSLocalizedString(@"SEARCH_BYNAMEORNUMBER_PLACEHOLDER_TEXT", @"");
-    searchBar.backgroundColor = [Theme backgroundColor];
-    searchBar.barStyle = Theme.barStyle;
     [searchBar sizeToFit];
 
     _tableViewController = [OWSTableViewController new];
@@ -121,7 +118,7 @@ NS_ASSUME_NONNULL_BEGIN
     self.tableViewController.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableViewController.tableView.estimatedRowHeight = 60;
 
-    [self autoPinViewToBottomOfViewControllerOrKeyboard:self.tableViewController.view];
+    [self autoPinViewToBottomOfViewControllerOrKeyboard:self.tableViewController.view avoidNotch:NO];
     _tableViewController.tableView.tableHeaderView = searchBar;
 
     _noSignalContactsView = [self createNoSignalContactsView];
@@ -160,7 +157,7 @@ NS_ASSUME_NONNULL_BEGIN
     [self.contactsViewHelper.contactsManager
         userRequestedSystemContactsRefreshWithCompletion:^(NSError *_Nullable error) {
             if (error) {
-                DDLogError(@"%@ refreshing contacts failed with error: %@", self.logTag, error);
+                OWSLogError(@"refreshing contacts failed with error: %@", error);
             }
             [refreshControl endRefreshing];
         }];
@@ -185,7 +182,7 @@ NS_ASSUME_NONNULL_BEGIN
     [contents autoCenterInSuperview];
 
     UIImage *heroImage = [UIImage imageNamed:@"uiEmptyContact"];
-    OWSAssert(heroImage);
+    OWSAssertDebug(heroImage);
     UIImageView *heroImageView = [[UIImageView alloc] initWithImage:heroImage];
     heroImageView.layer.minificationFilter = kCAFilterTrilinear;
     heroImageView.layer.magnificationFilter = kCAFilterTrilinear;
@@ -388,16 +385,22 @@ NS_ASSUME_NONNULL_BEGIN
             [contents addSection:section];
         }
         contents.sectionForSectionIndexTitleBlock = ^NSInteger(NSString *_Nonnull title, NSInteger index) {
+            typeof(self) strongSelf = weakSelf;
+            if (!strongSelf) {
+                return 0;
+            }
+
             // Offset the collation section to account for the noncollated sections.
-            NSInteger sectionIndex = [self.collation sectionForSectionIndexTitleAtIndex:index] + noncollatedSections;
+            NSInteger sectionIndex =
+                [strongSelf.collation sectionForSectionIndexTitleAtIndex:index] + noncollatedSections;
             if (sectionIndex < 0) {
                 // Sentinal in case we change our section ordering in a surprising way.
-                OWSFail(@"Unexpected negative section index");
+                OWSCFailDebug(@"Unexpected negative section index");
                 return 0;
             }
             if (sectionIndex >= (NSInteger)contents.sections.count) {
                 // Sentinal in case we change our section ordering in a surprising way.
-                OWSFail(@"Unexpectedly large index");
+                OWSCFailDebug(@"Unexpectedly large index");
                 return 0;
             }
 
@@ -405,7 +408,12 @@ NS_ASSUME_NONNULL_BEGIN
         };
         contents.sectionIndexTitlesForTableViewBlock = ^NSArray<NSString *> *_Nonnull
         {
-            return self.collation.sectionTitles;
+            typeof(self) strongSelf = weakSelf;
+            if (!strongSelf) {
+                return @[];
+            }
+
+            return strongSelf.collation.sectionTitles;
         };
     }
 
@@ -428,7 +436,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                       customRowHeight:UITableViewAutomaticDimension]];
             } else {
                 UITableViewCell *loadingCell = [OWSTableItem newCell];
-                OWSAssert(loadingCell.contentView);
+                OWSAssertDebug(loadingCell.contentView);
 
                 UIActivityIndicatorView *activityIndicatorView =
                     [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
@@ -463,7 +471,7 @@ NS_ASSUME_NONNULL_BEGIN
             [self.collation sectionForObject:signalAccount collationStringSelector:@selector(stringForCollation)];
 
         if (section < 0) {
-            OWSFail(@"Unexpected collation for name:%@", signalAccount.stringForCollation);
+            OWSFailDebug(@"Unexpected collation for name:%@", signalAccount.stringForCollation);
             continue;
         }
         NSUInteger sectionIndex = (NSUInteger)section;
@@ -521,7 +529,7 @@ NS_ASSUME_NONNULL_BEGIN
     // "invite via SMS..." cells.
     NSArray<NSString *> *searchPhoneNumbers = [self parsePossibleSearchPhoneNumbers];
     for (NSString *phoneNumber in searchPhoneNumbers) {
-        OWSAssert(phoneNumber.length > 0);
+        OWSAssertDebug(phoneNumber.length > 0);
 
         if ([self.nonContactAccountSet containsObject:phoneNumber]) {
             [phoneNumbersSection
@@ -626,7 +634,7 @@ NS_ASSUME_NONNULL_BEGIN
     for (Contact *contact in invitees) {
         hasSearchResults = YES;
 
-        OWSAssert(contact.parsedPhoneNumbers.count > 0);
+        OWSAssertDebug(contact.parsedPhoneNumbers.count > 0);
         // TODO: Should we invite all of their phone numbers?
         PhoneNumber *phoneNumber = contact.parsedPhoneNumbers[0];
         NSString *displayName = contact.fullName;
@@ -691,7 +699,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)hideBackgroundView
 {
-    [[Environment preferences] setHasDeclinedNoContactsView:YES];
+    [Environment.shared.preferences setHasDeclinedNoContactsView:YES];
 
     [self showContactAppropriateViews];
 }
@@ -708,7 +716,7 @@ NS_ASSUME_NONNULL_BEGIN
 {
     if (self.contactsViewHelper.contactsManager.isSystemContactsAuthorized) {
         if (self.contactsViewHelper.hasUpdatedContactsAtLeastOnce && self.contactsViewHelper.signalAccounts.count < 1
-            && ![[Environment preferences] hasDeclinedNoContactsView]) {
+            && ![Environment.shared.preferences hasDeclinedNoContactsView]) {
             self.isNoContactsModeActive = YES;
         } else {
             self.isNoContactsModeActive = NO;
@@ -752,7 +760,7 @@ NS_ASSUME_NONNULL_BEGIN
         [[OWSInviteFlow alloc] initWithPresentingViewController:self
                                                 contactsManager:self.contactsViewHelper.contactsManager];
 
-    OWSAssert([phoneNumber length] > 0);
+    OWSAssertDebug([phoneNumber length] > 0);
     NSString *confirmMessage = NSLocalizedString(@"SEND_SMS_CONFIRM_TITLE", @"");
     if ([phoneNumber length] > 0) {
         confirmMessage = [[NSLocalizedString(@"SEND_SMS_INVITE_TITLE", @"") stringByAppendingString:phoneNumber]
@@ -808,7 +816,7 @@ NS_ASSUME_NONNULL_BEGIN
         case MessageComposeResultSent: {
             [self dismissViewControllerAnimated:NO
                                      completion:^{
-                                         DDLogDebug(@"view controller dismissed");
+                                         OWSLogDebug(@"view controller dismissed");
                                      }];
             [OWSAlerts
                 showAlertWithTitle:NSLocalizedString(@"SEND_INVITE_SUCCESS", @"Alert body after invite succeeded")];
@@ -830,19 +838,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)newConversationWithRecipientId:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
     TSContactThread *thread = [TSContactThread getOrCreateThreadWithContactId:recipientId];
     [self newConversationWithThread:thread];
 }
 
 - (void)newConversationWithThread:(TSThread *)thread
 {
-    OWSAssert(thread != nil);
-    [self dismissViewControllerAnimated:YES
-                             completion:^() {
-                                 [SignalApp.sharedApp presentConversationForThread:thread
-                                                                            action:ConversationViewActionCompose];
-                             }];
+    OWSAssertDebug(thread != nil);
+    [SignalApp.sharedApp presentConversationForThread:thread action:ConversationViewActionCompose animated:NO];
+    [self.presentingViewController dismissViewControllerAnimated:YES completion:nil];
 }
 
 - (void)showNewGroupView:(id)sender
@@ -876,7 +881,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)recipientIdWasSelected:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     [self newConversationWithRecipientId:recipientId];
 }
@@ -922,11 +927,11 @@ NS_ASSUME_NONNULL_BEGIN
     dispatch_once(&onceToken, ^{
         NSMutableDictionary *map = [NSMutableDictionary new];
         for (NSString *countryCode in [PhoneNumberUtil countryCodesForSearchTerm:nil]) {
-            OWSAssert(countryCode.length > 0);
+            OWSAssertDebug(countryCode.length > 0);
             NSString *callingCode = [PhoneNumberUtil callingCodeFromCountryCode:countryCode];
-            OWSAssert(callingCode.length > 0);
-            OWSAssert([callingCode hasPrefix:@"+"]);
-            OWSAssert(![callingCode isEqualToString:@"+0"]);
+            OWSAssertDebug(callingCode.length > 0);
+            OWSAssertDebug([callingCode hasPrefix:@"+"]);
+            OWSAssertDebug(![callingCode isEqualToString:@"+0"]);
 
             map[callingCode] = countryCode;
         }
@@ -937,7 +942,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable NSString *)callingCodeForPossiblePhoneNumber:(NSString *)phoneNumber
 {
-    OWSAssert([phoneNumber hasPrefix:@"+"]);
+    OWSAssertDebug([phoneNumber hasPrefix:@"+"]);
 
     for (NSString *callingCode in [self callingCodesToCountryCodeMap].allKeys) {
         if ([phoneNumber hasPrefix:callingCode]) {
@@ -1023,7 +1028,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Theme
 
-- (void)themeDidChange:(id)notification
+- (void)themeDidChange:(NSNotification *)notification
 {
     OWSAssertIsOnMainThread();
 

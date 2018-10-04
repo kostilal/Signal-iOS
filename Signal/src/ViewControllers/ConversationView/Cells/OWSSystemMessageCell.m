@@ -73,7 +73,7 @@ typedef void (^SystemMessageActionBlock)(void);
 
 - (void)commontInit
 {
-    OWSAssert(!self.iconView);
+    OWSAssertDebug(!self.iconView);
 
     self.layoutMargins = UIEdgeInsetsZero;
     self.contentView.layoutMargins = UIEdgeInsetsZero;
@@ -161,11 +161,10 @@ typedef void (^SystemMessageActionBlock)(void);
     return NSStringFromClass([self class]);
 }
 
-- (void)loadForDisplayWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (void)loadForDisplay
 {
-    OWSAssert(self.conversationStyle);
-    OWSAssert(self.viewItem);
-    OWSAssert(transaction);
+    OWSAssertDebug(self.conversationStyle);
+    OWSAssertDebug(self.viewItem);
 
     self.cellBackgroundView.backgroundColor = [Theme conversationBackgroundColor];
 
@@ -185,7 +184,7 @@ typedef void (^SystemMessageActionBlock)(void);
     }
 
     self.titleLabel.textColor = [self textColor];
-    [self applyTitleForInteraction:interaction label:self.titleLabel transaction:transaction];
+    [self applyTitleForInteraction:interaction label:self.titleLabel];
     CGSize titleSize = [self titleSize];
 
     if (self.action) {
@@ -281,7 +280,7 @@ typedef void (^SystemMessageActionBlock)(void);
                     areDisappearingMessagesEnabled
                         = ((OWSDisappearingConfigurationUpdateInfoMessage *)interaction).configurationIsEnabled;
                 } else {
-                    OWSFail(@"%@ unexpected interaction type: %@", self.logTag, interaction.class);
+                    OWSFailDebug(@"unexpected interaction type: %@", interaction.class);
                 }
                 result = (areDisappearingMessagesEnabled
                         ? [UIImage imageNamed:@"system_message_disappearing_messages"]
@@ -289,7 +288,7 @@ typedef void (^SystemMessageActionBlock)(void);
                 break;
             }
             case TSInfoMessageVerificationStateChange:
-                OWSAssert([interaction isKindOfClass:[OWSVerificationStateChangeMessage class]]);
+                OWSAssertDebug([interaction isKindOfClass:[OWSVerificationStateChangeMessage class]]);
                 if ([interaction isKindOfClass:[OWSVerificationStateChangeMessage class]]) {
                     OWSVerificationStateChangeMessage *message = (OWSVerificationStateChangeMessage *)interaction;
                     BOOL isVerified = message.verificationState == OWSVerificationStateVerified;
@@ -303,61 +302,23 @@ typedef void (^SystemMessageActionBlock)(void);
     } else if ([interaction isKindOfClass:[TSCall class]]) {
         result = [UIImage imageNamed:@"system_message_call"];
     } else {
-        OWSFail(@"Unknown interaction type: %@", [interaction class]);
+        OWSFailDebug(@"Unknown interaction type: %@", [interaction class]);
         return nil;
     }
-    OWSAssert(result);
+    OWSAssertDebug(result);
     return result;
 }
 
 - (void)applyTitleForInteraction:(TSInteraction *)interaction
                            label:(UILabel *)label
-                     transaction:(YapDatabaseReadTransaction *)transaction
 {
-    OWSAssert(interaction);
-    OWSAssert(label);
-    OWSAssert(transaction);
+    OWSAssertDebug(interaction);
+    OWSAssertDebug(label);
+    OWSAssertDebug(self.viewItem.systemMessageText.length > 0);
 
     [self configureFonts];
 
-    // TODO: Should we move the copy generation into this view?
-
-    if ([interaction isKindOfClass:[TSErrorMessage class]]) {
-        TSErrorMessage *errorMessage = (TSErrorMessage *)interaction;
-        label.text = [errorMessage previewTextWithTransaction:transaction];
-    } else if ([interaction isKindOfClass:[TSInfoMessage class]]) {
-        TSInfoMessage *infoMessage = (TSInfoMessage *)interaction;
-        if ([infoMessage isKindOfClass:[OWSVerificationStateChangeMessage class]]) {
-            OWSVerificationStateChangeMessage *verificationMessage = (OWSVerificationStateChangeMessage *)infoMessage;
-            BOOL isVerified = verificationMessage.verificationState == OWSVerificationStateVerified;
-            NSString *displayName =
-                [[Environment current].contactsManager displayNameForPhoneIdentifier:verificationMessage.recipientId];
-            NSString *titleFormat = (isVerified
-                    ? (verificationMessage.isLocalChange
-                              ? NSLocalizedString(@"VERIFICATION_STATE_CHANGE_FORMAT_VERIFIED_LOCAL",
-                                    @"Format for info message indicating that the verification state was verified on "
-                                    @"this device. Embeds {{user's name or phone number}}.")
-                              : NSLocalizedString(@"VERIFICATION_STATE_CHANGE_FORMAT_VERIFIED_OTHER_DEVICE",
-                                    @"Format for info message indicating that the verification state was verified on "
-                                    @"another device. Embeds {{user's name or phone number}}."))
-                    : (verificationMessage.isLocalChange
-                              ? NSLocalizedString(@"VERIFICATION_STATE_CHANGE_FORMAT_NOT_VERIFIED_LOCAL",
-                                    @"Format for info message indicating that the verification state was unverified on "
-                                    @"this device. Embeds {{user's name or phone number}}.")
-                              : NSLocalizedString(@"VERIFICATION_STATE_CHANGE_FORMAT_NOT_VERIFIED_OTHER_DEVICE",
-                                    @"Format for info message indicating that the verification state was unverified on "
-                                    @"another device. Embeds {{user's name or phone number}}.")));
-            label.text = [NSString stringWithFormat:titleFormat, displayName];
-        } else {
-            label.text = [infoMessage previewTextWithTransaction:transaction];
-        }
-    } else if ([interaction isKindOfClass:[TSCall class]]) {
-        TSCall *call = (TSCall *)interaction;
-        label.text = [call previewTextWithTransaction:transaction];
-    } else {
-        OWSFail(@"Unknown interaction type: %@", [interaction class]);
-        label.text = nil;
-    }
+    label.text = self.viewItem.systemMessageText;
 }
 
 - (CGFloat)topVMargin
@@ -382,17 +343,17 @@ typedef void (^SystemMessageActionBlock)(void);
 
 - (CGSize)titleSize
 {
-    OWSAssert(self.conversationStyle);
-    OWSAssert(self.viewItem);
+    OWSAssertDebug(self.conversationStyle);
+    OWSAssertDebug(self.viewItem);
 
     CGFloat maxTitleWidth = (CGFloat)floor(self.conversationStyle.fullWidthContentWidth);
     return [self.titleLabel sizeThatFits:CGSizeMake(maxTitleWidth, CGFLOAT_MAX)];
 }
 
-- (CGSize)cellSizeWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (CGSize)cellSize
 {
-    OWSAssert(self.conversationStyle);
-    OWSAssert(self.viewItem);
+    OWSAssertDebug(self.conversationStyle);
+    OWSAssertDebug(self.viewItem);
 
     TSInteraction *interaction = self.viewItem.interaction;
 
@@ -409,7 +370,7 @@ typedef void (^SystemMessageActionBlock)(void);
         result.height += self.iconSize + self.iconVSpacing;
     }
 
-    [self applyTitleForInteraction:interaction label:self.titleLabel transaction:transaction];
+    [self applyTitleForInteraction:interaction label:self.titleLabel];
     CGSize titleSize = [self titleSize];
     result.height += titleSize.height;
 
@@ -428,7 +389,7 @@ typedef void (^SystemMessageActionBlock)(void);
 - (nullable SystemMessageAction *)actionForInteraction:(TSInteraction *)interaction
 {
     OWSAssertIsOnMainThread();
-    OWSAssert(interaction);
+    OWSAssertDebug(interaction);
 
     if ([interaction isKindOfClass:[TSErrorMessage class]]) {
         return [self actionForErrorMessage:(TSErrorMessage *)interaction];
@@ -437,14 +398,14 @@ typedef void (^SystemMessageActionBlock)(void);
     } else if ([interaction isKindOfClass:[TSCall class]]) {
         return [self actionForCall:(TSCall *)interaction];
     } else {
-        OWSFail(@"Tap for system messages of unknown type: %@", [interaction class]);
+        OWSFailDebug(@"Tap for system messages of unknown type: %@", [interaction class]);
         return nil;
     }
 }
 
 - (nullable SystemMessageAction *)actionForErrorMessage:(TSErrorMessage *)message
 {
-    OWSAssert(message);
+    OWSAssertDebug(message);
 
     __weak OWSSystemMessageCell *weakSelf = self;
     switch (message.errorType) {
@@ -477,7 +438,7 @@ typedef void (^SystemMessageActionBlock)(void);
         case TSErrorMessageInvalidVersion:
             return nil;
         case TSErrorMessageUnknownContactBlockOffer:
-            OWSFail(@"TSErrorMessageUnknownContactBlockOffer");
+            OWSFailDebug(@"TSErrorMessageUnknownContactBlockOffer");
             return nil;
         case TSErrorMessageGroupCreationFailed:
             return [SystemMessageAction actionWithTitle:CommonStrings.retryButton
@@ -486,13 +447,13 @@ typedef void (^SystemMessageActionBlock)(void);
                                                   }];
     }
 
-    DDLogWarn(@"%@ Unhandled tap for error message:%@", self.logTag, message);
+    OWSLogWarn(@"Unhandled tap for error message:%@", message);
     return nil;
 }
 
 - (nullable SystemMessageAction *)actionForInfoMessage:(TSInfoMessage *)message
 {
-    OWSAssert(message);
+    OWSAssertDebug(message);
 
     __weak OWSSystemMessageCell *weakSelf = self;
     switch (message.messageType) {
@@ -504,15 +465,15 @@ typedef void (^SystemMessageActionBlock)(void);
             return nil;
         case TSInfoMessageAddToContactsOffer:
             // Unused.
-            OWSFail(@"TSInfoMessageAddToContactsOffer");
+            OWSFailDebug(@"TSInfoMessageAddToContactsOffer");
             return nil;
         case TSInfoMessageAddUserToProfileWhitelistOffer:
             // Unused.
-            OWSFail(@"TSInfoMessageAddUserToProfileWhitelistOffer");
+            OWSFailDebug(@"TSInfoMessageAddUserToProfileWhitelistOffer");
             return nil;
         case TSInfoMessageAddGroupToProfileWhitelistOffer:
             // Unused.
-            OWSFail(@"TSInfoMessageAddGroupToProfileWhitelistOffer");
+            OWSFailDebug(@"TSInfoMessageAddGroupToProfileWhitelistOffer");
             return nil;
         case TSInfoMessageTypeGroupUpdate:
             return nil;
@@ -534,13 +495,13 @@ typedef void (^SystemMessageActionBlock)(void);
                           }];
     }
 
-    DDLogInfo(@"%@ Unhandled tap for info message: %@", self.logTag, message);
+    OWSLogInfo(@"Unhandled tap for info message: %@", message);
     return nil;
 }
 
 - (nullable SystemMessageAction *)actionForCall:(TSCall *)call
 {
-    OWSAssert(call);
+    OWSAssertDebug(call);
 
     __weak OWSSystemMessageCell *weakSelf = self;
     switch (call.callType) {
@@ -570,14 +531,14 @@ typedef void (^SystemMessageActionBlock)(void);
 
 - (void)handleLongPressGesture:(UILongPressGestureRecognizer *)longPress
 {
-    OWSAssert(self.delegate);
+    OWSAssertDebug(self.delegate);
 
     if ([self isGestureInCellHeader:longPress]) {
         return;
     }
 
     TSInteraction *interaction = self.viewItem.interaction;
-    OWSAssert(interaction);
+    OWSAssertDebug(interaction);
 
     if (longPress.state == UIGestureRecognizerStateBegan) {
         [self.delegate conversationCell:self didLongpressSystemMessageViewItem:self.viewItem];
@@ -586,7 +547,7 @@ typedef void (^SystemMessageActionBlock)(void);
 
 - (BOOL)isGestureInCellHeader:(UIGestureRecognizer *)sender
 {
-    OWSAssert(self.viewItem);
+    OWSAssertDebug(self.viewItem);
 
     if (!self.viewItem.hasCellHeader) {
         return NO;
@@ -600,7 +561,7 @@ typedef void (^SystemMessageActionBlock)(void);
 - (void)buttonWasPressed:(id)sender
 {
     if (!self.action.block) {
-        OWSFail(@"%@ Missing action", self.logTag);
+        OWSFailDebug(@"Missing action");
     } else {
         self.action.block();
     }

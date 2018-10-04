@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
 import UIKit
@@ -50,7 +50,7 @@ class SAELoadViewController: UIViewController {
 
     @available(*, unavailable, message:"use other constructor instead.")
     required init?(coder aDecoder: NSCoder) {
-        fatalError("\(#function) is unimplemented.")
+        notImplemented()
     }
 
     override func loadView() {
@@ -63,7 +63,7 @@ class SAELoadViewController: UIViewController {
 
         self.view.backgroundColor = UIColor.ows_signalBrandBlue
 
-        let activityIndicator = UIActivityIndicatorView(activityIndicatorStyle:.whiteLarge)
+        let activityIndicator = UIActivityIndicatorView(activityIndicatorStyle: .whiteLarge)
         self.activityIndicator = activityIndicator
         self.view.addSubview(activityIndicator)
         activityIndicator.autoCenterInSuperview()
@@ -103,7 +103,7 @@ class SAELoadViewController: UIViewController {
 
     @objc func cancelPressed(sender: UIButton) {
         guard let delegate = delegate else {
-            owsFail("\(self.logTag) missing delegate")
+            owsFailDebug("missing delegate")
             return
         }
         delegate.shareViewWasCancelled()

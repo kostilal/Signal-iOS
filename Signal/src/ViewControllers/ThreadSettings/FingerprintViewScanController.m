@@ -36,17 +36,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)configureWithRecipientId:(NSString *)recipientId
 {
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     self.recipientId = recipientId;
     self.accountManager = [TSAccountManager sharedInstance];
 
-    OWSContactsManager *contactsManager = [Environment current].contactsManager;
+    OWSContactsManager *contactsManager = Environment.shared.contactsManager;
     self.contactName = [contactsManager displayNameForPhoneIdentifier:recipientId];
 
     OWSRecipientIdentity *_Nullable recipientIdentity =
         [[OWSIdentityManager sharedManager] recipientIdentityForRecipientId:recipientId];
-    OWSAssert(recipientIdentity);
+    OWSAssertDebug(recipientIdentity);
     // By capturing the identity key when we enter these views, we prevent the edge case
     // where the user verifies a key that we learned about while this view was open.
     self.identityKey = recipientIdentity.identityKey;
@@ -68,9 +68,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)createViews
 {
-    UIColor *darkGrey = [UIColor colorWithRGBHex:0x404040];
-
-    self.view.backgroundColor = [UIColor blackColor];
+    self.view.backgroundColor = UIColor.blackColor;
 
     self.qrScanningController = [OWSQRCodeScanningViewController new];
     self.qrScanningController.scanDelegate = self;
@@ -79,7 +77,7 @@ NS_ASSUME_NONNULL_BEGIN
     [self.qrScanningController.view autoPinToTopLayoutGuideOfViewController:self withInset:0];
 
     UIView *footer = [UIView new];
-    footer.backgroundColor = darkGrey;
+    footer.backgroundColor = [UIColor colorWithWhite:0.25f alpha:1.f];
     [self.view addSubview:footer];
     [footer autoPinWidthToSuperview];
     [footer autoPinEdgeToSuperviewEdge:ALEdgeBottom];
@@ -112,7 +110,7 @@ NS_ASSUME_NONNULL_BEGIN
             // Also, it's less obvious whats being "shared" at this point,
             // so just disable sharing when in capture mode.
 
-            DDLogInfo(@"%@ Showing Scanner", self.logTag);
+            OWSLogInfo(@"Showing Scanner");
 
             [self.qrScanningController startCapture];
         } else {
@@ -167,13 +165,13 @@ NS_ASSUME_NONNULL_BEGIN
                       contactName:(NSString *)contactName
                               tag:(NSString *)tag
 {
-    OWSAssert(viewController);
-    OWSAssert(identityKey.length > 0);
-    OWSAssert(recipientId.length > 0);
-    OWSAssert(contactName.length > 0);
-    OWSAssert(tag.length > 0);
+    OWSAssertDebug(viewController);
+    OWSAssertDebug(identityKey.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
+    OWSAssertDebug(contactName.length > 0);
+    OWSAssertDebug(tag.length > 0);
 
-    DDLogInfo(@"%@ Successfully verified safety numbers.", tag);
+    OWSLogInfo(@"%@ Successfully verified safety numbers.", tag);
 
     NSString *successTitle = NSLocalizedString(@"SUCCESSFUL_VERIFICATION_TITLE", nil);
     NSString *descriptionFormat = NSLocalizedString(
@@ -211,11 +209,11 @@ NS_ASSUME_NONNULL_BEGIN
                             cancelBlock:(void (^_Nonnull)(void))cancelBlock
                                     tag:(NSString *)tag
 {
-    OWSAssert(viewController);
-    OWSAssert(cancelBlock);
-    OWSAssert(tag.length > 0);
+    OWSAssertDebug(viewController);
+    OWSAssertDebug(cancelBlock);
+    OWSAssertDebug(tag.length > 0);
 
-    DDLogInfo(@"%@ Failed to verify safety numbers.", tag);
+    OWSLogInfo(@"%@ Failed to verify safety numbers.", tag);
 
     NSString *_Nullable failureTitle;
     if (error.code != OWSErrorCodeUserError) {
@@ -238,7 +236,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     [viewController presentViewController:alertController animated:YES completion:nil];
 
-    DDLogWarn(@"%@ Identity verification failed with error: %@", tag, error);
+    OWSLogWarn(@"%@ Identity verification failed with error: %@", tag, error);
 }
 
 - (void)dismissViewControllerAnimated:(BOOL)animated completion:(nullable void (^)(void))completion

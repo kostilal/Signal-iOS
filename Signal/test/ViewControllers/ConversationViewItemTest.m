@@ -3,17 +3,16 @@
 //
 
 #import "ConversationViewItem.h"
+#import "SignalBaseTest.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <SignalMessaging/SignalMessaging-Swift.h>
 #import <SignalServiceKit/MIMETypeUtil.h>
-#import <SignalServiceKit/SecurityUtils.h>
 #import <SignalServiceKit/TSAttachmentStream.h>
 #import <SignalServiceKit/TSContactThread.h>
 #import <SignalServiceKit/TSOutgoingMessage.h>
-#import <XCTest/XCTest.h>
 #import <YapDatabase/YapDatabaseConnection.h>
 
-@interface ConversationViewItemTest : XCTestCase
+@interface ConversationViewItemTest : SignalBaseTest
 
 @property TSThread *thread;
 @property ConversationStyle *conversationStyle;
@@ -40,68 +39,68 @@
     return @"abc";
 }
 
-- (ConversationViewItem *)textViewItem
+- (ConversationInteractionViewItem *)textViewItem
 {
     TSOutgoingMessage *message =
         [TSOutgoingMessage outgoingMessageInThread:self.thread messageBody:self.fakeTextMessageText attachmentId:nil];
     [message save];
-    __block ConversationViewItem *viewItem = nil;
-    [TSYapDatabaseObject.dbReadConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        viewItem = [[ConversationViewItem alloc] initWithInteraction:message
-                                                       isGroupThread:NO
-                                                         transaction:transaction
-                                                   conversationStyle:self.conversationStyle];
+    __block ConversationInteractionViewItem *viewItem = nil;
+    [self readWithBlock:^(YapDatabaseReadTransaction *transaction) {
+        viewItem = [[ConversationInteractionViewItem alloc] initWithInteraction:message
+                                                                  isGroupThread:NO
+                                                                    transaction:transaction
+                                                              conversationStyle:self.conversationStyle];
     }];
     return viewItem;
 }
 
-- (ConversationViewItem *)viewItemWithAttachmentMimetype:(NSString *)mimeType filename:(NSString *)filename
+- (ConversationInteractionViewItem *)viewItemWithAttachmentMimetype:(NSString *)mimeType filename:(NSString *)filename
 {
-    OWSAssert(filename.length > 0);
+    OWSAssertDebug(filename.length > 0);
 
     NSString *resourcePath = [[NSBundle bundleForClass:[self class]] resourcePath];
     NSString *filePath = [resourcePath stringByAppendingPathComponent:filename];
 
-    OWSAssert([[NSFileManager defaultManager] fileExistsAtPath:filePath]);
+    OWSAssertDebug([[NSFileManager defaultManager] fileExistsAtPath:filePath]);
 
-    DataSource *dataSource = [DataSourcePath dataSourceWithFilePath:filePath];
+    DataSource *dataSource = [DataSourcePath dataSourceWithFilePath:filePath shouldDeleteOnDeallocation:NO];
     TSAttachmentStream *attachment = [[TSAttachmentStream alloc] initWithContentType:mimeType
                                                                            byteCount:(UInt32)dataSource.dataLength
                                                                       sourceFilename:nil];
     BOOL success = [attachment writeDataSource:dataSource];
-    OWSAssert(success);
+    OWSAssertDebug(success);
     [attachment save];
     TSOutgoingMessage *message =
         [TSOutgoingMessage outgoingMessageInThread:self.thread messageBody:nil attachmentId:attachment.uniqueId];
     [message save];
 
-    __block ConversationViewItem *viewItem = nil;
-    [TSYapDatabaseObject.dbReadConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        viewItem = [[ConversationViewItem alloc] initWithInteraction:message
-                                                       isGroupThread:NO
-                                                         transaction:transaction
-                                                   conversationStyle:self.conversationStyle];
+    __block ConversationInteractionViewItem *viewItem = nil;
+    [self readWithBlock:^(YapDatabaseReadTransaction *transaction) {
+        viewItem = [[ConversationInteractionViewItem alloc] initWithInteraction:message
+                                                                  isGroupThread:NO
+                                                                    transaction:transaction
+                                                              conversationStyle:self.conversationStyle];
     }];
 
     return viewItem;
 }
 
-- (ConversationViewItem *)stillImageViewItem
+- (ConversationInteractionViewItem *)stillImageViewItem
 {
     return [self viewItemWithAttachmentMimetype:OWSMimeTypeImageJpeg filename:@"test-jpg.jpg"];
 }
 
-- (ConversationViewItem *)animatedImageViewItem
+- (ConversationInteractionViewItem *)animatedImageViewItem
 {
     return [self viewItemWithAttachmentMimetype:OWSMimeTypeImageGif filename:@"test-gif.gif"];
 }
 
-- (ConversationViewItem *)videoViewItem
+- (ConversationInteractionViewItem *)videoViewItem
 {
     return [self viewItemWithAttachmentMimetype:@"video/mp4" filename:@"test-mp4.mp4"];
 }
 
-- (ConversationViewItem *)audioViewItem
+- (ConversationInteractionViewItem *)audioViewItem
 {
     return [self viewItemWithAttachmentMimetype:@"audio/mp3" filename:@"test-mp3.mp3"];
 }
@@ -110,7 +109,7 @@
 
 - (void)testPerformDeleteEditingActionWithNonMediaMessage
 {
-    ConversationViewItem *viewItem = self.textViewItem;
+    ConversationInteractionViewItem *viewItem = self.textViewItem;
 
     XCTAssertNotNil([TSMessage fetchObjectWithUniqueID:viewItem.interaction.uniqueId]);
     [viewItem deleteAction];
@@ -119,7 +118,7 @@
 
 - (void)testPerformDeleteActionWithPhotoMessage
 {
-    ConversationViewItem *viewItem = self.stillImageViewItem;
+    ConversationInteractionViewItem *viewItem = self.stillImageViewItem;
 
     XCTAssertEqual((NSUInteger)1, ((TSMessage *)viewItem.interaction).attachmentIds.count);
     NSString *_Nullable attachmentId = ((TSMessage *)viewItem.interaction).attachmentIds.firstObject;
@@ -127,7 +126,7 @@
     TSAttachment *_Nullable attachment = [TSAttachment fetchObjectWithUniqueID:attachmentId];
     XCTAssertTrue([attachment isKindOfClass:[TSAttachmentStream class]]);
     TSAttachmentStream *_Nullable attachmentStream = (TSAttachmentStream *)attachment;
-    NSString *_Nullable filePath = attachmentStream.filePath;
+    NSString *_Nullable filePath = attachmentStream.originalFilePath;
     XCTAssertNotNil(filePath);
 
     XCTAssertNotNil([TSMessage fetchObjectWithUniqueID:viewItem.interaction.uniqueId]);
@@ -141,7 +140,7 @@
 
 - (void)testPerformDeleteEditingActionWithAnimatedMessage
 {
-    ConversationViewItem *viewItem = self.animatedImageViewItem;
+    ConversationInteractionViewItem *viewItem = self.animatedImageViewItem;
 
     XCTAssertEqual((NSUInteger)1, ((TSMessage *)viewItem.interaction).attachmentIds.count);
     NSString *_Nullable attachmentId = ((TSMessage *)viewItem.interaction).attachmentIds.firstObject;
@@ -149,7 +148,7 @@
     TSAttachment *_Nullable attachment = [TSAttachment fetchObjectWithUniqueID:attachmentId];
     XCTAssertTrue([attachment isKindOfClass:[TSAttachmentStream class]]);
     TSAttachmentStream *_Nullable attachmentStream = (TSAttachmentStream *)attachment;
-    NSString *_Nullable filePath = attachmentStream.filePath;
+    NSString *_Nullable filePath = attachmentStream.originalFilePath;
     XCTAssertNotNil(filePath);
 
     XCTAssertNotNil([TSMessage fetchObjectWithUniqueID:viewItem.interaction.uniqueId]);
@@ -163,7 +162,7 @@
 
 - (void)testPerformDeleteEditingActionWithVideoMessage
 {
-    ConversationViewItem *viewItem = self.videoViewItem;
+    ConversationInteractionViewItem *viewItem = self.videoViewItem;
 
     XCTAssertEqual((NSUInteger)1, ((TSMessage *)viewItem.interaction).attachmentIds.count);
     NSString *_Nullable attachmentId = ((TSMessage *)viewItem.interaction).attachmentIds.firstObject;
@@ -171,7 +170,7 @@
     TSAttachment *_Nullable attachment = [TSAttachment fetchObjectWithUniqueID:attachmentId];
     XCTAssertTrue([attachment isKindOfClass:[TSAttachmentStream class]]);
     TSAttachmentStream *_Nullable attachmentStream = (TSAttachmentStream *)attachment;
-    NSString *_Nullable filePath = attachmentStream.filePath;
+    NSString *_Nullable filePath = attachmentStream.originalFilePath;
     XCTAssertNotNil(filePath);
 
     XCTAssertNotNil([TSMessage fetchObjectWithUniqueID:viewItem.interaction.uniqueId]);
@@ -185,7 +184,7 @@
 
 - (void)testPerformDeleteEditingActionWithAudioMessage
 {
-    ConversationViewItem *viewItem = self.audioViewItem;
+    ConversationInteractionViewItem *viewItem = self.audioViewItem;
 
     XCTAssertEqual((NSUInteger)1, ((TSMessage *)viewItem.interaction).attachmentIds.count);
     NSString *_Nullable attachmentId = ((TSMessage *)viewItem.interaction).attachmentIds.firstObject;
@@ -193,7 +192,7 @@
     TSAttachment *_Nullable attachment = [TSAttachment fetchObjectWithUniqueID:attachmentId];
     XCTAssertTrue([attachment isKindOfClass:[TSAttachmentStream class]]);
     TSAttachmentStream *_Nullable attachmentStream = (TSAttachmentStream *)attachment;
-    NSString *_Nullable filePath = attachmentStream.filePath;
+    NSString *_Nullable filePath = attachmentStream.originalFilePath;
     XCTAssertNotNil(filePath);
 
     XCTAssertNotNil([TSMessage fetchObjectWithUniqueID:viewItem.interaction.uniqueId]);
@@ -213,7 +212,7 @@
     UIPasteboard.generalPasteboard.items = @[];
     XCTAssertNil(UIPasteboard.generalPasteboard.string);
 
-    ConversationViewItem *viewItem = self.textViewItem;
+    ConversationInteractionViewItem *viewItem = self.textViewItem;
     [viewItem copyTextAction];
     XCTAssertEqualObjects(self.fakeTextMessageText, UIPasteboard.generalPasteboard.string);
 }
@@ -225,7 +224,7 @@
     XCTAssertNil(UIPasteboard.generalPasteboard.image);
     XCTAssertNil([UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeJPEG]);
 
-    ConversationViewItem *viewItem = self.stillImageViewItem;
+    ConversationInteractionViewItem *viewItem = self.stillImageViewItem;
     [viewItem copyMediaAction];
     NSData *_Nullable copiedData = [UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeJPEG];
     XCTAssertTrue(copiedData.length > 0);
@@ -238,7 +237,7 @@
     XCTAssertNil(UIPasteboard.generalPasteboard.image);
     XCTAssertNil([UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeGIF]);
 
-    ConversationViewItem *viewItem = self.animatedImageViewItem;
+    ConversationInteractionViewItem *viewItem = self.animatedImageViewItem;
     [viewItem copyMediaAction];
     NSData *_Nullable copiedData = [UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeGIF];
     XCTAssertTrue(copiedData.length > 0);
@@ -250,7 +249,7 @@
     UIPasteboard.generalPasteboard.items = @[];
     XCTAssertNil([UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeMPEG4]);
 
-    ConversationViewItem *viewItem = self.videoViewItem;
+    ConversationInteractionViewItem *viewItem = self.videoViewItem;
     [viewItem copyMediaAction];
     NSData *_Nullable copiedData = [UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeMPEG4];
     XCTAssertTrue(copiedData.length > 0);
@@ -262,7 +261,7 @@
     UIPasteboard.generalPasteboard.items = @[];
     XCTAssertNil([UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeMP3]);
 
-    ConversationViewItem *viewItem = self.audioViewItem;
+    ConversationInteractionViewItem *viewItem = self.audioViewItem;
     [viewItem copyMediaAction];
     NSData *_Nullable copiedData = [UIPasteboard.generalPasteboard dataForPasteboardType:(NSString *)kUTTypeMP3];
     XCTAssertTrue(copiedData.length > 0);

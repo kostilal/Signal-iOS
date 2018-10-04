@@ -3,10 +3,10 @@
 //
 
 #import "DebugUIDiskUsage.h"
+#import "OWSOrphanDataCleaner.h"
 #import "OWSTableViewController.h"
 #import "Signal-Swift.h"
 #import <SignalServiceKit/NSDate+OWS.h>
-#import <SignalServiceKit/OWSOrphanedDataCleaner.h>
 #import <SignalServiceKit/OWSPrimaryStorage.h>
 #import <SignalServiceKit/TSDatabaseView.h>
 #import <SignalServiceKit/TSInteraction.h>
@@ -28,11 +28,11 @@ NS_ASSUME_NONNULL_BEGIN
                                        items:@[
                                            [OWSTableItem itemWithTitle:@"Audit & Log"
                                                            actionBlock:^{
-                                                               [OWSOrphanedDataCleaner auditAsync];
+                                                               [OWSOrphanDataCleaner auditAndCleanup:NO];
                                                            }],
                                            [OWSTableItem itemWithTitle:@"Audit & Clean Up"
                                                            actionBlock:^{
-                                                               [OWSOrphanedDataCleaner auditAndCleanupAsync:nil];
+                                                               [OWSOrphanDataCleaner auditAndCleanup:YES];
                                                            }],
                                            [OWSTableItem itemWithTitle:@"Save All Attachments"
                                                            actionBlock:^{
@@ -60,7 +60,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                   [attachmentStreams addObject:attachmentStream];
                                               }];
 
-        DDLogInfo(@"Saving %zd attachment streams.", attachmentStreams.count);
+        OWSLogInfo(@"Saving %zd attachment streams.", attachmentStreams.count);
 
         // Persist the new localRelativeFilePath property of TSAttachmentStream.
         // For performance, we want to upgrade all existing attachment streams in
@@ -103,7 +103,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                       }];
         }
 
-        DDLogInfo(@"Deleting %zd interactions.", interactionsToDelete.count);
+        OWSLogInfo(@"Deleting %zd interactions.", interactionsToDelete.count);
 
         for (TSInteraction *interaction in interactionsToDelete) {
             [interaction removeWithTransaction:transaction];

@@ -3,7 +3,7 @@
 //
 
 #import "OWSEndSessionMessage.h"
-#import "OWSSignalServiceProtos.pb.h"
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -23,7 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
                                   expiresInSeconds:0
                                    expireStartedAt:0
                                     isVoiceMessage:NO
-                                  groupMetaMessage:TSGroupMessageUnspecified
+                                  groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil];
 }
@@ -33,11 +33,14 @@ NS_ASSUME_NONNULL_BEGIN
     return NO;
 }
 
-- (OWSSignalServiceProtosDataMessageBuilder *)dataMessageBuilder
+- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilder
 {
-    OWSSignalServiceProtosDataMessageBuilder *builder = [super dataMessageBuilder];
+    SSKProtoDataMessageBuilder *_Nullable builder = [super dataMessageBuilder];
+    if (!builder) {
+        return nil;
+    }
     [builder setTimestamp:self.timestamp];
-    [builder setFlags:OWSSignalServiceProtosDataMessageFlagsEndSession];
+    [builder setFlags:SSKProtoDataMessageFlagsEndSession];
 
     return builder;
 }

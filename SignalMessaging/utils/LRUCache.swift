@@ -54,13 +54,13 @@ public class LRUCache<KeyType: Hashable & Equatable, ValueType> {
     }
 
     @objc func didEnterBackground() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         clear()
     }
 
     @objc func didReceiveMemoryWarning() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         clear()
     }
@@ -89,7 +89,7 @@ public class LRUCache<KeyType: Hashable & Equatable, ValueType> {
 
         while cacheOrder.count > maxSize {
             guard let staleKey = cacheOrder.first else {
-                owsFail("Cache ordering unexpectedly empty")
+                owsFailDebug("Cache ordering unexpectedly empty")
                 return
             }
             cacheOrder.removeFirst()

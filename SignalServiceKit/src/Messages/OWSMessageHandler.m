@@ -3,37 +3,36 @@
 //
 
 #import "OWSMessageHandler.h"
-#import "OWSSignalServiceProtos.pb.h"
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 // used in log formatting
-NSString *envelopeAddress(SSKEnvelope *envelope)
+NSString *envelopeAddress(SSKProtoEnvelope *envelope)
 {
     return [NSString stringWithFormat:@"%@.%d", envelope.source, (unsigned int)envelope.sourceDevice];
 }
 
 @implementation OWSMessageHandler
 
-- (NSString *)descriptionForEnvelopeType:(SSKEnvelope *)envelope
+- (NSString *)descriptionForEnvelopeType:(SSKProtoEnvelope *)envelope
 {
-    OWSAssert(envelope != nil);
+    OWSAssertDebug(envelope != nil);
 
     switch (envelope.type) {
-        case SSKEnvelopeTypeReceipt:
+        case SSKProtoEnvelopeTypeReceipt:
             return @"DeliveryReceipt";
-        case SSKEnvelopeTypeUnknown:
+        case SSKProtoEnvelopeTypeUnknown:
             // Shouldn't happen
             OWSProdFail([OWSAnalyticsEvents messageManagerErrorEnvelopeTypeUnknown]);
             return @"Unknown";
-        case SSKEnvelopeTypeCiphertext:
+        case SSKProtoEnvelopeTypeCiphertext:
             return @"SignalEncryptedMessage";
-        case SSKEnvelopeTypeKeyExchange:
+        case SSKProtoEnvelopeTypeKeyExchange:
             // Unsupported
             OWSProdFail([OWSAnalyticsEvents messageManagerErrorEnvelopeTypeKeyExchange]);
             return @"KeyExchange";
-        case SSKEnvelopeTypePrekeyBundle:
+        case SSKProtoEnvelopeTypePrekeyBundle:
             return @"PreKeyEncryptedMessage";
         default:
             // Shouldn't happen
@@ -42,9 +41,9 @@ NSString *envelopeAddress(SSKEnvelope *envelope)
     }
 }
 
-- (NSString *)descriptionForEnvelope:(SSKEnvelope *)envelope
+- (NSString *)descriptionForEnvelope:(SSKProtoEnvelope *)envelope
 {
-    OWSAssert(envelope != nil);
+    OWSAssertDebug(envelope != nil);
 
     return [NSString stringWithFormat:@"<Envelope type: %@, source: %@, timestamp: %llu content.length: %lu />",
                      [self descriptionForEnvelopeType:envelope],
@@ -57,49 +56,49 @@ NSString *envelopeAddress(SSKEnvelope *envelope)
  * We don't want to just log `content.description` because we'd potentially log message bodies for dataMesssages and
  * sync transcripts
  */
-- (NSString *)descriptionForContent:(OWSSignalServiceProtosContent *)content
+- (NSString *)descriptionForContent:(SSKProtoContent *)content
 {
-    if (content.hasSyncMessage) {
+    if (content.syncMessage) {
         return [NSString stringWithFormat:@"<SyncMessage: %@ />", [self descriptionForSyncMessage:content.syncMessage]];
-    } else if (content.hasDataMessage) {
+    } else if (content.dataMessage) {
         return [NSString stringWithFormat:@"<DataMessage: %@ />", [self descriptionForDataMessage:content.dataMessage]];
-    } else if (content.hasCallMessage) {
+    } else if (content.callMessage) {
         NSString *callMessageDescription = [self descriptionForCallMessage:content.callMessage];
         return [NSString stringWithFormat:@"<CallMessage %@ />", callMessageDescription];
-    } else if (content.hasNullMessage) {
+    } else if (content.nullMessage) {
         return [NSString stringWithFormat:@"<NullMessage: %@ />", content.nullMessage];
-    } else if (content.hasReceiptMessage) {
+    } else if (content.receiptMessage) {
         return [NSString stringWithFormat:@"<ReceiptMessage: %@ />", content.receiptMessage];
     } else {
         // Don't fire an analytics event; if we ever add a new content type, we'd generate a ton of
         // analytics traffic.
-        OWSFail(@"Unknown content type.");
+        OWSFailDebug(@"Unknown content type.");
         return @"UnknownContent";
     }
 }
 
-- (NSString *)descriptionForCallMessage:(OWSSignalServiceProtosCallMessage *)callMessage
+- (NSString *)descriptionForCallMessage:(SSKProtoCallMessage *)callMessage
 {
     NSString *messageType;
     UInt64 callId;
-    
-    if (callMessage.hasOffer) {
+
+    if (callMessage.offer) {
         messageType = @"Offer";
         callId = callMessage.offer.id;
-    } else if (callMessage.hasBusy) {
+    } else if (callMessage.busy) {
         messageType = @"Busy";
         callId = callMessage.busy.id;
-    } else if (callMessage.hasAnswer) {
+    } else if (callMessage.answer) {
         messageType = @"Answer";
         callId = callMessage.answer.id;
-    } else if (callMessage.hasHangup) {
+    } else if (callMessage.hangup) {
         messageType = @"Hangup";
         callId = callMessage.hangup.id;
     } else if (callMessage.iceUpdate.count > 0) {
         messageType = [NSString stringWithFormat:@"Ice Updates (%lu)", (unsigned long)callMessage.iceUpdate.count];
         callId = callMessage.iceUpdate.firstObject.id;
     } else {
-        OWSFail(@"%@ failure: unexpected call message type: %@", self.logTag, callMessage);
+        OWSFailDebug(@"failure: unexpected call message type: %@", callMessage);
         messageType = @"Unknown";
         callId = 0;
     }
@@ -110,19 +109,19 @@ NSString *envelopeAddress(SSKEnvelope *envelope)
 /**
  * We don't want to just log `dataMessage.description` because we'd potentially log message contents
  */
-- (NSString *)descriptionForDataMessage:(OWSSignalServiceProtosDataMessage *)dataMessage
+- (NSString *)descriptionForDataMessage:(SSKProtoDataMessage *)dataMessage
 {
     NSMutableString *description = [NSMutableString new];
 
-    if (dataMessage.hasGroup) {
+    if (dataMessage.group) {
         [description appendString:@"(Group:YES) "];
     }
 
-    if ((dataMessage.flags & OWSSignalServiceProtosDataMessageFlagsEndSession) != 0) {
+    if ((dataMessage.flags & SSKProtoDataMessageFlagsEndSession) != 0) {
         [description appendString:@"EndSession"];
-    } else if ((dataMessage.flags & OWSSignalServiceProtosDataMessageFlagsExpirationTimerUpdate) != 0) {
+    } else if ((dataMessage.flags & SSKProtoDataMessageFlagsExpirationTimerUpdate) != 0) {
         [description appendString:@"ExpirationTimerUpdate"];
-    } else if ((dataMessage.flags & OWSSignalServiceProtosDataMessageFlagsProfileKeyUpdate) != 0) {
+    } else if ((dataMessage.flags & SSKProtoDataMessageFlagsProfileKeyUpdate) != 0) {
         [description appendString:@"ProfileKey"];
     } else if (dataMessage.attachments.count > 0) {
         [description appendString:@"MessageWithAttachment"];
@@ -136,36 +135,34 @@ NSString *envelopeAddress(SSKEnvelope *envelope)
 /**
  * We don't want to just log `syncMessage.description` because we'd potentially log message contents in sent transcripts
  */
-- (NSString *)descriptionForSyncMessage:(OWSSignalServiceProtosSyncMessage *)syncMessage
+- (NSString *)descriptionForSyncMessage:(SSKProtoSyncMessage *)syncMessage
 {
     NSMutableString *description = [NSMutableString new];
-    if (syncMessage.hasSent) {
+    if (syncMessage.sent) {
         [description appendString:@"SentTranscript"];
-    } else if (syncMessage.hasRequest) {
-        if (syncMessage.request.type == OWSSignalServiceProtosSyncMessageRequestTypeContacts) {
+    } else if (syncMessage.request) {
+        if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeContacts) {
             [description appendString:@"ContactRequest"];
-        } else if (syncMessage.request.type == OWSSignalServiceProtosSyncMessageRequestTypeGroups) {
+        } else if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeGroups) {
             [description appendString:@"GroupRequest"];
-        } else if (syncMessage.request.type == OWSSignalServiceProtosSyncMessageRequestTypeBlocked) {
+        } else if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeBlocked) {
             [description appendString:@"BlockedRequest"];
-        } else if (syncMessage.request.type == OWSSignalServiceProtosSyncMessageRequestTypeConfiguration) {
+        } else if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeConfiguration) {
             [description appendString:@"ConfigurationRequest"];
         } else {
-            // Shouldn't happen
-            OWSFail(@"Unknown sync message request type");
+            OWSFailDebug(@"Unknown sync message request type");
             [description appendString:@"UnknownRequest"];
         }
-    } else if (syncMessage.hasBlocked) {
+    } else if (syncMessage.blocked) {
         [description appendString:@"Blocked"];
     } else if (syncMessage.read.count > 0) {
         [description appendString:@"ReadReceipt"];
-    } else if (syncMessage.hasVerified) {
+    } else if (syncMessage.verified) {
         NSString *verifiedString =
             [NSString stringWithFormat:@"Verification for: %@", syncMessage.verified.destination];
         [description appendString:verifiedString];
     } else {
-        // Shouldn't happen
-        OWSFail(@"Unknown sync message type");
+        OWSFailDebug(@"Unknown sync message type");
         [description appendString:@"Unknown"];
     }
 

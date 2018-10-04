@@ -53,8 +53,8 @@ static NSString *const OWSMediaGalleryFinderExtensionName = @"OWSMediaGalleryFin
                                                                           forKey:message.uniqueId
                                                                     inCollection:[TSMessage collection]];
 
-    OWSAssert(wasFound);
-    OWSAssert([self.mediaGroup isEqual:groupId]);
+    OWSAssertDebug(wasFound);
+    OWSAssertDebug([self.mediaGroup isEqual:groupId]);
 
     return index;
 }
@@ -84,7 +84,7 @@ static NSString *const OWSMediaGalleryFinderExtensionName = @"OWSMediaGalleryFin
                                 NSUInteger index,
                                 BOOL *_Nonnull stop) {
 
-                                OWSAssert([object isKindOfClass:[TSMessage class]]);
+                                OWSAssertDebug([object isKindOfClass:[TSMessage class]]);
                                 messageBlock((TSMessage *)object);
                             }];
 }
@@ -94,7 +94,7 @@ static NSString *const OWSMediaGalleryFinderExtensionName = @"OWSMediaGalleryFin
 - (YapDatabaseAutoViewTransaction *)galleryExtensionWithTransaction:(YapDatabaseReadTransaction *)transaction
 {
     YapDatabaseAutoViewTransaction *extension = [transaction extension:OWSMediaGalleryFinderExtensionName];
-    OWSAssert(extension);
+    OWSAssertDebug(extension);
     
     return extension;
 }
@@ -127,13 +127,13 @@ static NSString *const OWSMediaGalleryFinderExtensionName = @"OWSMediaGalleryFin
     YapDatabaseViewSorting *sorting = [YapDatabaseViewSorting withObjectBlock:^NSComparisonResult(YapDatabaseReadTransaction * _Nonnull transaction, NSString * _Nonnull group, NSString * _Nonnull collection1, NSString * _Nonnull key1, id  _Nonnull object1, NSString * _Nonnull collection2, NSString * _Nonnull key2, id  _Nonnull object2) {
         
         if (![object1 isKindOfClass:[TSMessage class]]) {
-            OWSFail(@"%@ Unexpected object while sorting: %@", self.logTag, [object1 class]);
+            OWSFailDebug(@"Unexpected object while sorting: %@", [object1 class]);
             return NSOrderedSame;
         }
         TSMessage *message1 = (TSMessage *)object1;
         
         if (![object2 isKindOfClass:[TSMessage class]]) {
-            OWSFail(@"%@ Unexpected object while sorting: %@", self.logTag, [object2 class]);
+            OWSFailDebug(@"Unexpected object while sorting: %@", [object2 class]);
             return NSOrderedSame;
         }
         TSMessage *message2 = (TSMessage *)object2;
@@ -148,7 +148,7 @@ static NSString *const OWSMediaGalleryFinderExtensionName = @"OWSMediaGalleryFin
         }
         TSMessage *message = (TSMessage *)object;
         
-        OWSAssert(message.attachmentIds.count <= 1);
+        OWSAssertDebug(message.attachmentIds.count <= 1);
         NSString *attachmentId = message.attachmentIds.firstObject;
         if (attachmentId.length == 0) {
             return nil;
@@ -164,7 +164,7 @@ static NSString *const OWSMediaGalleryFinderExtensionName = @"OWSMediaGalleryFin
     YapDatabaseViewOptions *options = [YapDatabaseViewOptions new];
     options.allowedCollections = [[YapWhitelistBlacklist alloc] initWithWhitelist:[NSSet setWithObject:TSMessage.collection]];
 
-    return [[YapDatabaseAutoView alloc] initWithGrouping:grouping sorting:sorting versionTag:@"1" options:options];
+    return [[YapDatabaseAutoView alloc] initWithGrouping:grouping sorting:sorting versionTag:@"3" options:options];
 }
 
 + (BOOL)attachmentIdShouldAppearInMediaGallery:(NSString *)attachmentId transaction:(YapDatabaseReadTransaction *)transaction
@@ -176,8 +176,20 @@ static NSString *const OWSMediaGalleryFinderExtensionName = @"OWSMediaGalleryFin
     if (![attachment isKindOfClass:[TSAttachmentStream class]]) {
         return NO;
     }
-    
-    return attachment.isImage || attachment.isVideo || attachment.isAnimated;
+
+    if (attachment.isImage && attachment.isValidImage) {
+        return YES;
+    }
+
+    if (attachment.isVideo && attachment.isValidVideo) {
+        return YES;
+    }
+
+    if (attachment.isAnimated && attachment.isValidImage) {
+        return YES;
+    }
+
+    return NO;
 }
 
 @end

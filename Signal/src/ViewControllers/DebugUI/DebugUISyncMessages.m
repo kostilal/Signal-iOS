@@ -22,7 +22,6 @@
 #import <SignalServiceKit/OWSSyncGroupsMessage.h>
 #import <SignalServiceKit/OWSSyncGroupsRequestMessage.h>
 #import <SignalServiceKit/OWSVerificationStateChangeMessage.h>
-#import <SignalServiceKit/SecurityUtils.h>
 #import <SignalServiceKit/TSCall.h>
 #import <SignalServiceKit/TSDatabaseView.h>
 #import <SignalServiceKit/TSIncomingMessage.h>
@@ -65,12 +64,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (OWSMessageSender *)messageSender
 {
-    return [Environment current].messageSender;
+    return SSKEnvironment.shared.messageSender;
 }
 
 + (OWSContactsManager *)contactsManager
 {
-    return [Environment current].contactsManager;
+    return Environment.shared.contactsManager;
 }
 
 + (OWSIdentityManager *)identityManager
@@ -110,10 +109,10 @@ NS_ASSUME_NONNULL_BEGIN
         contentType:OWSMimeTypeApplicationOctetStream
         inMessage:syncContactsMessage
         success:^{
-            DDLogInfo(@"%@ Successfully sent Contacts response syncMessage.", self.logTag);
+            OWSLogInfo(@"Successfully sent Contacts response syncMessage.");
         }
         failure:^(NSError *error) {
-            DDLogError(@"%@ Failed to send Contacts response syncMessage with error: %@", self.logTag, error);
+            OWSLogError(@"Failed to send Contacts response syncMessage with error: %@", error);
         }];
 }
 
@@ -129,16 +128,16 @@ NS_ASSUME_NONNULL_BEGIN
         contentType:OWSMimeTypeApplicationOctetStream
         inMessage:syncGroupsMessage
         success:^{
-            DDLogInfo(@"%@ Successfully sent Groups response syncMessage.", self.logTag);
+            OWSLogInfo(@"Successfully sent Groups response syncMessage.");
         }
         failure:^(NSError *error) {
-            DDLogError(@"%@ Failed to send Groups response syncMessage with error: %@", self.logTag, error);
+            OWSLogError(@"Failed to send Groups response syncMessage with error: %@", error);
         }];
 }
 
 + (void)sendBlockListSyncMessage
 {
-    [self.blockingManager syncBlockedPhoneNumbers];
+    [self.blockingManager syncBlockList];
 }
 
 + (void)sendConfigurationSyncMessage
@@ -153,10 +152,10 @@ NS_ASSUME_NONNULL_BEGIN
         [[OWSSyncConfigurationMessage alloc] initWithReadReceiptsEnabled:areReadReceiptsEnabled];
     [self.messageSender enqueueMessage:syncConfigurationMessage
         success:^{
-            DDLogInfo(@"%@ Successfully sent Configuration response syncMessage.", self.logTag);
+            OWSLogInfo(@"Successfully sent Configuration response syncMessage.");
         }
         failure:^(NSError *error) {
-            DDLogError(@"%@ Failed to send Configuration response syncMessage with error: %@", self.logTag, error);
+            OWSLogError(@"Failed to send Configuration response syncMessage with error: %@", error);
         }];
 }
 

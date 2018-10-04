@@ -4,6 +4,7 @@
 
 #import "OWSMessageFooterView.h"
 #import "DateUtil.h"
+#import "OWSLabel.h"
 #import "OWSMessageTimerView.h"
 #import "Signal-Swift.h"
 #import <QuartzCore/QuartzCore.h>
@@ -33,7 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)commontInit
 {
     // Ensure only called once.
-    OWSAssert(!self.timestampLabel);
+    OWSAssertDebug(!self.timestampLabel);
 
     self.layoutMargins = UIEdgeInsetsZero;
 
@@ -48,7 +49,7 @@ NS_ASSUME_NONNULL_BEGIN
     [self addArrangedSubview:leftStackView];
     [leftStackView setContentHuggingHigh];
 
-    self.timestampLabel = [UILabel new];
+    self.timestampLabel = [OWSLabel new];
     [leftStackView addArrangedSubview:self.timestampLabel];
 
     self.messageTimerView = [OWSMessageTimerView new];
@@ -84,13 +85,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Load
 
-- (void)configureWithConversationViewItem:(ConversationViewItem *)viewItem
+- (void)configureWithConversationViewItem:(id<ConversationViewItem>)viewItem
                         isOverlayingMedia:(BOOL)isOverlayingMedia
                         conversationStyle:(ConversationStyle *)conversationStyle
                                isIncoming:(BOOL)isIncoming
 {
-    OWSAssert(viewItem);
-    OWSAssert(conversationStyle);
+    OWSAssertDebug(viewItem);
+    OWSAssertDebug(conversationStyle);
 
     [self configureLabelsWithConversationViewItem:viewItem];
 
@@ -153,7 +154,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)showStatusIndicatorWithIcon:(UIImage *)icon textColor:(UIColor *)textColor
 {
-    OWSAssert(icon.size.width <= self.maxImageWidth);
+    OWSAssertDebug(icon.size.width <= self.maxImageWidth);
     self.statusIndicatorImageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     self.statusIndicatorImageView.tintColor = textColor;
     [self.statusIndicatorImageView setContentHuggingHigh];
@@ -185,9 +186,9 @@ NS_ASSUME_NONNULL_BEGIN
     [self.statusIndicatorImageView.layer addAnimation:animation forKey:@"animation"];
 }
 
-- (BOOL)isFailedOutgoingMessage:(ConversationViewItem *)viewItem
+- (BOOL)isFailedOutgoingMessage:(id<ConversationViewItem>)viewItem
 {
-    OWSAssert(viewItem);
+    OWSAssertDebug(viewItem);
 
     if (viewItem.interaction.interactionType != OWSInteractionType_OutgoingMessage) {
         return NO;
@@ -199,9 +200,9 @@ NS_ASSUME_NONNULL_BEGIN
     return messageStatus == MessageReceiptStatusFailed;
 }
 
-- (void)configureLabelsWithConversationViewItem:(ConversationViewItem *)viewItem
+- (void)configureLabelsWithConversationViewItem:(id<ConversationViewItem>)viewItem
 {
-    OWSAssert(viewItem);
+    OWSAssertDebug(viewItem);
 
     [self configureFonts];
 
@@ -216,9 +217,9 @@ NS_ASSUME_NONNULL_BEGIN
     self.timestampLabel.text = timestampLabelText.localizedUppercaseString;
 }
 
-- (CGSize)measureWithConversationViewItem:(ConversationViewItem *)viewItem
+- (CGSize)measureWithConversationViewItem:(id<ConversationViewItem>)viewItem
 {
-    OWSAssert(viewItem);
+    OWSAssertDebug(viewItem);
 
     [self configureLabelsWithConversationViewItem:viewItem];
 
@@ -227,29 +228,6 @@ NS_ASSUME_NONNULL_BEGIN
 
     // Measure the actual current width, to be safe.
     CGFloat timestampLabelWidth = [self.timestampLabel sizeThatFits:CGSizeZero].width;
-
-    // Measuring the timestamp label's width is non-trivial since its
-    // contents can be relative the current time.  We avoid having
-    // message bubbles' "visually vibrate" as their timestamp labels
-    // vary in width.  So we try to leave enough space for all possible
-    // contents of this label _for the first hour of its lifetime_, when
-    // the timestamp is particularly volatile.
-    if ([DateUtil isTimestampFromLastHour:viewItem.interaction.timestamp]) {
-        // Measure the "now" case.
-        self.timestampLabel.text = [DateUtil exemplaryNowTimeFormat];
-        timestampLabelWidth = MAX(timestampLabelWidth, [self.timestampLabel sizeThatFits:CGSizeZero].width);
-        // Measure the "relative time" case.
-        // Since this case varies with time, we multiply to leave
-        // space for the worst case (whose exact value, due to localization,
-        // is unpredictable).
-        self.timestampLabel.text = [DateUtil exemplaryMinutesTimeFormat];
-        timestampLabelWidth = MAX(timestampLabelWidth,
-            [self.timestampLabel sizeThatFits:CGSizeZero].width + self.timestampLabel.font.lineHeight * 0.5f);
-
-        // Re-configure the labels with the current appropriate value in case
-        // we are configuring this view for display.
-        [self configureLabelsWithConversationViewItem:viewItem];
-    }
 
     result.width = timestampLabelWidth;
     if (viewItem.interaction.interactionType == OWSInteractionType_OutgoingMessage) {
@@ -265,9 +243,9 @@ NS_ASSUME_NONNULL_BEGIN
     return CGSizeCeil(result);
 }
 
-- (nullable NSString *)messageStatusTextForConversationViewItem:(ConversationViewItem *)viewItem
+- (nullable NSString *)messageStatusTextForConversationViewItem:(id<ConversationViewItem>)viewItem
 {
-    OWSAssert(viewItem);
+    OWSAssertDebug(viewItem);
     if (viewItem.interaction.interactionType != OWSInteractionType_OutgoingMessage) {
         return nil;
     }

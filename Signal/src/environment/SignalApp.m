@@ -55,153 +55,146 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Singletons
 
+- (void)createSingletons
+{
+    OWSAssertDebug(SSKEnvironment.shared.messageSender);
+    OWSAssertDebug(Environment.shared.contactsManager);
+    OWSAssertDebug(Environment.shared.preferences);
+    OWSAssertDebug(SSKEnvironment.shared.networkManager);
+    OWSAssertDebug(SSKEnvironment.shared.contactsUpdater);
+
+    _accountManager = [[AccountManager alloc] initWithTextSecureAccountManager:[TSAccountManager sharedInstance]
+                                                                   preferences:Environment.shared.preferences];
+
+    _notificationsManager = [NotificationsManager new];
+    SSKEnvironment.shared.notificationsManager = self.notificationsManager;
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(didChangeCallLoggingPreference:)
+                                                 name:OWSPreferencesCallLoggingDidChangeNotification
+                                               object:nil];
+    _callService = [[CallService alloc] initWithAccountManager:self.accountManager
+                                               contactsManager:Environment.shared.contactsManager
+                                                 messageSender:SSKEnvironment.shared.messageSender
+                                          notificationsAdapter:[OWSCallNotificationsAdapter new]];
+
+    _callMessageHandler =
+        [[OWSWebRTCCallMessageHandler alloc] initWithAccountManager:self.accountManager
+                                                        callService:self.callService
+                                                      messageSender:SSKEnvironment.shared.messageSender];
+    SSKEnvironment.shared.callMessageHandler = self.callMessageHandler;
+
+    _outboundCallInitiator =
+        [[OutboundCallInitiator alloc] initWithContactsManager:Environment.shared.contactsManager
+                                               contactsUpdater:SSKEnvironment.shared.contactsUpdater];
+
+    _messageFetcherJob = [[OWSMessageFetcherJob alloc] initWithMessageReceiver:[OWSMessageReceiver sharedInstance]
+                                                                networkManager:SSKEnvironment.shared.networkManager
+                                                                 signalService:[OWSSignalService sharedInstance]];
+}
+
 - (OWSWebRTCCallMessageHandler *)callMessageHandler
 {
-    @synchronized(self)
-    {
-        if (!_callMessageHandler) {
-            _callMessageHandler =
-                [[OWSWebRTCCallMessageHandler alloc] initWithAccountManager:self.accountManager
-                                                                callService:self.callService
-                                                              messageSender:Environment.current.messageSender];
-        }
-    }
+    OWSAssertDebug(_callMessageHandler);
 
     return _callMessageHandler;
 }
 
 - (CallService *)callService
 {
-    @synchronized(self)
-    {
-        if (!_callService) {
-            OWSAssert(self.accountManager);
-            OWSAssert(Environment.current.contactsManager);
-            OWSAssert(Environment.current.messageSender);
-            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didChangeCallLoggingPreference:) name:OWSPreferencesCallLoggingDidChangeNotification object:nil];
-            
-            _callService = [[CallService alloc] initWithAccountManager:self.accountManager
-                                                       contactsManager:Environment.current.contactsManager
-                                                         messageSender:Environment.current.messageSender
-                                                  notificationsAdapter:[OWSCallNotificationsAdapter new]];
-        }
-    }
+    OWSAssertDebug(_callService);
 
     return _callService;
 }
 
 - (CallUIAdapter *)callUIAdapter
 {
+    OWSAssertDebug(self.callService.callUIAdapter);
+
     return self.callService.callUIAdapter;
 }
 
 - (OutboundCallInitiator *)outboundCallInitiator
 {
-    @synchronized(self)
-    {
-        if (!_outboundCallInitiator) {
-            OWSAssert(Environment.current.contactsManager);
-            OWSAssert(Environment.current.contactsUpdater);
-            _outboundCallInitiator =
-                [[OutboundCallInitiator alloc] initWithContactsManager:Environment.current.contactsManager
-                                                       contactsUpdater:Environment.current.contactsUpdater];
-        }
-    }
+    OWSAssertDebug(_outboundCallInitiator);
 
     return _outboundCallInitiator;
 }
 
 - (OWSMessageFetcherJob *)messageFetcherJob
 {
-    @synchronized(self)
-    {
-        if (!_messageFetcherJob) {
-            _messageFetcherJob =
-                [[OWSMessageFetcherJob alloc] initWithMessageReceiver:[OWSMessageReceiver sharedInstance]
-                                                       networkManager:Environment.current.networkManager
-                                                        signalService:[OWSSignalService sharedInstance]];
-        }
-    }
+    OWSAssertDebug(_messageFetcherJob);
+
     return _messageFetcherJob;
 }
 
 - (NotificationsManager *)notificationsManager
 {
-    @synchronized(self)
-    {
-        if (!_notificationsManager) {
-            _notificationsManager = [NotificationsManager new];
-        }
-    }
+    OWSAssertDebug(_notificationsManager);
 
     return _notificationsManager;
 }
 
 - (AccountManager *)accountManager
 {
-    @synchronized(self)
-    {
-        if (!_accountManager) {
-            _accountManager = [[AccountManager alloc] initWithTextSecureAccountManager:[TSAccountManager sharedInstance]
-                                                                           preferences:Environment.current.preferences];
-        }
-    }
+    OWSAssertDebug(_accountManager);
 
     return _accountManager;
 }
 
 #pragma mark - View Convenience Methods
 
+- (void)presentConversationForRecipientId:(NSString *)recipientId animated:(BOOL)isAnimated
+{
+    [self presentConversationForRecipientId:recipientId action:ConversationViewActionNone animated:(BOOL)isAnimated];
+}
+
 - (void)presentConversationForRecipientId:(NSString *)recipientId
+                                   action:(ConversationViewAction)action
+                                 animated:(BOOL)isAnimated
 {
-    [self presentConversationForRecipientId:recipientId action:ConversationViewActionNone];
+    __block TSThread *thread = nil;
+    [OWSPrimaryStorage.dbReadWriteConnection
+        readWriteWithBlock:^(YapDatabaseReadWriteTransaction *_Nonnull transaction) {
+            thread = [TSContactThread getOrCreateThreadWithContactId:recipientId transaction:transaction];
+        }];
+    [self presentConversationForThread:thread action:action animated:(BOOL)isAnimated];
 }
 
-- (void)presentConversationForRecipientId:(NSString *)recipientId action:(ConversationViewAction)action
+- (void)presentConversationForThreadId:(NSString *)threadId animated:(BOOL)isAnimated
 {
-    DispatchMainThreadSafe(^{
-        __block TSThread *thread = nil;
-        [OWSPrimaryStorage.dbReadWriteConnection
-            readWriteWithBlock:^(YapDatabaseReadWriteTransaction *_Nonnull transaction) {
-                thread = [TSContactThread getOrCreateThreadWithContactId:recipientId transaction:transaction];
-            }];
-        [self presentConversationForThread:thread action:action];
-    });
-}
-
-- (void)presentConversationForThreadId:(NSString *)threadId
-{
-    OWSAssert(threadId.length > 0);
+    OWSAssertDebug(threadId.length > 0);
 
     TSThread *thread = [TSThread fetchObjectWithUniqueID:threadId];
     if (thread == nil) {
-        OWSFail(@"%@ unable to find thread with id: %@", self.logTag, threadId);
+        OWSFailDebug(@"unable to find thread with id: %@", threadId);
         return;
     }
 
-    [self presentConversationForThread:thread];
+    [self presentConversationForThread:thread animated:isAnimated];
 }
 
-- (void)presentConversationForThread:(TSThread *)thread
+- (void)presentConversationForThread:(TSThread *)thread animated:(BOOL)isAnimated
 {
-    [self presentConversationForThread:thread action:ConversationViewActionNone];
+    [self presentConversationForThread:thread action:ConversationViewActionNone animated:isAnimated];
 }
 
-- (void)presentConversationForThread:(TSThread *)thread action:(ConversationViewAction)action
+- (void)presentConversationForThread:(TSThread *)thread action:(ConversationViewAction)action animated:(BOOL)isAnimated
 {
-    [self presentConversationForThread:thread action:action focusMessageId:nil];
+    [self presentConversationForThread:thread action:action focusMessageId:nil animated:isAnimated];
 }
 
 - (void)presentConversationForThread:(TSThread *)thread
                               action:(ConversationViewAction)action
                       focusMessageId:(nullable NSString *)focusMessageId
+                            animated:(BOOL)isAnimated
 {
     OWSAssertIsOnMainThread();
 
-    DDLogInfo(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogInfo(@"");
 
     if (!thread) {
-        OWSFail(@"%@ Can't present nil thread.", self.logTag);
+        OWSFailDebug(@"Can't present nil thread.");
         return;
     }
 
@@ -216,7 +209,7 @@ NS_ASSUME_NONNULL_BEGIN
             }
         }
 
-        [self.homeViewController presentThread:thread action:action focusMessageId:focusMessageId];
+        [self.homeViewController presentThread:thread action:action focusMessageId:focusMessageId animated:isAnimated];
     });
 }
 
@@ -230,22 +223,22 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)resetAppData
 {
     // This _should_ be wiped out below.
-    DDLogError(@"%@ %s", self.logTag, __PRETTY_FUNCTION__);
+    OWSLogError(@"");
     [DDLog flushLog];
 
     [OWSStorage resetAllStorage];
     [OWSUserProfile resetProfileStorage];
-    [Environment.preferences clear];
+    [Environment.shared.preferences clear];
 
     [self clearAllNotifications];
 
     [DebugLogger.sharedLogger wipeLogs];
-    exit(0);
+    OWSFail(@"App data reset.");
 }
 
 + (void)clearAllNotifications
 {
-    DDLogInfo(@"%@ clearAllNotifications.", self.logTag);
+    OWSLogInfo(@"clearAllNotifications.");
 
     // This will cancel all "scheduled" local notifications that haven't
     // been presented yet.

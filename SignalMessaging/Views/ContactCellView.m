@@ -15,7 +15,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-const NSUInteger kContactCellAvatarSize = 48;
 const CGFloat kContactCellAvatarTextMargin = 12;
 
 @interface ContactCellView ()
@@ -48,13 +47,13 @@ const CGFloat kContactCellAvatarTextMargin = 12;
 
 - (void)configure
 {
-    OWSAssert(!self.nameLabel);
+    OWSAssertDebug(!self.nameLabel);
 
     self.layoutMargins = UIEdgeInsetsZero;
 
     _avatarView = [AvatarImageView new];
-    [_avatarView autoSetDimension:ALDimensionWidth toSize:kContactCellAvatarSize];
-    [_avatarView autoSetDimension:ALDimensionHeight toSize:kContactCellAvatarSize];
+    [_avatarView autoSetDimension:ALDimensionWidth toSize:kStandardAvatarSize];
+    [_avatarView autoSetDimension:ALDimensionHeight toSize:kStandardAvatarSize];
 
     self.nameLabel = [UILabel new];
     self.nameLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -100,13 +99,13 @@ const CGFloat kContactCellAvatarTextMargin = 12;
     self.nameLabel.textColor = [Theme primaryColor];
     self.profileNameLabel.textColor = [Theme secondaryColor];
     self.subtitleLabel.textColor = [Theme secondaryColor];
-    self.accessoryLabel.textColor = [UIColor colorWithWhite:0.5f alpha:1.f];
+    self.accessoryLabel.textColor = Theme.middleGrayColor;
 }
 
 - (void)configureWithRecipientId:(NSString *)recipientId contactsManager:(OWSContactsManager *)contactsManager
 {
-    OWSAssert(recipientId.length > 0);
-    OWSAssert(contactsManager);
+    OWSAssertDebug(recipientId.length > 0);
+    OWSAssertDebug(contactsManager);
 
     // Update fonts to reflect changes to dynamic type.
     [self configureFontsAndColors];
@@ -135,7 +134,7 @@ const CGFloat kContactCellAvatarTextMargin = 12;
 
 - (void)configureWithThread:(TSThread *)thread contactsManager:(OWSContactsManager *)contactsManager
 {
-    OWSAssert(thread);
+    OWSAssertDebug(thread);
     self.thread = thread;
     
     // Update fonts to reflect changes to dynamic type.
@@ -164,8 +163,7 @@ const CGFloat kContactCellAvatarTextMargin = 12;
                                                    object:nil];
         [self updateProfileName];
     }
-    self.avatarView.image =
-        [OWSAvatarBuilder buildImageForThread:thread diameter:kContactCellAvatarSize contactsManager:contactsManager];
+    self.avatarView.image = [OWSAvatarBuilder buildImageForThread:thread diameter:kStandardAvatarSize];
 
     if (self.accessoryMessage) {
         self.accessoryLabel.text = self.accessoryMessage;
@@ -178,16 +176,9 @@ const CGFloat kContactCellAvatarTextMargin = 12;
 
 - (void)updateAvatar
 {
-    OWSContactsManager *contactsManager = self.contactsManager;
-    if (contactsManager == nil) {
-        OWSFail(@"%@ contactsManager should not be nil", self.logTag);
-        self.avatarView.image = nil;
-        return;
-    }
-
     NSString *recipientId = self.recipientId;
     if (recipientId.length == 0) {
-        OWSFail(@"%@ recipientId should not be nil", self.logTag);
+        OWSFailDebug(@"recipientId should not be nil");
         self.avatarView.image = nil;
         return;
     }
@@ -196,30 +187,28 @@ const CGFloat kContactCellAvatarTextMargin = 12;
         if (self.thread) {
             return self.thread.conversationColorName;
         } else {
-            OWSAssert(self.recipientId);
-            return [TSThread stableConversationColorNameForString:self.recipientId];
+            OWSAssertDebug(self.recipientId);
+            return [TSThread stableColorNameForNewConversationWithString:self.recipientId];
         }
     }();
-    UIColor *color = [UIColor ows_conversationColorForColorName:colorName];
-    
-    self.avatarView.image = [[[OWSContactAvatarBuilder alloc] initWithSignalId:recipientId
-                                                                         color:color
-                                                                      diameter:kContactCellAvatarSize
-                                                               contactsManager:contactsManager] build];
+
+    self.avatarView.image =
+        [[[OWSContactAvatarBuilder alloc] initWithSignalId:recipientId colorName:colorName diameter:kStandardAvatarSize]
+            build];
 }
 
 - (void)updateProfileName
 {
     OWSContactsManager *contactsManager = self.contactsManager;
     if (contactsManager == nil) {
-        OWSFail(@"%@ contactsManager should not be nil", self.logTag);
+        OWSFailDebug(@"contactsManager should not be nil");
         self.profileNameLabel.text = nil;
         return;
     }
 
     NSString *recipientId = self.recipientId;
     if (recipientId.length == 0) {
-        OWSFail(@"%@ recipientId should not be nil", self.logTag);
+        OWSFailDebug(@"recipientId should not be nil");
         self.profileNameLabel.text = nil;
         return;
     }
@@ -255,7 +244,7 @@ const CGFloat kContactCellAvatarTextMargin = 12;
     OWSAssertIsOnMainThread();
 
     NSString *recipientId = notification.userInfo[kNSNotificationKey_ProfileRecipientId];
-    OWSAssert(recipientId.length > 0);
+    OWSAssertDebug(recipientId.length > 0);
 
     if (recipientId.length > 0 && [self.recipientId isEqualToString:recipientId]) {
         [self updateProfileName];
@@ -291,9 +280,9 @@ const CGFloat kContactCellAvatarTextMargin = 12;
 
 - (void)setAccessoryView:(UIView *)accessoryView
 {
-    OWSAssert(accessoryView);
-    OWSAssert(self.accessoryViewContainer);
-    OWSAssert(self.accessoryViewContainer.subviews.count < 1);
+    OWSAssertDebug(accessoryView);
+    OWSAssertDebug(self.accessoryViewContainer);
+    OWSAssertDebug(self.accessoryViewContainer.subviews.count < 1);
 
     [self.accessoryViewContainer addSubview:accessoryView];
 

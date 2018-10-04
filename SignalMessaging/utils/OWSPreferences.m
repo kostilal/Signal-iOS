@@ -19,7 +19,6 @@ NSString *const OWSPreferencesKeyScreenSecurity = @"Screen Security Key";
 NSString *const OWSPreferencesKeyEnableDebugLog = @"Debugging Log Enabled Key";
 NSString *const OWSPreferencesKeyNotificationPreviewType = @"Notification Preview Type Key";
 NSString *const OWSPreferencesKeyHasSentAMessage = @"User has sent a message";
-NSString *const OWSPreferencesKeyHasArchivedAMessage = @"User archived a message";
 NSString *const OWSPreferencesKeyPlaySoundInForeground = @"NotificationSoundInForeground";
 NSString *const OWSPreferencesKeyLastRecordedPushToken = @"LastRecordedPushToken";
 NSString *const OWSPreferencesKeyLastRecordedVoipToken = @"LastRecordedVoipToken";
@@ -55,7 +54,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 
 - (nullable id)tryGetValueForKey:(NSString *)key
 {
-    OWSAssert(key != nil);
+    OWSAssertDebug(key != nil);
 
     __block id result;
     [OWSPrimaryStorage.dbReadConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
@@ -66,7 +65,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 
 - (nullable id)tryGetValueForKey:(NSString *)key transaction:(YapDatabaseReadTransaction *)transaction
 {
-    OWSAssert(key != nil);
+    OWSAssertDebug(key != nil);
     return [transaction objectForKey:key inCollection:OWSPreferencesSignalDatabaseCollection];
 }
 
@@ -81,7 +80,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
                toValue:(nullable id)value
            transaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(key != nil);
+    OWSAssertDebug(key != nil);
 
     [transaction setObject:value forKey:key inCollection:OWSPreferencesSignalDatabaseCollection];
 }
@@ -101,7 +100,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 
 + (void)setIsReadyForAppExtensions
 {
-    OWSAssert(CurrentAppContext().isMainApp);
+    OWSAssertDebug(CurrentAppContext().isMainApp);
 
     [NSUserDefaults.appUserDefaults setObject:@(YES) forKey:OWSPreferencesKey_IsReadyForAppExtensions];
     [NSUserDefaults.appUserDefaults synchronize];
@@ -118,19 +117,9 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
     [self setValueForKey:OWSPreferencesKeyScreenSecurity toValue:@(flag)];
 }
 
-- (BOOL)getHasSentAMessage
+- (BOOL)hasSentAMessage
 {
     NSNumber *preference = [self tryGetValueForKey:OWSPreferencesKeyHasSentAMessage];
-    if (preference) {
-        return [preference boolValue];
-    } else {
-        return NO;
-    }
-}
-
-- (BOOL)getHasArchivedAMessage
-{
-    NSNumber *preference = [self tryGetValueForKey:OWSPreferencesKeyHasArchivedAMessage];
     if (preference) {
         return [preference boolValue];
     } else {
@@ -151,7 +140,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 
 + (void)setIsLoggingEnabled:(BOOL)flag
 {
-    OWSAssert(CurrentAppContext().isMainApp);
+    OWSAssertDebug(CurrentAppContext().isMainApp);
 
     // Logging preferences are stored in UserDefaults instead of the database, so that we can (optionally) start
     // logging before the database is initialized. This is important because sometimes there are problems *with* the
@@ -163,11 +152,6 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 - (void)setHasSentAMessage:(BOOL)enabled
 {
     [self setValueForKey:OWSPreferencesKeyHasSentAMessage toValue:@(enabled)];
-}
-
-- (void)setHasArchivedAMessage:(BOOL)enabled
-{
-    [self setValueForKey:OWSPreferencesKeyHasArchivedAMessage toValue:@(enabled)];
 }
 
 - (BOOL)hasDeclinedNoContactsView
@@ -213,7 +197,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
     if (@available(iOS 11, *)) {
         // do nothing
     } else {
-        OWSFail(@"%@ Call Logging can only be configured on iOS11+", self.logTag);
+        OWSFailDebug(@"Call Logging can only be configured on iOS11+");
         return NO;
     }
 
@@ -226,7 +210,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
     if (@available(iOS 11, *)) {
         // do nothing
     } else {
-        OWSFail(@"%@ Call Logging can only be configured on iOS11+", self.logTag);
+        OWSFailDebug(@"Call Logging can only be configured on iOS11+");
         return;
     }
 
@@ -269,7 +253,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
         }
     }();
 
-    DDLogInfo(@"%@ Migrating setting - System Call Log Enabled: %d", self.logTag, shouldLogCallsInRecents);
+    OWSLogInfo(@"Migrating setting - System Call Log Enabled: %d", shouldLogCallsInRecents);
     [self setValueForKey:OWSPreferencesKeySystemCallLogEnabled
                  toValue:@(shouldLogCallsInRecents)
              transaction:transaction];
@@ -283,7 +267,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 - (BOOL)isCallKitEnabled
 {
     if (@available(iOS 11, *)) {
-        OWSFail(@"%@ CallKit is always enabled for iOS11+", self.logTag);
+        OWSFailDebug(@"CallKit is always enabled for iOS11+");
         return YES;
     }
 
@@ -294,7 +278,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 - (void)setIsCallKitEnabled:(BOOL)flag
 {
     if (@available(iOS 11, *)) {
-        OWSFail(@"%@ CallKit is always enabled for iOS11+", self.logTag);
+        OWSFailDebug(@"CallKit is always enabled for iOS11+");
         return;
     }
 
@@ -305,7 +289,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 - (BOOL)isCallKitEnabledSet
 {
     if (@available(iOS 11, *)) {
-        OWSFail(@"%@ CallKit is always enabled for iOS11+", self.logTag);
+        OWSFailDebug(@"CallKit is always enabled for iOS11+");
         return NO;
     }
 
@@ -316,7 +300,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 - (BOOL)isCallKitPrivacyEnabled
 {
     if (@available(iOS 11, *)) {
-        OWSFail(@"%@ CallKit privacy is irrelevant for iOS11+", self.logTag);
+        OWSFailDebug(@"CallKit privacy is irrelevant for iOS11+");
         return NO;
     }
 
@@ -332,7 +316,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 - (void)setIsCallKitPrivacyEnabled:(BOOL)flag
 {
     if (@available(iOS 11, *)) {
-        OWSFail(@"%@ CallKit privacy is irrelevant for iOS11+", self.logTag);
+        OWSFailDebug(@"CallKit privacy is irrelevant for iOS11+");
         return;
     }
 
@@ -342,7 +326,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 - (BOOL)isCallKitPrivacySet
 {
     if (@available(iOS 11, *)) {
-        OWSFail(@"%@ CallKit privacy is irrelevant for iOS11+", self.logTag);
+        OWSFailDebug(@"CallKit privacy is irrelevant for iOS11+");
         return NO;
     }
 
@@ -408,7 +392,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
         case NotificationNoNameNoPreview:
             return NSLocalizedString(@"NOTIFICATIONS_NONE", nil);
         default:
-            DDLogWarn(@"Undefined NotificationType in Settings");
+            OWSLogWarn(@"Undefined NotificationType in Settings");
             return @"";
     }
 }
@@ -437,7 +421,7 @@ NSString *const OWSPreferencesKeySystemCallLogEnabled = @"OWSPreferencesKeySyste
 
 - (void)unsetRecordedAPNSTokens
 {
-    DDLogWarn(@"%@ Forgetting recorded APNS tokens", self.logTag);
+    OWSLogWarn(@"Forgetting recorded APNS tokens");
     [self setValueForKey:OWSPreferencesKeyLastRecordedPushToken toValue:nil];
     [self setValueForKey:OWSPreferencesKeyLastRecordedVoipToken toValue:nil];
 }

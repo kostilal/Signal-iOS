@@ -21,9 +21,9 @@ static NSString *const OWS108CallLoggingPreferenceId = @"108";
 
 - (void)runUpWithTransaction:(YapDatabaseReadWriteTransaction *)transaction
 {
-    OWSAssert(transaction);
+    OWSAssertDebug(transaction);
 
-    [[Environment preferences] applyCallLoggingSettingsForLegacyUsersWithTransaction:transaction];
+    [Environment.shared.preferences applyCallLoggingSettingsForLegacyUsersWithTransaction:transaction];
 }
 
 @end

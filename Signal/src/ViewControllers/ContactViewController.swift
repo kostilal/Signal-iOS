@@ -23,7 +23,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
 
     private var viewMode = ContactViewMode.unknown {
         didSet {
-            SwiftAssertIsOnMainThread(#function)
+            AssertIsOnMainThread()
 
             if oldValue != viewMode && hasLoadedView {
                 updateContent()
@@ -45,12 +45,12 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
 
     @available(*, unavailable, message: "use init(call:) constructor instead.")
     required init?(coder aDecoder: NSCoder) {
-        fatalError("Unimplemented")
+        notImplemented()
     }
 
     @objc
     required init(contactShare: ContactShareViewModel) {
-        contactsManager = Environment.current().contactsManager
+        contactsManager = Environment.shared.contactsManager
         self.contactShare = contactShare
         self.contactShareViewHelper = ContactShareViewHelper(contactsManager: contactsManager)
 
@@ -79,7 +79,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
         super.viewWillAppear(animated)
 
         guard let navigationController = self.navigationController else {
-            owsFail("\(logTag) in \(#function) navigationController was unexpectedly nil")
+            owsFailDebug("navigationController was unexpectedly nil")
             return
         }
 
@@ -103,7 +103,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
             // animation glitch where the navigation bar for this view controller starts to appear while
             // the whole nav stack is about to be obscured by the modal we are presenting.
             guard let postDismissNavigationController = self.postDismissNavigationController else {
-                owsFail("\(logTag) in \(#function) postDismissNavigationController was unexpectedly nil")
+                owsFailDebug("postDismissNavigationController was unexpectedly nil")
                 return
             }
 
@@ -123,7 +123,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     private func updateMode() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         guard contactShare.e164PhoneNumbers().count > 0 else {
             viewMode = .noPhoneNumber
@@ -142,22 +142,22 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     private func systemContactsWithSignalAccountsForContact() -> [String] {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         return contactShare.systemContactsWithSignalAccountPhoneNumbers(contactsManager)
     }
 
     private func systemContactsForContact() -> [String] {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         return contactShare.systemContactPhoneNumbers(contactsManager)
     }
 
     private func updateContent() {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         guard let rootView = self.view else {
-            owsFail("\(logTag) missing root view.")
+            owsFailDebug("missing root view.")
             return
         }
 
@@ -172,7 +172,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
 
         // This view provides a background "below the fold".
         let bottomView = UIView.container()
-        bottomView.backgroundColor = UIColor.white
+        bottomView.backgroundColor = Theme.backgroundColor
         self.view.addSubview(bottomView)
         bottomView.layoutMargins = .zero
         bottomView.autoPinWidthToSuperview()
@@ -197,11 +197,13 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     private func heroBackgroundColor() -> UIColor {
-        return UIColor(rgbHex: 0xefeff4)
+        return (Theme.isDarkThemeEnabled
+        ? UIColor(rgbHex: 0x272727)
+        : UIColor(rgbHex: 0xefeff4))
     }
 
     private func createTopView() -> UIView {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         let topView = UIView.container()
         topView.backgroundColor = heroBackgroundColor()
@@ -221,12 +223,12 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
 
         let backIconName = (CurrentAppContext().isRTL ? "system_disclosure_indicator" : "system_disclosure_indicator_rtl")
         guard let backIconImage = UIImage(named: backIconName) else {
-            owsFail("\(logTag) missing icon.")
+            owsFailDebug("missing icon.")
             return topView
         }
         let backIconView = UIImageView(image: backIconImage.withRenderingMode(.alwaysTemplate))
         backIconView.contentMode = .scaleAspectFit
-        backIconView.tintColor = UIColor.black.withAlphaComponent(0.6)
+        backIconView.tintColor = Theme.primaryColor.withAlphaComponent(0.6)
         backButton.addSubview(backIconView)
         backIconView.autoCenterInSuperview()
 
@@ -242,7 +244,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
         let nameLabel = UILabel()
         nameLabel.text = contactShare.displayName
         nameLabel.font = UIFont.ows_dynamicTypeTitle1
-        nameLabel.textColor = UIColor.black
+        nameLabel.textColor = Theme.primaryColor
         nameLabel.lineBreakMode = .byTruncatingTail
         nameLabel.textAlignment = .center
         topView.addSubview(nameLabel)
@@ -256,7 +258,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
             let phoneNumberLabel = UILabel()
             phoneNumberLabel.text = PhoneNumber.bestEffortLocalizedPhoneNumber(withE164: phoneNumber)
             phoneNumberLabel.font = UIFont.ows_dynamicTypeFootnote
-            phoneNumberLabel.textColor = UIColor.black
+            phoneNumberLabel.textColor = Theme.primaryColor
             phoneNumberLabel.lineBreakMode = .byTruncatingTail
             phoneNumberLabel.textAlignment = .center
             topView.addSubview(phoneNumberLabel)
@@ -345,7 +347,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     private func createFieldsView() -> UIView {
-        SwiftAssertIsOnMainThread(#function)
+        AssertIsOnMainThread()
 
         var rows = [UIView]()
 
@@ -427,7 +429,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
         button.autoSetDimension(.width, toSize: buttonSize, relation: .greaterThanOrEqual)
 
         let circleView = UIView()
-        circleView.backgroundColor = UIColor.white
+        circleView.backgroundColor = Theme.backgroundColor
         circleView.autoSetDimension(.width, toSize: buttonSize)
         circleView.autoSetDimension(.height, toSize: buttonSize)
         circleView.layer.cornerRadius = buttonSize * 0.5
@@ -436,17 +438,18 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
         circleView.autoHCenterInSuperview()
 
         guard let image = UIImage(named: imageName) else {
-            owsFail("\(logTag) missing image.")
+            owsFailDebug("missing image.")
             return button
         }
-        let imageView = UIImageView(image: image)
+        let imageView = UIImageView(image: image.withRenderingMode(.alwaysTemplate))
+        imageView.tintColor = Theme.primaryColor.withAlphaComponent(0.6)
         circleView.addSubview(imageView)
         imageView.autoCenterInSuperview()
 
         let label = UILabel()
         label.text = text
         label.font = UIFont.ows_dynamicTypeCaption2
-        label.textColor = UIColor.black
+        label.textColor = Theme.primaryColor
         label.lineBreakMode = .byTruncatingTail
         label.textAlignment = .center
         button.addSubview(label)
@@ -460,7 +463,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
 
     private func createLargePillButton(text: String, actionBlock : @escaping () -> Void) -> UIView {
         let button = TappableView(actionBlock: actionBlock)
-        button.backgroundColor = UIColor.white
+        button.backgroundColor = Theme.backgroundColor
         button.layoutMargins = .zero
         button.autoSetDimension(.height, toSize: 45)
         button.layer.cornerRadius = 5
@@ -482,7 +485,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     func didPressShareContact(sender: UIGestureRecognizer) {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
 
         guard sender.state == .recognized else {
             return
@@ -491,40 +494,40 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     func didPressSendMessage() {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
 
         self.contactShareViewHelper.sendMessage(contactShare: self.contactShare, fromViewController: self)
     }
 
     func didPressAudioCall() {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
 
         self.contactShareViewHelper.audioCall(contactShare: self.contactShare, fromViewController: self)
     }
 
     func didPressVideoCall() {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
 
         self.contactShareViewHelper.videoCall(contactShare: self.contactShare, fromViewController: self)
     }
 
     func didPressInvite() {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
 
         self.contactShareViewHelper.showInviteContact(contactShare: self.contactShare, fromViewController: self)
     }
 
     func didPressAddToContacts() {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
 
         self.contactShareViewHelper.showAddToContacts(contactShare: self.contactShare, fromViewController: self)
     }
 
     func didPressDismiss() {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         guard let navigationController = self.navigationController else {
-            owsFail("\(logTag) in \(#function) navigationController was unexpectedly nil")
+            owsFailDebug("navigationController was unexpectedly nil")
             return
         }
 
@@ -532,7 +535,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     func didPressPhoneNumber(phoneNumber: OWSContactPhoneNumber) {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
@@ -541,17 +544,17 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
                 actionSheet.addAction(UIAlertAction(title: NSLocalizedString("ACTION_SEND_MESSAGE",
                                                                              comment: "Label for 'send message' button in contact view."),
                                                     style: .default) { _ in
-                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .compose)
+                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .compose, animated: true)
                 })
                 actionSheet.addAction(UIAlertAction(title: NSLocalizedString("ACTION_AUDIO_CALL",
                                                                              comment: "Label for 'audio call' button in contact view."),
                                                     style: .default) { _ in
-                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .audioCall)
+                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .audioCall, animated: true)
                 })
                 actionSheet.addAction(UIAlertAction(title: NSLocalizedString("ACTION_VIDEO_CALL",
                                                                              comment: "Label for 'video call' button in contact view."),
                                                     style: .default) { _ in
-                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .videoCall)
+                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .videoCall, animated: true)
                 })
             } else {
                 // TODO: We could offer callPhoneNumberWithSystemCall.
@@ -567,17 +570,17 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     func callPhoneNumberWithSystemCall(phoneNumber: OWSContactPhoneNumber) {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         guard let url = NSURL(string: "tel:\(phoneNumber.phoneNumber)") else {
-            owsFail("\(ContactViewController.logTag) could not open phone number.")
+            owsFailDebug("could not open phone number.")
             return
         }
         UIApplication.shared.openURL(url as URL)
     }
 
     func didPressEmail(email: OWSContactEmail) {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         actionSheet.addAction(UIAlertAction(title: NSLocalizedString("CONTACT_VIEW_OPEN_EMAIL_IN_EMAIL_APP",
@@ -595,17 +598,17 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     func openEmailInEmailApp(email: OWSContactEmail) {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         guard let url = NSURL(string: "mailto:\(email.email)") else {
-            owsFail("\(ContactViewController.logTag) could not open email.")
+            owsFailDebug("could not open email.")
             return
         }
         UIApplication.shared.openURL(url as URL)
     }
 
     func didPressAddress(address: OWSContactAddress) {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         actionSheet.addAction(UIAlertAction(title: NSLocalizedString("CONTACT_VIEW_OPEN_ADDRESS_IN_MAPS_APP",
@@ -625,17 +628,17 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     func openAddressInMaps(address: OWSContactAddress) {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         let mapAddress = formatAddressForQuery(address: address)
         guard let escapedMapAddress = mapAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            owsFail("\(ContactViewController.logTag) could not open address.")
+            owsFailDebug("could not open address.")
             return
         }
         // Note that we use "q" (i.e. query) rather than "address" since we can't assume
         // this is a well-formed address.
         guard let url = URL(string: "http://maps.apple.com/?q=\(escapedMapAddress)") else {
-            owsFail("\(ContactViewController.logTag) could not open address.")
+            owsFailDebug("could not open address.")
             return
         }
 
@@ -643,7 +646,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     }
 
     func formatAddressForQuery(address: OWSContactAddress) -> String {
-        Logger.info("\(self.logTag) \(#function)")
+        Logger.info("")
 
         // Open address in Apple Maps app.
         var addressParts = [String]()
@@ -668,7 +671,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
     // MARK: - ContactShareViewHelperDelegate
 
     public func didCreateOrEditContact() {
-        Logger.info("\(logTag) \(#function)")
+        Logger.info("")
         updateContent()
 
         self.dismiss(animated: true)

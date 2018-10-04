@@ -10,33 +10,30 @@ import Foundation
 @objc(OWSCallNotificationsAdapter)
 public class CallNotificationsAdapter: NSObject {
 
-    let TAG = "[CallNotificationsAdapter]"
-    let adaptee: OWSCallNotificationsAdaptee
-
-    override init() {
-        // TODO We can't mix UILocalNotification (NotificationManager) with the UNNotifications
+    var adaptee: OWSCallNotificationsAdaptee {
+        // TODO: We may eventually want to use UserNotificationsAdaptee instead.
+        //
+        // We can't mix UILocalNotification (NotificationManager) with the UNNotifications
         // Because registering message categories in one, clobbers the registered categories from the other
         // We have to first port *all* the existing UINotification categories to UNNotifications
-        // which is a good thing to do, but in trying to limit the scope of changes that's been 
+        // which is a good thing to do, but in trying to limit the scope of changes that's been
         // left out for now.
-//        if #available(iOS 10.0, *) {
-//            adaptee = UserNotificationsAdaptee()
-//        } else {
-            adaptee = SignalApp.shared().notificationsManager
-//        }
+        return SignalApp.shared().notificationsManager
+    }
 
+    @objc public override init() {
         super.init()
 
         SwiftSingletons.register(self)
     }
 
     func presentIncomingCall(_ call: SignalCall, callerName: String) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
         adaptee.presentIncomingCall(call, callerName: callerName)
     }
 
     func presentMissedCall(_ call: SignalCall, callerName: String) {
-        Logger.debug("\(TAG) in \(#function)")
+        Logger.debug("")
         adaptee.presentMissedCall(call, callerName: callerName)
     }
 

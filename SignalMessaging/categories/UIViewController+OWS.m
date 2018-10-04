@@ -2,10 +2,12 @@
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
+#import "Theme.h"
 #import "UIColor+OWS.h"
 #import "UIView+OWS.h"
 #import "UIViewController+OWS.h"
 #import <SignalServiceKit/AppContext.h>
+#import <SignalServiceKit/iOSVersions.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -50,8 +52,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (UIBarButtonItem *)createOWSBackButtonWithTarget:(id)target selector:(SEL)selector
 {
-    OWSAssert(target);
-    OWSAssert(selector);
+    OWSAssertDebug(target);
+    OWSAssertDebug(selector);
 
     UIButton *backButton = [UIButton buttonWithType:UIButtonTypeCustom];
     BOOL isRTL = CurrentAppContext().isRTL;
@@ -75,7 +77,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     UIImage *backImage = [[UIImage imageNamed:(isRTL ? @"NavBarBackRTL" : @"NavBarBack")]
         imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    OWSAssert(backImage);
+    OWSAssertDebug(backImage);
     [backButton setImage:backImage forState:UIControlStateNormal];
     backButton.tintColor = Theme.navbarIconColor;
 

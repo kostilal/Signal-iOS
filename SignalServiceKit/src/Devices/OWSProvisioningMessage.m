@@ -1,13 +1,13 @@
 //
-//  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWSProvisioningMessage.h"
 #import "OWSProvisioningCipher.h"
-#import "OWSProvisioningProtos.pb.h"
-#import <Curve25519Kit/Curve25519.h>
 #import <AxolotlKit/NSData+keyVersionByte.h>
+#import <Curve25519Kit/Curve25519.h>
 #import <HKDFKit/HKDFKit.h>
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -51,30 +51,41 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable NSData *)buildEncryptedMessageBody
 {
-    OWSProvisioningProtosProvisionMessageBuilder *messageBuilder = [OWSProvisioningProtosProvisionMessageBuilder new];
-    messageBuilder.identityKeyPublic = self.myPublicKey;
-    messageBuilder.identityKeyPrivate = self.myPrivateKey;
-    messageBuilder.number = self.accountIdentifier;
-    messageBuilder.provisioningCode = self.provisioningCode;
-    messageBuilder.userAgent = @"OWI";
-    messageBuilder.readReceipts = self.areReadReceiptsEnabled;
-    messageBuilder.profileKey = self.profileKey;
+    ProvisioningProtoProvisionMessageBuilder *messageBuilder =
+        [[ProvisioningProtoProvisionMessageBuilder alloc] initWithIdentityKeyPublic:self.myPublicKey
+                                                                 identityKeyPrivate:self.myPrivateKey
+                                                                             number:self.accountIdentifier
+                                                                   provisioningCode:self.provisioningCode
+                                                                          userAgent:@"OWI"
+                                                                         profileKey:self.profileKey
+                                                                       readReceipts:self.areReadReceiptsEnabled];
 
-    NSData *plainTextProvisionMessage = [[messageBuilder build] data];
+    NSError *error;
+    NSData *_Nullable plainTextProvisionMessage = [messageBuilder buildSerializedDataAndReturnError:&error];
+    if (!plainTextProvisionMessage || error) {
+        OWSFailDebug(@"could not serialize proto: %@.", error);
+        return nil;
+    }
 
     OWSProvisioningCipher *cipher = [[OWSProvisioningCipher alloc] initWithTheirPublicKey:self.theirPublicKey];
     NSData *_Nullable encryptedProvisionMessage = [cipher encrypt:plainTextProvisionMessage];
     if (encryptedProvisionMessage == nil) {
-        OWSFail(@"Failed to encrypt provision message");
+        OWSFailDebug(@"Failed to encrypt provision message");
         return nil;
     }
 
-    OWSProvisioningProtosProvisionEnvelopeBuilder *envelopeBuilder = [OWSProvisioningProtosProvisionEnvelopeBuilder new];
     // Note that this is a one-time-use *cipher* public key, not our Signal *identity* public key
-    envelopeBuilder.publicKey = [cipher.ourPublicKey prependKeyType];
-    envelopeBuilder.body = encryptedProvisionMessage;
+    ProvisioningProtoProvisionEnvelopeBuilder *envelopeBuilder =
+        [[ProvisioningProtoProvisionEnvelopeBuilder alloc] initWithPublicKey:[cipher.ourPublicKey prependKeyType]
+                                                                        body:encryptedProvisionMessage];
 
-    return [[envelopeBuilder build] data];
+    NSData *_Nullable envelopeData = [envelopeBuilder buildSerializedDataAndReturnError:&error];
+    if (!envelopeData || error) {
+        OWSFailDebug(@"could not serialize proto: %@.", error);
+        return nil;
+    }
+
+    return envelopeData;
 }
 
 @end
