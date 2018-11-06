@@ -27,7 +27,10 @@ class SendViewController: UIViewController, UITextFieldDelegate {
     @IBOutlet weak var numberPadView: UIStackView!
     @IBOutlet weak var numberPadViewHeightConstraint: NSLayoutConstraint!
     @IBOutlet weak var addressTextField: UITextField!
-    @IBOutlet weak var amoundTextField: UITextField!
+    @IBOutlet weak var amoundTextField: UITextField! 
+    
+    @objc public var address: String?
+    @objc var sendCompletition: ((_ message: String?) -> ())?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -67,7 +70,7 @@ class SendViewController: UIViewController, UITextFieldDelegate {
                 DispatchQueue.main.async {
                     guard let balance = info?.balance.value else { return }
 
-                    let doubleBalance = Double(balance as NSNumber)
+                    let doubleBalance = Double(truncating: balance as NSNumber)
                     
                     self.balanceLabel.text = "Balance: \(doubleBalance) BTC"
                 }
@@ -97,6 +100,8 @@ class SendViewController: UIViewController, UITextFieldDelegate {
         addressTextField.rightViewMode = .always
         
         amoundTextField.addTarget(self, action: #selector(textFieldDidChange(_:)), for: .editingChanged)
+        
+        addressTextField.text = address
     }
 
     @IBAction func sendButtonPressed(_ sender: Any) {
@@ -134,7 +139,9 @@ class SendViewController: UIViewController, UITextFieldDelegate {
                         DispatchQueue.main.async {
                             if send {
                                 let ok = UIAlertAction(title: "Ok", style: .cancel) { _ in
-                                    self.dismiss(nil)
+                                    self.dismiss({
+                                        self.sendCompletition?(String(format: "%.8f", Double(truncating: amount as NSNumber)))
+                                    })
                                 }
                                 
                                 self.showAlert(title: nil, message: "Your transaction was sent to Blockchain and now in unconfirmed status till Bitcoin miners entered this transaction into a block of transaction on the Blockchain.", action: ok)
