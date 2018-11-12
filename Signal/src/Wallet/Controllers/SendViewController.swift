@@ -72,7 +72,7 @@ class SendViewController: UIViewController, UITextFieldDelegate {
 
                     let doubleBalance = Double(truncating: balance as NSNumber)
                     
-                    self.balanceLabel.text = "Balance: \(doubleBalance) BTC"
+                    self.balanceLabel.text = String(format: "Balance %.08f BTC", doubleBalance)//"Balance: \(doubleBalance) BTC"
                 }
             }
         }
@@ -198,7 +198,7 @@ class SendViewController: UIViewController, UITextFieldDelegate {
     
     func setupFeeButtonTitle(text: String) {
         if let fee = calculateFee(text: text) {
-            feeButton.setTitle("Fee: \(String(format: "%.8f", Double(fee as NSNumber))) BTC", for: .normal)
+            feeButton.setTitle("Fee: \(String(format: "%.8f", Double(truncating: fee as NSNumber))) BTC", for: .normal)
         } else {
             feeButton.setTitle("Fee: \(0) BTC", for: .normal)
         }

@@ -9,7 +9,7 @@
 import UIKit
 
 enum CurrencyType: String, Decodable {
-    case bitcoin
+    case bitcoin = "BTC"
     case etherium
     case litecoin
     case bitcostar

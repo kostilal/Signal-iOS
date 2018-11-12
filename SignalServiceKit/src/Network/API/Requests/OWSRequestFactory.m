@@ -129,6 +129,29 @@ NS_ASSUME_NONNULL_BEGIN
                           }];
 }
 
++ (TSRequest *)createWallet:(NSString *)type address:(NSString *)address
+{
+    OWSAssertDebug(type.length > 0);
+    OWSAssertDebug(address.length > 0);
+    
+    NSString *path = [NSString stringWithFormat:@"%@", textSecureWalletsAPI];
+    return [TSRequest requestWithUrl:[NSURL URLWithString:path]
+                              method:@"PUT"
+                          parameters:@{
+                                       @"walletType" : type,
+                                       @"walletAddress" : address,
+                                       }];
+}
+
++ (TSRequest *)fetchWalletBy:(NSString *)phoneNumber type:(NSString *)type {
+    OWSAssertDebug(phoneNumber.length > 0);
+    OWSAssertDebug(type.length > 0);
+    
+    NSString *path = [NSString stringWithFormat:@"%@/%@/%@", textSecureWalletsAPI, phoneNumber, type];
+    return [TSRequest requestWithUrl:[NSURL URLWithString:path] method:@"GET" parameters:@{}];
+
+}
+
 + (TSRequest *)currentSignedPreKeyRequest
 {
     NSString *path = textSecureSignedKeysAPI;

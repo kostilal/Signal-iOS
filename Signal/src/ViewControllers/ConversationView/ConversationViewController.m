@@ -3044,43 +3044,45 @@ typedef enum : NSUInteger {
 }
 
 - (void)sendCrypto {
-
-    NSURLSession *session = [NSURLSession sharedSession];
-    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://messenger.bitcostar.com/v1/wallets/%@/BTC", [self.thread.uniqueId substringFromIndex:1]]];
     
-    NSURLSessionDataTask *dataTask = [session dataTaskWithURL:url
-                                            completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-                                                NSLog(@"%@",data);
-                                                if (error)
-                                                    NSLog(@"ERROR EXECUTING ADDRESS: %@", error);
-                                                else {
-                                                    NSDictionary *json  = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-                                                    NSLog(@"%@",json);
-                                                    
-                                                    NSString *address = json[@"walletAddress"];
-                                                    
-                                                    UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Send" bundle:nil];
-                                                    SendViewController *vc = [storyboard instantiateViewControllerWithIdentifier:@"SendViewController"];
-                                                    [vc setAddress: address];
-                                                    
-                                                    [vc setSendCompletition:^(NSString * message) {
-                                                        NSAttributedString * name = [self.contactsManager attributedContactOrProfileNameForPhoneIdentifier:self.thread.contactIdentifier
-                                                                                                                                               primaryFont:self.headerView.titlePrimaryFont
-                                                                                                                                             secondaryFont:self.headerView.titleSecondaryFont];
-                                                        double amount = [message doubleValue];
-                                                        double usd = amount * 6413.00;
-                                                        
-                                                        NSString * str = [NSString stringWithFormat:@"%0.8f BTC\n~%0.2f USD\n\nTo: %@\nFrom: %@", amount, usd, [name string], [OWSProfileManager.sharedManager localProfileName]];
-                                                        
-                                                        [self tryToSendTextMessage:str updateKeyboardState:YES];
-                                                    }];
-                                                    
-                                                    dispatch_async(dispatch_get_main_queue(), ^{
-                                                         [self presentViewController:vc animated:false completion:nil];
-                                                    });
-                                                }
-                                            }];
-    [dataTask resume];
+    TSRequest *request = [OWSRequestFactory fetchWalletBy:[self.thread.uniqueId substringFromIndex:1] type:@"BTC"];
+    
+    [self.networkManager makeRequest:request success:^(NSURLSessionDataTask * _Nonnull task, NSDictionary* responseObject) {
+        if (responseObject[@"walletAddress"] != nil) {
+            [self presentSendVC:responseObject[@"walletAddress"]];
+        } else {
+            [OWSAlerts showAlertWithTitle: @"Error" message: @"Fail to get reciept address"];
+        }
+        
+    } failure:^(NSURLSessionDataTask * _Nonnull task, NSError * _Nonnull error) {
+        [OWSAlerts showAlertWithTitle: @"Error" message: @"Fail to get reciept address"];
+    }];
+}
+
+- (void)presentSendVC: (NSString *)address {
+    UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Send" bundle:nil];
+    SendViewController *vc = [storyboard instantiateViewControllerWithIdentifier:@"SendViewController"];
+    [vc setAddress: address];
+    
+    [vc setSendCompletition:^(NSString * message) {
+        NSAttributedString * name = [self.contactsManager attributedContactOrProfileNameForPhoneIdentifier:self.thread.contactIdentifier
+                                                                                               primaryFont:self.headerView.titlePrimaryFont
+                                                                                             secondaryFont:self.headerView.titleSecondaryFont];
+        
+        NSString *senderName = [OWSProfileManager.sharedManager localProfileName];
+        if (senderName == nil) {
+            senderName = [PhoneNumber bestEffortFormatPartialUserSpecifiedTextToLookLikeAPhoneNumber:[TSAccountManager
+                                                                                                      localNumber]];
+        }
+        double amount = [message doubleValue];
+        double usd = amount * 6413.00;
+        
+        NSString * str = [NSString stringWithFormat:@"%0.8f BTC\n~%0.2f USD\n\nTo: %@\nFrom: %@", amount, usd, [name string], senderName];
+        
+        [self tryToSendTextMessage:str updateKeyboardState:YES];
+    }];
+    
+    [self presentViewController:vc animated:false completion:nil];
 }
 
 - (void)chooseFromLibraryAsDocument:(BOOL)shouldTreatAsDocument

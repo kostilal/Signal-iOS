@@ -137,6 +137,12 @@ extern NSString *const kNSNotificationName_LocalNumberDidChange;
 - (NSString *)reregisterationPhoneNumber;
 - (BOOL)isReregistering;
 
+- (void)createWallet:(NSString *)type
+             address:(NSString *)address
+             success:(void (^)(void))successHandler
+             failure:(void (^)(NSError *))failureHandler
+NS_SWIFT_NAME(createWallet(type:address:success:failure:));
+
 @end
 
 NS_ASSUME_NONNULL_END

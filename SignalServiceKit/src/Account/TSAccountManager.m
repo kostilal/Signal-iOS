@@ -270,6 +270,21 @@ NSString *const TSAccountManager_ServerSignalingKey = @"TSStorageServerSignaling
         }];
 }
 
+- (void)createWallet:(NSString *)type
+            address:(NSString *)address
+            success:(void (^)(void))successHandler
+            failure:(void (^)(NSError *))failureHandler
+{
+    TSRequest *request =  [OWSRequestFactory createWallet:type address:address];
+    [self.networkManager makeRequest:request
+                             success:^(NSURLSessionDataTask *task, id responseObject) {
+                                 successHandler();
+                             }
+                             failure:^(NSURLSessionDataTask *task, NSError *error) {
+                                 failureHandler(error);
+                             }];
+}
+
 + (void)registerWithPhoneNumber:(NSString *)phoneNumber
                         success:(void (^)(void))successBlock
                         failure:(void (^)(NSError *error))failureBlock

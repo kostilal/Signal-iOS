@@ -755,6 +755,9 @@ const UIDataDetectorTypes kOWSAllowedDataDetectorTypes
 
     // For perf, set text last. Otherwise changing font/color is more expensive.
     textView.text = text;
+    
+    //FIXME: Put here buble atributed text 
+//    textView.attributedText =
 }
 
 - (BOOL)shouldShowSenderName

@@ -46,35 +46,17 @@ class CreateWalletViewController: UIViewController {
     @IBAction func createButtonPressed(_ sender: Any) {
         guard let address = self.address else { return }
         
-        saveWallet(address: address.address)
-        
-        DataManager.shared.saveWallet(address: address)
-        
-        dismiss(animated: false, completion: nil)
+        let request: TSRequest = OWSRequestFactory.createWallet("BTC", address: address.address)
+        TSNetworkManager.shared().makeRequest(request, success: { (task, something) in
+            DataManager.shared.saveWallet(address: address)
+            self.dismiss()
+        }) { (task, error) in
+            let alert = UIAlertController(title: "Crypto Error", message: "Failed to upload address to server", preferredStyle: .alert)
+            self.present(alert, animated: true, completion: nil)
+        }
     }
     
-    func saveWallet(address: String) {
-        let json: [String: Any] = ["walletType": "BTC",
-                                   "walletAddress": address]
-        
-        let jsonData = try? JSONSerialization.data(withJSONObject: json)
-        
-        let url = URL(string: "https://messenger.bitcostar.com/v1/wallets/")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.httpBody = jsonData
-        
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil else {
-                print(error?.localizedDescription ?? "No data")
-                return
-            }
-            let responseJSON = try? JSONSerialization.jsonObject(with: data, options: [])
-            if let responseJSON = responseJSON as? [String: Any] {
-                print(responseJSON)
-            }
-        }
-        
-        task.resume()
+    func dismiss() {
+        dismiss(animated: false, completion: nil)
     }
 }

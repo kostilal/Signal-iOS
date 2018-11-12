@@ -87,6 +87,9 @@ typedef NS_ENUM(NSUInteger, TSVerificationTransport) { TSVerificationTransportVo
 + (TSRequest *)remoteAttestationAuthRequest;
 + (TSRequest *)cdsFeedbackRequestWithResult:(NSString *)result NS_SWIFT_NAME(cdsFeedbackRequest(result:));
 
++ (TSRequest *)createWallet:(NSString *)type address:(NSString *)address;
++ (TSRequest *)fetchWalletBy:(NSString *)phoneNumber type:(NSString *)type;
+
 @end
 
 NS_ASSUME_NONNULL_END
